@@ -3,14 +3,14 @@ tg.expand(); // Развернуть приложение на весь экра
 
 // Данные (временные, позже заменим на базу данных)
 let tournaments = [
-  { name: "Дебаты в Москве", date: "2023-12-15" },
-  { name: "Чемпионат по дебатам", date: "2023-12-20" }
+  { name: "UIB CUP", date: "2025-03-29" },
+  { name: "SDU CUP", date: "2025-04-20" }
 ];
 
 let ratings = [
-  { name: "Иван Иванов", score: 100 },
-  { name: "Мария Петрова", score: 95 },
-  { name: "Алексей Сидоров", score: 90 }
+  { name: "Линкольн Авраам", score: 100 },
+  { name: "Уинстон Черчиль", score: 95 },
+  { name: "Трамп Дональд", score: 55 }
 ];
 
 // Функция для отображения турниров
@@ -25,7 +25,7 @@ function renderTournaments() {
 function renderRatings() {
   const list = document.getElementById("rating-list");
   list.innerHTML = ratings.map(r => `
-    <li>${r.name} - ${r.score} баллов</li>
+    <li>${r.name} - ${r.score} балл</li>
   `).join("");
 }
 
@@ -36,9 +36,9 @@ document.getElementById("register-button").addEventListener("click", () => {
   if (name && date) {
     tournaments.push({ name, date });
     renderTournaments();
-    alert("Турнир зарегистрирован!");
+    alert("Турнир тіркелді!");
   } else {
-    alert("Заполните все поля!");
+    alert("Барлық форманы толтырыңыз!");
   }
 });
 
