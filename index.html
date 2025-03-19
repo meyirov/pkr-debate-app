@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PKR Debate App</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <div class="container">
+    <h1>PKR Debate App</h1>
+    <div id="tournaments">
+      <h2>Ближайшие турниры</h2>
+      <ul id="tournament-list"></ul>
+    </div>
+    <div id="register">
+      <h2>Зарегистрировать турнир</h2>
+      <input type="text" id="tournament-name" placeholder="Название турнира">
+      <input type="date" id="tournament-date">
+      <button id="register-button">Зарегистрировать</button>
+    </div>
+    <div id="rating">
+      <h2>Рейтинг участников</h2>
+      <ul id="rating-list"></ul>
+    </div>
+  </div>
+</body>
+</html>
