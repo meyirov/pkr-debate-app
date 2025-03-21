@@ -1,47 +1,140 @@
 const tg = window.Telegram.WebApp;
 tg.expand(); // Развернуть приложение на весь экран
 
-// Данные (временные, позже заменим на базу данных)
-let tournaments = [
-  { name: "UIB CUP", date: "2025-03-29" },
-  { name: "SDU CUP", date: "2025-04-20" }
-];
+// Конфигурация Firebase (замени на свои данные)
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_AUTH_DOMAIN",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_STORAGE_BUCKET",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
 
-let ratings = [
-  { name: "Линкольн Авраам", score: 100 },
-  { name: "Уинстон Черчиль", score: 95 },
-  { name: "Трамп Дональд", score: 55 }
-];
+// Инициализация Firebase
+const app = firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
 
-// Функция для отображения турниров
-function renderTournaments() {
-  const list = document.getElementById("tournament-list");
-  list.innerHTML = tournaments.map(t => `
-    <li>${t.name} (${t.date})</li>
-  `).join("");
+// Получение данных пользователя
+const user = tg.initDataUnsafe.user;
+if (user) {
+  console.log("User ID:", user.id);
+  console.log("Username:", user.username);
+
+  // Сохраняем пользователя в Firebase
+  auth.signInAnonymously().then(() => {
+    const userRef = db.collection("users").doc(String(user.id));
+    userRef.set({
+      id: user.id,
+      username: user.username,
+      first_name: user.first_name,
+      last_name: user.last_name
+    }, { merge: true });
+  });
 }
 
-// Функция для отображения рейтинга
-function renderRatings() {
-  const list = document.getElementById("rating-list");
-  list.innerHTML = ratings.map(r => `
-    <li>${r.name} - ${r.score} балл</li>
-  `).join("");
-}
+// Функция для отображения секций
+function showSection(section) {
+  const content = document.getElementById("content");
+  content.innerHTML = ""; // Очищаем контент
 
-// Регистрация нового турнира
-document.getElementById("register-button").addEventListener("click", () => {
-  const name = document.getElementById("tournament-name").value;
-  const date = document.getElementById("tournament-date").value;
-  if (name && date) {
-    tournaments.push({ name, date });
-    renderTournaments();
-    alert("Турнир тіркелді!");
-  } else {
-    alert("Барлық форманы толтырыңыз!");
+  switch (section) {
+    case "feed":
+      loadFeed();
+      break;
+    case "tournaments":
+      loadTournaments();
+      break;
+    case "rating":
+      loadRating();
+      break;
+    case "profile":
+      loadProfile();
+      break;
+    case "edu":
+      loadEdu();
+      break;
+    default:
+      content.innerHTML = "<p>Выберите раздел</p>";
   }
-});
+}
 
-// Инициализация
-renderTournaments();
-renderRatings();
+// Лента
+function loadFeed() {
+  const content = document.getElementById("content");
+  content.innerHTML = `
+    <div id="feed-section">
+      <h2>📰 Лента</h2>
+      <div id="feed-posts"></div>
+      <form id="post-form">
+        <textarea id="post-text" placeholder="Напишите что-нибудь..." required></textarea>
+        <button type="submit">Опубликовать</button>
+      </form>
+    </div>
+  `;
+
+  // Загрузка постов
+  db.collection("posts").orderBy("createdAt", "desc").onSnapshot(snapshot => {
+    const posts = [];
+    snapshot.forEach(doc => {
+      posts.push(doc.data());
+    });
+    renderFeed(posts);
+  });
+
+  // Публикация поста
+  document.getElementById("post-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = document.getElementById("post-text").value;
+    const user = tg.initDataUnsafe.user;
+
+    if (text && user) {
+      db.collection("posts").add({
+        text,
+        username: user.username || "Аноним",
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      }).then(() => {
+        document.getElementById("post-text").value = ""; // Очищаем поле ввода
+      });
+    } else {
+      alert("Ошибка: пользователь не авторизован или текст пуст.");
+    }
+  });
+}
+
+// Отображение ленты
+function renderFeed(posts) {
+  const feedPosts = document.getElementById("feed-posts");
+  feedPosts.innerHTML = posts.map(post => `
+    <div class="post">
+      <strong>${post.username}</strong>
+      <p>${post.text}</p>
+      <small>${new Date(post.createdAt?.toDate()).toLocaleString()}</small>
+    </div>
+  `).join("");
+}
+
+// Заглушки для других разделов
+function loadTournaments() {
+  const content = document.getElementById("content");
+  content.innerHTML = "<h2>🏆 Турниры</h2><p>Список турниров...</p>";
+}
+
+function loadRating() {
+  const content = document.getElementById("content");
+  content.innerHTML = "<h2>📊 Рейтинг</h2><p>Рейтинг участников...</p>";
+}
+
+function loadProfile() {
+  const content = document.getElementById("content");
+  content.innerHTML = "<h2>👤 Личный кабинет</h2><p>Информация о пользователе...</p>";
+}
+
+function loadEdu() {
+  const content = document.getElementById("content");
+  content.innerHTML = "<h2>🎓 PKR EDU</h2><p>Образовательные материалы...</p>";
+}
+
+// Загружаем ленту по умолчанию
+showSection("feed");
