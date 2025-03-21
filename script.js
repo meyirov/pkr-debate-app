@@ -2,6 +2,7 @@ const tg = window.Telegram.WebApp;
 tg.expand(); // Развернуть приложение на весь экран
 
 // Конфигурация Firebase (замени на свои данные)
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyB7RjZd1kEIZ8WbZ1qMeEyWJGltS-Fnh2s",
   authDomain: "pkr-debate-app.firebaseapp.com",
