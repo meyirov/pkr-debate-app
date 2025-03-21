@@ -3,44 +3,58 @@ body {
   background-color: #f4f4f9;
   color: #333;
   padding: 20px;
+  margin: 0;
 }
 
 .container {
   max-width: 600px;
   margin: 0 auto;
+  padding-bottom: 60px; /* Чтобы навигационное меню не перекрывало контент */
 }
 
 h1, h2 {
   color: #444;
 }
 
-input, button {
-  margin: 5px 0;
-  padding: 10px;
+.navbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
   width: 100%;
-  box-sizing: border-box;
+  background-color: #fff;
+  display: flex;
+  justify-content: space-around;
+  padding: 10px 0;
+  box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
 }
 
-button {
-  background-color: #007bff;
-  color: white;
+.navbar button {
+  background: none;
   border: none;
+  font-size: 16px;
   cursor: pointer;
 }
 
-button:hover {
-  background-color: #0056b3;
+.navbar button:hover {
+  color: #007bff;
 }
 
-ul {
-  list-style-type: none;
-  padding: 0;
+#feed-section textarea {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
 }
 
-li {
+#feed-posts {
+  margin-bottom: 20px;
+}
+
+.post {
   background-color: white;
   padding: 10px;
-  margin: 5px 0;
+  margin: 10px 0;
   border-radius: 5px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
