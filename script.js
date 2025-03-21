@@ -2,15 +2,15 @@ const tg = window.Telegram.WebApp;
 tg.expand(); // Развернуть приложение на весь экран
 
 // Конфигурация Firebase (замени на свои данные)
-  const firebaseConfig = {
-    apiKey: "AIzaSyB7RjZd1kEIZ8WbZ1qMeEyWJGltS-Fnh2s",
-    authDomain: "pkr-debate-app.firebaseapp.com",
-    projectId: "pkr-debate-app",
-    storageBucket: "pkr-debate-app.firebasestorage.app",
-    messagingSenderId: "446621567916",
-    appId: "1:446621567916:web:e77c4b23832f109fc08809",
-    measurementId: "G-6EN0T8BHH3"
-  };
+const firebaseConfig = {
+  apiKey: "AIzaSyB7RjZd1kEIZ8WbZ1qMeEyWJGltS-Fnh2s",
+  authDomain: "pkr-debate-app.firebaseapp.com",
+  projectId: "pkr-debate-app",
+  storageBucket: "pkr-debate-app.firebasestorage.app",
+  messagingSenderId: "446621567916",
+  appId: "1:446621567916:web:e77c4b23832f109fc08809",
+  measurementId: "G-6EN0T8BHH3"
+};
 
 // Инициализация Firebase
 const app = firebase.initializeApp(firebaseConfig);
