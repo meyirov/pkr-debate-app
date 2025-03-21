@@ -75,16 +75,16 @@ function loadFeed() {
     </div>
   `;
 
-  // Загрузка постов
+  // Загрузка постов из коллекции `posts`
   db.collection("posts").orderBy("createdAt", "desc").onSnapshot(snapshot => {
     const posts = [];
     snapshot.forEach(doc => {
-      posts.push(doc.data());
+      posts.push({ id: doc.id, ...doc.data() });
     });
     renderFeed(posts);
   });
 
-  // Публикация поста
+  // Публикация нового поста
   document.getElementById("post-form").addEventListener("submit", (e) => {
     e.preventDefault();
     const text = document.getElementById("post-text").value;
@@ -104,7 +104,7 @@ function loadFeed() {
   });
 }
 
-// Отображение ленты
+// Отображение постов в ленте
 function renderFeed(posts) {
   const feedPosts = document.getElementById("feed-posts");
   feedPosts.innerHTML = posts.map(post => `
