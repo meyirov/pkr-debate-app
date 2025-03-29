@@ -11,7 +11,11 @@ if (!fullName) {
 
 let posts = JSON.parse(localStorage.getItem("posts")) || [];
 let tournaments = JSON.parse(localStorage.getItem("tournaments")) || [
-  { id: 1, name: "Тестовый турнир", date: "2025-04-10", hashtag: "#Test1", registrations: [], grid: null },
+  { id: 1, name: "ATU CUP VIII", date: "Караганда 11, 2023 - Караганда 12, 2023", hashtag: "#ATUCup", registrations: [], grid: null, level: "Альматы | Худые коры: Бериксия" },
+  { id: 2, name: "DOSTYQ CUP", date: "Караганда 18, 2023 - Караганда 19, 2023", hashtag: "#DostyqCup", registrations: [], grid: null, level: "Альматы | Худые коры: Бериксия" },
+  { id: 3, name: "Би-Бараб шашлыкпери VIII", date: "Караганда 25, 2023 - Караганда 26, 2023", hashtag: "#BiBarab", registrations: [], grid: null, level: "Альматы | Худые коры: Бериксия" },
+  { id: 4, name: "ENERGO CUP VII", date: "Кентау 2, 2023 - Кентау 3, 2023", hashtag: "#EnergoCup", registrations: [], grid: null, level: "Альматы | Худые коры: Бериксия" },
+  { id: 5, name: "ICE Scream X", date: "Кентау 2, 2023 - Кентау 3, 2023", hashtag: "#IceScream", registrations: [], grid: null, level: "Альматы | Худые коры: Бериксия" },
 ];
 let rating = JSON.parse(localStorage.getItem("rating")) || [{ id: user.id, fullName, wins: 0 }];
 
@@ -22,53 +26,42 @@ function saveData() {
   localStorage.setItem("rating", JSON.stringify(rating));
 }
 
-// Лента
-function showFeed() {
-  const content = document.getElementById("content");
-  content.innerHTML = `
-    <h2>Лента</h2>
-    <textarea id="newPost" placeholder="Напишите сообщение..."></textarea>
-    <button onclick="submitPost()">Опубликовать</button>
-    ${posts.map(post => `
-      <div class="post">
-        <strong>${post.fullName} @${post.username}</strong>: ${post.text}
-        <br><small>${new Date(post.timestamp).toLocaleString()}</small>
-      </div>
-    `).join("")}
-  `;
-}
-
-function submitPost() {
-  const text = document.getElementById("newPost").value;
-  if (text) {
-    posts.push({ fullName, username: user.username, text, timestamp: Date.now() });
-    saveData();
-    showFeed();
-  }
+// Установка активной кнопки
+function setActiveButton(btnId) {
+  document.querySelectorAll(".menu-btn").forEach(btn => btn.classList.remove("active"));
+  document.getElementById(btnId).classList.add("active");
 }
 
 // Турниры
 function showTournaments() {
+  setActiveButton("tournaments-btn");
   const content = document.getElementById("content");
   content.innerHTML = `
-    <h2>Турниры</h2>
+    <h2>Актуальные турниры</h2>
     ${tournaments.map(t => `
-      <div class="tournament">
-        <strong>${t.name}</strong> - ${t.date}
-        <button onclick="showTournament(${t.id})">Подробнее</button>
+      <div class="tournament fade-in">
+        <img src="https://via.placeholder.com/50" alt="Logo">
+        <div>
+          <h3>${t.name}</h3>
+          <p>${t.date}</p>
+          <p>${t.level}</p>
+          <button onclick="showTournament(${t.id})">Подробнее</button>
+        </div>
       </div>
     `).join("")}
+    <h2>Добавить турнир</h2>
     <button onclick="createTournament()">Создать турнир</button>
   `;
 }
 
 function createTournament() {
   const name = prompt("Название турнира:");
-  const date = prompt("Дата (гггг-мм-дд):");
+  const date = prompt("Дата (например, Караганда 11, 2023 - Караганда 12, 2023):");
   const hashtag = prompt("Хештег (например, #Test1):");
-  if (name && date && hashtag) {
+  const level = prompt("Уровень (например, Альматы | Худые коры: Бериксия):");
+  if (name && date && hashtag && level) {
     const id = tournaments.length + 1;
-    tournaments.push({ id, name, date, hashtag, registrations: [], grid: null });
+    tournaments.push({ id, name, date, hashtag, level, registrations: [], grid: null });
     saveData();
     showTournaments();
   }
@@ -78,24 +71,27 @@ function showTournament(id) {
   const tournament = tournaments.find(t => t.id === id);
   const content = document.getElementById("content");
   content.innerHTML = `
-    <h2>${tournament.name}</h2>
-    <p>Дата: ${tournament.date}</p>
-    <h3>Посты</h3>
-    ${posts.filter(p => p.text.includes(tournament.hashtag)).map(p => `
-      <div class="post">${p.fullName}: ${p.text}</div>
-    `).join("")}
-    <h3>Регистрация</h3>
-    <input id="teamName" placeholder="Имя команды">
-    <input id="speaker1" placeholder="Спикер 1">
-    <input id="speaker2" placeholder="Спикер 2">
-    <input id="club" placeholder="Клуб">
-    <input id="school" placeholder="Место учебы">
-    <input id="phone" placeholder="Номер телефона">
-    <textarea id="comments" placeholder="Комментарии"></textarea>
-    <button onclick="registerTeam(${id})">Зарегистрироваться</button>
-    <h3>Зарегистрированные</h3>
-    ${tournament.registrations.map(r => `<p>${r.teamName}: ${r.speaker1}, ${r.speaker2}</p>`).join("")}
-    <button onclick="generateGrid(${id})">Сгенерировать сетку</button>
+    <div class="fade-in">
+      <h2>${tournament.name}</h2>
+      <p>Дата: ${tournament.date}</p>
+      <p>Уровень: ${tournament.level}</p>
+      <h3>Посты</h3>
+      ${posts.filter(p => p.text.includes(tournament.hashtag)).map(p => `
+        <div class="post">${p.fullName}: ${p.text}</div>
+      `).join("")}
+      <h3>Регистрация</h3>
+      <input id="teamName" placeholder="Имя команды">
+      <input id="speaker1" placeholder="Спикер 1">
+      <input id="speaker2" placeholder="Спикер 2">
+      <input id="club" placeholder="Клуб">
+      <input id="school" placeholder="Место учебы">
+      <input id="phone" placeholder="Номер телефона">
+      <textarea id="comments" placeholder="Комментарии"></textarea>
+      <button onclick="registerTeam(${id})">Зарегистрироваться</button>
+      <h3>Зарегистрированные</h3>
+      ${tournament.registrations.map(r => `<p>${r.teamName}: ${r.speaker1}, ${r.speaker2}</p>`).join("")}
+      <button onclick="generateGrid(${id})">Сгенерировать сетку</button>
+    </div>
   `;
 }
 
@@ -146,8 +142,36 @@ function setWinners(id) {
   showTournament(id);
 }
 
+// Лента
+function showFeed() {
+  setActiveButton("feed-btn");
+  const content = document.getElementById("content");
+  content.innerHTML = `
+    <h2>Лента</h2>
+    <textarea id="newPost" placeholder="Напишите сообщение..."></textarea>
+    <button onclick="submitPost()">Опубликовать</button>
+    ${posts.map(post => `
+      <div class="post fade-in">
+        <strong>${post.fullName} @${post.username}</strong>
+        <p>${post.text}</p>
+        <small>${new Date(post.timestamp).toLocaleString()}</small>
+      </div>
+    `).join("")}
+  `;
+}
+
+function submitPost() {
+  const text = document.getElementById("newPost").value;
+  if (text) {
+    posts.push({ fullName, username: user.username, text, timestamp: Date.now() });
+    saveData();
+    showFeed();
+  }
+}
+
 // Рейтинг
 function showRating() {
+  setActiveButton("rating-btn");
   const now = new Date();
   if (now.getDate() === 1 && now.getDay() === 1) { // Первый понедельник месяца
     rating.sort((a, b) => b.wins - a.wins);
@@ -155,41 +179,9 @@ function showRating() {
   const content = document.getElementById("content");
   content.innerHTML = `
     <h2>Рейтинг</h2>
-    ${rating.map((r, i) => `<div class="rating-item">${i + 1}. ${r.fullName} - ${r.wins} побед</div>`).join("")}
+    ${rating.map((r, i) => `
+      <div class="rating-item fade-in">${i + 1}. ${r.fullName} - ${r.wins} побед</div>
+    `).join("")}
     <button onclick="addWin()">Добавить победу (тест)</button>
   `;
 }
-
-function addWin() { // Для теста, потом данные будут браться из турниров
-  const player = rating.find(r => r.id === user.id) || { id: user.id, fullName, wins: 0 };
-  player.wins++;
-  if (!rating.some(r => r.id === user.id)) rating.push(player);
-  saveData();
-  showRating();
-}
-
-// Личный кабинет
-function showProfile() {
-  const player = rating.find(r => r.id === user.id) || { wins: 0 };
-  const userTournaments = tournaments.filter(t => t.registrations.some(r => r.userId === user.id)).map(t => t.name);
-  const content = document.getElementById("content");
-  content.innerHTML = `
-    <h2>Личный кабинет</h2>
-    <p>Имя: ${fullName}</p>
-    <p>Побед: ${player.wins}</p>
-    <p>Турниры: ${userTournaments.join(", ") || "Нет"}</p>
-  `;
-}
-
-// PKR EDU
-function showEdu() {
-  const content = document.getElementById("content");
-  content.innerHTML = `
-    <h2>PKR EDU</h2>
-    <p>Как играть в АПФ: [текст или ссылка]</p>
-    <p>Правила БПФ: [текст или ссылка]</p>
-  `;
-}
-
-// Начальная загрузка
-showFeed();
