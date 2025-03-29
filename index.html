@@ -1,28 +1,23 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PKR Debate App</title>
-  <link rel="stylesheet" href="styles.css">
+  <title>PKR</title>
+  <link rel="stylesheet" href="style.css">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.1.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.1.0/firebase-firestore.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.1.0/firebase-auth.js"></script>
-  <script src="script.js" defer></script>
 </head>
 <body>
-  <div class="container">
-    <div id="content">
-      <!-- Контент будет меняться в зависимости от выбранной секции -->
+  <div id="app">
+    <div id="menu">
+      <button onclick="showFeed()">Лента</button>
+      <button onclick="showTournaments()">Турниры</button>
+      <button onclick="showRating()">Рейтинг</button>
+      <button onclick="showProfile()">Личный кабинет</button>
+      <button onclick="showEdu()">PKR EDU</button>
     </div>
-    <div class="navbar">
-      <button onclick="showSection('feed')">📰 Лента</button>
-      <button onclick="showSection('tournaments')">🏆 Турниры</button>
-      <button onclick="showSection('rating')">📊 Рейтинг</button>
-      <button onclick="showSection('profile')">👤 Личный кабинет</button>
-      <button onclick="showSection('edu')">🎓 PKR EDU</button>
-    </div>
+    <div id="content"></div>
   </div>
+  <script src="script.js"></script>
 </body>
 </html>
