@@ -9,14 +9,41 @@
 </head>
 <body>
   <div id="app">
-    <div id="menu">
-      <button onclick="showFeed()">Лента</button>
-      <button onclick="showTournaments()">Турниры</button>
-      <button onclick="showRating()">Рейтинг</button>
-      <button onclick="showProfile()">Личный кабинет</button>
-      <button onclick="showEdu()">PKR EDU</button>
-    </div>
     <div id="content"></div>
+    <div id="menu">
+      <button onclick="showTournaments()" class="menu-btn active" id="tournaments-btn">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+        </svg>
+        Турниры
+      </button>
+      <button onclick="showFeed()" class="menu-btn" id="feed-btn">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2v20M2 12h20"></path>
+        </svg>
+        Лента
+      </button>
+      <button onclick="showRating()" class="menu-btn" id="rating-btn">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+        </svg>
+        Рейтинг
+      </button>
+      <button onclick="showProfile()" class="menu-btn" id="profile-btn">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+        Профиль
+      </button>
+      <button onclick="showEdu()" class="menu-btn" id="edu-btn">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+        </svg>
+        PKR EDU
+      </button>
+    </div>
   </div>
   <script src="script.js"></script>
 </body>
