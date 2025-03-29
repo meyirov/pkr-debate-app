@@ -4,46 +4,56 @@ body {
   padding: 0;
   background-color: #fff;
   color: #0f1419;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 #app {
   display: flex;
+  flex-direction: column;
   height: 100vh;
 }
 
-#sidebar {
-  width: 275px;
-  padding: 10px;
-  border-right: 1px solid #e6ecf0;
+header {
+  padding: 10px 15px;
+  border-bottom: 1px solid #e6ecf0;
+  background-color: white;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+header h1 {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0;
+}
+
+#content {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 60px; /* Чтобы контент не перекрывался меню */
+}
+
+#menu {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.logo {
-  padding: 10px;
-}
-
-.logo svg {
-  color: #1da1f2;
+  justify-content: space-around;
+  background-color: white;
+  border-top: 1px solid #e6ecf0;
+  padding: 10px 0;
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  z-index: 1000;
 }
 
 .menu-btn {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  padding: 10px 15px;
   background: none;
   border: none;
-  font-size: 19px;
-  font-weight: 700;
-  color: #0f1419;
+  padding: 10px;
+  color: #536471;
   cursor: pointer;
-  border-radius: 9999px;
-}
-
-.menu-btn:hover {
-  background-color: #f7f9f9;
 }
 
 .menu-btn.active {
@@ -55,56 +65,16 @@ body {
   height: 24px;
 }
 
-.tweet-btn {
-  background-color: #1da1f2;
-  color: white;
-  border: none;
-  padding: 12px 20px;
-  border-radius: 9999px;
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
-  margin-top: 10px;
-  text-align: center;
-}
-
-.tweet-btn:hover {
-  background-color: #1a91da;
-}
-
-#main-content {
-  flex: 1;
-  max-width: 600px;
-  border-right: 1px solid #e6ecf0;
-  overflow-y: auto;
-}
-
-#content {
-  padding: 10px;
-}
-
-h2 {
-  font-size: 20px;
-  font-weight: 800;
-  margin: 10px 0;
-  padding: 0 15px;
-  border-bottom: 1px solid #e6ecf0;
-}
-
 .post, .tournament, .rating-item {
-  padding: 15px;
+  padding: 10px 15px;
   border-bottom: 1px solid #e6ecf0;
   display: flex;
   gap: 10px;
 }
 
-.post:hover, .tournament:hover, .rating-item:hover {
-  background-color: #f7f9f9;
-}
-
 .post .avatar, .tournament .avatar {
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background-color: #e6ecf0;
 }
@@ -138,7 +108,7 @@ h2 {
 
 .post .actions {
   display: flex;
-  gap: 50px;
+  gap: 40px;
   color: #536471;
   font-size: 13px;
 }
@@ -169,42 +139,39 @@ h2 {
   margin: 5px 0;
 }
 
-.tournament .content button {
+textarea {
+  width: 100%;
+  border: 1px solid #e6ecf0;
+  border-radius: 5px;
+  padding: 10px;
+  font-size: 15px;
+  resize: none;
+  min-height: 50px;
+}
+
+button:not(.menu-btn) {
   background-color: #1da1f2;
   color: white;
   border: none;
-  padding: 5px 10px;
+  padding: 8px 16px;
   border-radius: 9999px;
   font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
+  margin: 5px 0;
 }
 
-.tournament .content button:hover {
+button:not(.menu-btn):hover {
   background-color: #1a91da;
 }
 
-input, textarea {
+input, textarea:not(#newPost) {
   width: 100%;
   padding: 10px;
   border: 1px solid #e6ecf0;
   border-radius: 5px;
   font-size: 15px;
   margin: 5px 0;
-}
-
-button:not(.menu-btn):not(.tweet-btn):not(.post .actions button) {
-  background-color: #1da1f2;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 9999px;
-  font-size: 15px;
-  cursor: pointer;
-  margin: 5px 0;
-}
-
-button:not(.menu-btn):not(.tweet-btn):not(.post .actions button):hover {
-  background-color: #1a91da;
 }
 
 /* Анимации */
