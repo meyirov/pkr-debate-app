@@ -9,49 +9,39 @@
 </head>
 <body>
   <div id="app">
-    <div id="sidebar">
-      <div class="logo">
-        <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M23.643 4.937c-.835.37-1.732.62-2.675.733a4.67 4.67 0 0 0 2.048-2.578 9.3 9.3 0 0 1-2.958 1.13 4.66 4.66 0 0 0-7.938 4.25 13.229 13.229 0 0 1-9.602-4.868 4.66 4.66 0 0 0 1.442 6.22 4.647 4.647 0 0 1-2.11-.583v.06a4.66 4.66 0 0 0 3.737 4.568 4.692 4.692 0 0 1-2.104.08 4.661 4.661 0 0 0 4.352 3.234 9.348 9.348 0 0 1-5.786 1.995c-.376 0-.747-.022-1.112-.065a13.175 13.175 0 0 0 7.14 2.093c8.57 0 13.255-7.098 13.255-13.254 0-.2-.005-.4-.014-.598a9.47 9.47 0 0 0 2.325-2.417z"></path>
-        </svg>
-      </div>
+    <header>
+      <h1>PKR</h1>
+    </header>
+    <div id="content"></div>
+    <nav id="menu">
       <button onclick="showFeed()" class="menu-btn active" id="feed-btn">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M3 12h18M3 6h18M3 18h18"></path>
         </svg>
-        Лента
       </button>
       <button onclick="showTournaments()" class="menu-btn" id="tournaments-btn">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
         </svg>
-        Турниры
       </button>
       <button onclick="showRating()" class="menu-btn" id="rating-btn">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
         </svg>
-        Рейтинг
       </button>
       <button onclick="showProfile()" class="menu-btn" id="profile-btn">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
           <circle cx="12" cy="7" r="4"></circle>
         </svg>
-        Профиль
       </button>
       <button onclick="showEdu()" class="menu-btn" id="edu-btn">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 1 1 6.5 2z"></path>
         </svg>
-        PKR EDU
       </button>
-      <button class="tweet-btn" onclick="showFeed()">Написать</button>
-    </div>
-    <div id="main-content">
-      <div id="content"></div>
-    </div>
+    </nav>
   </div>
   <script src="script.js"></script>
 </body>
