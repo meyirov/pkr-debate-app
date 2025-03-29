@@ -9,7 +9,9 @@ if (!fullName) {
   localStorage.setItem("fullName", fullName);
 }
 
-let posts = JSON.parse(localStorage.getItem("posts")) || [];
+let posts = JSON.parse(localStorage.getItem("posts")) || [
+  { fullName: "Бек Мейр", username: "Meyirov", text: "Сделал едем!", timestamp: Date.now() - 47 * 60 * 1000 }
+];
 let tournaments = JSON.parse(localStorage.getItem("tournaments")) || [
   { id: 1, name: "ATU CUP VIII", date: "Караганда 11, 2023 - Караганда 12, 2023", hashtag: "#ATUCup", registrations: [], grid: null, level: "Альматы | Худые коры: Бериксия" },
   { id: 2, name: "DOSTYQ CUP", date: "Караганда 18, 2023 - Караганда 19, 2023", hashtag: "#DostyqCup", registrations: [], grid: null, level: "Альматы | Худые коры: Бериксия" },
@@ -234,7 +236,7 @@ function addWin() {
 function showProfile() {
   setActiveButton("profile-btn");
   const player = rating.find(r => r.id === user.id) || { wins: 0 };
-  const userTournaments = tournaments.filter(t => t.registrations.some(r => r.userId === user.id)).map(t => t.name);
+  const user  const userTournaments = tournaments.filter(t => t.registrations.some(r => r.userId === user.id)).map(t => t.name);
   const content = document.getElementById("content");
   content.innerHTML = `
     <div class="fade-in">
