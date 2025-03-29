@@ -29,12 +29,17 @@ function setActiveButton(btnId) {
   document.getElementById(btnId).classList.add("active");
 }
 
+// Форматирование времени
+function formatTime(timestamp) {
+  const date = new Date(timestamp);
+  return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+}
+
 // Лента
 function showFeed() {
   setActiveButton("feed-btn");
   const content = document.getElementById("content");
   content.innerHTML = `
-    <h2>Лента</h2>
     <div class="post fade-in">
       <div class="avatar"></div>
       <div class="content">
@@ -49,7 +54,7 @@ function showFeed() {
           <div class="header">
             <span class="name">${post.fullName}</span>
             <span class="username">@${post.username}</span>
-            <span class="time">· ${new Date(post.timestamp).toLocaleString()}</span>
+            <span class="time">· ${formatTime(post.timestamp)}</span>
           </div>
           <div class="text">${post.text}</div>
           <div class="actions">
@@ -76,7 +81,6 @@ function showTournaments() {
   setActiveButton("tournaments-btn");
   const content = document.getElementById("content");
   content.innerHTML = `
-    <h2>Турниры</h2>
     ${tournaments.map(t => `
       <div class="tournament fade-in">
         <div class="avatar"></div>
@@ -89,8 +93,7 @@ function showTournaments() {
       </div>
     `).join("")}
     <div class="fade-in">
-      <h2>Создать турнир</h2>
-      <button onclick="createTournament()">Добавить</button>
+      <button onclick="createTournament()">Создать турнир</button>
     </div>
   `;
 }
@@ -113,7 +116,7 @@ function showTournament(id) {
   const content = document.getElementById("content");
   content.innerHTML = `
     <div class="fade-in">
-      <h2>${tournament.name}</h2>
+      <h3>${tournament.name}</h3>
       <p>Дата: ${tournament.date}</p>
       <p>Уровень: ${tournament.level}</p>
       <h3>Посты</h3>
@@ -124,7 +127,7 @@ function showTournament(id) {
             <div class="header">
               <span class="name">${p.fullName}</span>
               <span class="username">@${p.username}</span>
-              <span class="time">· ${new Date(p.timestamp).toLocaleString()}</span>
+              <span class="time">· ${formatTime(p.timestamp)}</span>
             </div>
             <div class="text">${p.text}</div>
           </div>
@@ -202,11 +205,13 @@ function showRating() {
   }
   const content = document.getElementById("content");
   content.innerHTML = `
-    <h2>Рейтинг</h2>
-    ${rating.map((r, i) => `
-      <div class="rating-item fade-in">${i + 1}. ${r.fullName} - ${r.wins} побед</div>
-    `).join("")}
-    <button onclick="addWin()">Добавить победу (тест)</button>
+    <div class="fade-in">
+      <h3>Рейтинг</h3>
+      ${rating.map((r, i) => `
+        <div class="rating-item">${i + 1}. ${r.fullName} - ${r.wins} побед</div>
+      `).join("")}
+      <button onclick="addWin()">Добавить победу (тест)</button>
+    </div>
   `;
 }
 
@@ -225,8 +230,8 @@ function showProfile() {
   const userTournaments = tournaments.filter(t => t.registrations.some(r => r.userId === user.id)).map(t => t.name);
   const content = document.getElementById("content");
   content.innerHTML = `
-    <h2>Личный кабинет</h2>
     <div class="fade-in">
+      <h3>Личный кабинет</h3>
       <p>Имя: ${fullName}</p>
       <p>Побед: ${player.wins}</p>
       <p>Турниры: ${userTournaments.join(", ") || "Нет"}</p>
@@ -239,8 +244,8 @@ function showEdu() {
   setActiveButton("edu-btn");
   const content = document.getElementById("content");
   content.innerHTML = `
-    <h2>PKR EDU</h2>
     <div class="fade-in">
+      <h3>PKR EDU</h3>
       <p>Как играть в АПФ: [текст или ссылка]</p>
       <p>Правила БПФ: [текст или ссылка]</p>
     </div>
