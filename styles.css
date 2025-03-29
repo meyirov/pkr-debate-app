@@ -1,60 +1,39 @@
 body {
   font-family: Arial, sans-serif;
-  background-color: #f4f4f9;
-  color: #333;
-  padding: 20px;
   margin: 0;
-}
-
-.container {
-  max-width: 600px;
-  margin: 0 auto;
-  padding-bottom: 60px; /* Чтобы навигационное меню не перекрывало контент */
-}
-
-h1, h2 {
-  color: #444;
-}
-
-.navbar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  background-color: #fff;
-  display: flex;
-  justify-content: space-around;
-  padding: 10px 0;
-  box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
-}
-
-.navbar button {
-  background: none;
-  border: none;
-  font-size: 16px;
-  cursor: pointer;
-}
-
-.navbar button:hover {
-  color: #007bff;
-}
-
-#feed-section textarea {
-  width: 100%;
   padding: 10px;
-  margin-bottom: 10px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
+  background-color: #f0f0f0;
 }
-
-#feed-posts {
+#menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
   margin-bottom: 20px;
 }
-
-.post {
-  background-color: white;
+button {
   padding: 10px;
-  margin: 10px 0;
+  background-color: #007bff;
+  color: white;
+  border: none;
   border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+}
+button:hover {
+  background-color: #0056b3;
+}
+#content {
+  background-color: white;
+  padding: 15px;
+  border-radius: 5px;
+}
+.post, .tournament, .rating-item {
+  margin-bottom: 10px;
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+}
+input, textarea {
+  display: block;
+  width: 100%;
+  margin: 5px 0;
+  padding: 5px;
 }
