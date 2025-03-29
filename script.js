@@ -13,9 +13,6 @@ let posts = JSON.parse(localStorage.getItem("posts")) || [];
 let tournaments = JSON.parse(localStorage.getItem("tournaments")) || [
   { id: 1, name: "ATU CUP VIII", date: "Караганда 11, 2023 - Караганда 12, 2023", hashtag: "#ATUCup", registrations: [], grid: null, level: "Альматы | Худые коры: Бериксия" },
   { id: 2, name: "DOSTYQ CUP", date: "Караганда 18, 2023 - Караганда 19, 2023", hashtag: "#DostyqCup", registrations: [], grid: null, level: "Альматы | Худые коры: Бериксия" },
-  { id: 3, name: "Би-Бараб шашлыкпери VIII", date: "Караганда 25, 2023 - Караганда 26, 2023", hashtag: "#BiBarab", registrations: [], grid: null, level: "Альматы | Худые коры: Бериксия" },
-  { id: 4, name: "ENERGO CUP VII", date: "Кентау 2, 2023 - Кентау 3, 2023", hashtag: "#EnergoCup", registrations: [], grid: null, level: "Альматы | Худые коры: Бериксия" },
-  { id: 5, name: "ICE Scream X", date: "Кентау 2, 2023 - Кентау 3, 2023", hashtag: "#IceScream", registrations: [], grid: null, level: "Альматы | Худые коры: Бериксия" },
 ];
 let rating = JSON.parse(localStorage.getItem("rating")) || [{ id: user.id, fullName, wins: 0 }];
 
@@ -32,16 +29,58 @@ function setActiveButton(btnId) {
   document.getElementById(btnId).classList.add("active");
 }
 
+// Лента
+function showFeed() {
+  setActiveButton("feed-btn");
+  const content = document.getElementById("content");
+  content.innerHTML = `
+    <h2>Лента</h2>
+    <div class="post fade-in">
+      <div class="avatar"></div>
+      <div class="content">
+        <textarea id="newPost" placeholder="Что нового?"></textarea>
+        <button onclick="submitPost()">Опубликовать</button>
+      </div>
+    </div>
+    ${posts.map(post => `
+      <div class="post fade-in">
+        <div class="avatar"></div>
+        <div class="content">
+          <div class="header">
+            <span class="name">${post.fullName}</span>
+            <span class="username">@${post.username}</span>
+            <span class="time">· ${new Date(post.timestamp).toLocaleString()}</span>
+          </div>
+          <div class="text">${post.text}</div>
+          <div class="actions">
+            <button><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg> 0</button>
+            <button><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg> 0</button>
+          </div>
+        </div>
+      </div>
+    `).join("")}
+  `;
+}
+
+function submitPost() {
+  const text = document.getElementById("newPost").value;
+  if (text) {
+    posts.push({ fullName, username: user.username, text, timestamp: Date.now() });
+    saveData();
+    showFeed();
+  }
+}
+
 // Турниры
 function showTournaments() {
   setActiveButton("tournaments-btn");
   const content = document.getElementById("content");
   content.innerHTML = `
-    <h2>Актуальные турниры</h2>
+    <h2>Турниры</h2>
     ${tournaments.map(t => `
       <div class="tournament fade-in">
-        <img src="https://via.placeholder.com/50" alt="Logo">
-        <div>
+        <div class="avatar"></div>
+        <div class="content">
           <h3>${t.name}</h3>
           <p>${t.date}</p>
           <p>${t.level}</p>
@@ -49,8 +88,10 @@ function showTournaments() {
         </div>
       </div>
     `).join("")}
-    <h2>Добавить турнир</h2>
-    <button onclick="createTournament()">Создать турнир</button>
+    <div class="fade-in">
+      <h2>Создать турнир</h2>
+      <button onclick="createTournament()">Добавить</button>
+    </div>
   `;
 }
 
@@ -77,7 +118,17 @@ function showTournament(id) {
       <p>Уровень: ${tournament.level}</p>
       <h3>Посты</h3>
       ${posts.filter(p => p.text.includes(tournament.hashtag)).map(p => `
-        <div class="post">${p.fullName}: ${p.text}</div>
+        <div class="post">
+          <div class="avatar"></div>
+          <div class="content">
+            <div class="header">
+              <span class="name">${p.fullName}</span>
+              <span class="username">@${p.username}</span>
+              <span class="time">· ${new Date(p.timestamp).toLocaleString()}</span>
+            </div>
+            <div class="text">${p.text}</div>
+          </div>
+        </div>
       `).join("")}
       <h3>Регистрация</h3>
       <input id="teamName" placeholder="Имя команды">
@@ -142,33 +193,6 @@ function setWinners(id) {
   showTournament(id);
 }
 
-// Лента
-function showFeed() {
-  setActiveButton("feed-btn");
-  const content = document.getElementById("content");
-  content.innerHTML = `
-    <h2>Лента</h2>
-    <textarea id="newPost" placeholder="Напишите сообщение..."></textarea>
-    <button onclick="submitPost()">Опубликовать</button>
-    ${posts.map(post => `
-      <div class="post fade-in">
-        <strong>${post.fullName} @${post.username}</strong>
-        <p>${post.text}</p>
-        <small>${new Date(post.timestamp).toLocaleString()}</small>
-      </div>
-    `).join("")}
-  `;
-}
-
-function submitPost() {
-  const text = document.getElementById("newPost").value;
-  if (text) {
-    posts.push({ fullName, username: user.username, text, timestamp: Date.now() });
-    saveData();
-    showFeed();
-  }
-}
-
 // Рейтинг
 function showRating() {
   setActiveButton("rating-btn");
@@ -185,3 +209,43 @@ function showRating() {
     <button onclick="addWin()">Добавить победу (тест)</button>
   `;
 }
+
+function addWin() {
+  const player = rating.find(r => r.id === user.id) || { id: user.id, fullName, wins: 0 };
+  player.wins++;
+  if (!rating.some(r => r.id === user.id)) rating.push(player);
+  saveData();
+  showRating();
+}
+
+// Личный кабинет
+function showProfile() {
+  setActiveButton("profile-btn");
+  const player = rating.find(r => r.id === user.id) || { wins: 0 };
+  const userTournaments = tournaments.filter(t => t.registrations.some(r => r.userId === user.id)).map(t => t.name);
+  const content = document.getElementById("content");
+  content.innerHTML = `
+    <h2>Личный кабинет</h2>
+    <div class="fade-in">
+      <p>Имя: ${fullName}</p>
+      <p>Побед: ${player.wins}</p>
+      <p>Турниры: ${userTournaments.join(", ") || "Нет"}</p>
+    </div>
+  `;
+}
+
+// PKR EDU
+function showEdu() {
+  setActiveButton("edu-btn");
+  const content = document.getElementById("content");
+  content.innerHTML = `
+    <h2>PKR EDU</h2>
+    <div class="fade-in">
+      <p>Как играть в АПФ: [текст или ссылка]</p>
+      <p>Правила БПФ: [текст или ссылка]</p>
+    </div>
+  `;
+}
+
+// Начальная загрузка
+showFeed();
