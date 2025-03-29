@@ -1,142 +1,195 @@
-const tg = window.Telegram.WebApp;
-tg.expand(); // Развернуть приложение на весь экран
+// Инициализация Telegram Web App
+window.Telegram.WebApp.ready();
+const user = window.Telegram.WebApp.initDataUnsafe.user || { id: 1, username: "testuser" };
 
-// Конфигурация Firebase (замени на свои данные)
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyB7RjZd1kEIZ8WbZ1qMeEyWJGltS-Fnh2s",
-  authDomain: "pkr-debate-app.firebaseapp.com",
-  projectId: "pkr-debate-app",
-  storageBucket: "pkr-debate-app.firebasestorage.app",
-  messagingSenderId: "446621567916",
-  appId: "1:446621567916:web:e77c4b23832f109fc08809",
-  measurementId: "G-6EN0T8BHH3"
-};
-
-// Инициализация Firebase
-const app = firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const auth = firebase.auth();
-
-// Получение данных пользователя
-const user = tg.initDataUnsafe.user;
-if (user) {
-  console.log("User ID:", user.id);
-  console.log("Username:", user.username);
-
-  // Сохраняем пользователя в Firebase
-  auth.signInAnonymously().then(() => {
-    const userRef = db.collection("users").doc(String(user.id));
-    userRef.set({
-      id: user.id,
-      username: user.username,
-      first_name: user.first_name,
-      last_name: user.last_name
-    }, { merge: true });
-  });
+// Инициализация данных
+let fullName = localStorage.getItem("fullName");
+if (!fullName) {
+  fullName = prompt("Введите ваше имя и фамилию:");
+  localStorage.setItem("fullName", fullName);
 }
 
-// Функция для отображения секций
-function showSection(section) {
-  const content = document.getElementById("content");
-  content.innerHTML = ""; // Очищаем контент
+let posts = JSON.parse(localStorage.getItem("posts")) || [];
+let tournaments = JSON.parse(localStorage.getItem("tournaments")) || [
+  { id: 1, name: "Тестовый турнир", date: "2025-04-10", hashtag: "#Test1", registrations: [], grid: null },
+];
+let rating = JSON.parse(localStorage.getItem("rating")) || [{ id: user.id, fullName, wins: 0 }];
 
-  switch (section) {
-    case "feed":
-      loadFeed();
-      break;
-    case "tournaments":
-      loadTournaments();
-      break;
-    case "rating":
-      loadRating();
-      break;
-    case "profile":
-      loadProfile();
-      break;
-    case "edu":
-      loadEdu();
-      break;
-    default:
-      content.innerHTML = "<p>Выберите раздел</p>";
-  }
+// Сохранение данных
+function saveData() {
+  localStorage.setItem("posts", JSON.stringify(posts));
+  localStorage.setItem("tournaments", JSON.stringify(tournaments));
+  localStorage.setItem("rating", JSON.stringify(rating));
 }
 
 // Лента
-function loadFeed() {
+function showFeed() {
   const content = document.getElementById("content");
   content.innerHTML = `
-    <div id="feed-section">
-      <h2>📰 Лента</h2>
-      <div id="feed-posts"></div>
-      <form id="post-form">
-        <textarea id="post-text" placeholder="Напишите что-нибудь..." required></textarea>
-        <button type="submit">Опубликовать</button>
-      </form>
-    </div>
+    <h2>Лента</h2>
+    <textarea id="newPost" placeholder="Напишите сообщение..."></textarea>
+    <button onclick="submitPost()">Опубликовать</button>
+    ${posts.map(post => `
+      <div class="post">
+        <strong>${post.fullName} @${post.username}</strong>: ${post.text}
+        <br><small>${new Date(post.timestamp).toLocaleString()}</small>
+      </div>
+    `).join("")}
   `;
-
-  // Загрузка постов из коллекции `posts`
-  db.collection("posts").orderBy("createdAt", "desc").onSnapshot(snapshot => {
-    const posts = [];
-    snapshot.forEach(doc => {
-      posts.push({ id: doc.id, ...doc.data() });
-    });
-    renderFeed(posts);
-  });
-
-  // Публикация нового поста
-  document.getElementById("post-form").addEventListener("submit", (e) => {
-    e.preventDefault();
-    const text = document.getElementById("post-text").value;
-    const user = tg.initDataUnsafe.user;
-
-    if (text && user) {
-      db.collection("posts").add({
-        text,
-        username: user.username || "Аноним",
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      }).then(() => {
-        document.getElementById("post-text").value = ""; // Очищаем поле ввода
-      });
-    } else {
-      alert("Ошибка: пользователь не авторизован или текст пуст.");
-    }
-  });
 }
 
-// Отображение постов в ленте
-function renderFeed(posts) {
-  const feedPosts = document.getElementById("feed-posts");
-  feedPosts.innerHTML = posts.map(post => `
-    <div class="post">
-      <strong>${post.username}</strong>
-      <p>${post.text}</p>
-      <small>${new Date(post.createdAt?.toDate()).toLocaleString()}</small>
-    </div>
-  `).join("");
+function submitPost() {
+  const text = document.getElementById("newPost").value;
+  if (text) {
+    posts.push({ fullName, username: user.username, text, timestamp: Date.now() });
+    saveData();
+    showFeed();
+  }
 }
 
-// Заглушки для других разделов
-function loadTournaments() {
+// Турниры
+function showTournaments() {
   const content = document.getElementById("content");
-  content.innerHTML = "<h2>🏆 Турниры</h2><p>Список турниров...</p>";
+  content.innerHTML = `
+    <h2>Турниры</h2>
+    ${tournaments.map(t => `
+      <div class="tournament">
+        <strong>${t.name}</strong> - ${t.date}
+        <button onclick="showTournament(${t.id})">Подробнее</button>
+      </div>
+    `).join("")}
+    <button onclick="createTournament()">Создать турнир</button>
+  `;
 }
 
-function loadRating() {
+function createTournament() {
+  const name = prompt("Название турнира:");
+  const date = prompt("Дата (гггг-мм-дд):");
+  const hashtag = prompt("Хештег (например, #Test1):");
+  if (name && date && hashtag) {
+    const id = tournaments.length + 1;
+    tournaments.push({ id, name, date, hashtag, registrations: [], grid: null });
+    saveData();
+    showTournaments();
+  }
+}
+
+function showTournament(id) {
+  const tournament = tournaments.find(t => t.id === id);
   const content = document.getElementById("content");
-  content.innerHTML = "<h2>📊 Рейтинг</h2><p>Рейтинг участников...</p>";
+  content.innerHTML = `
+    <h2>${tournament.name}</h2>
+    <p>Дата: ${tournament.date}</p>
+    <h3>Посты</h3>
+    ${posts.filter(p => p.text.includes(tournament.hashtag)).map(p => `
+      <div class="post">${p.fullName}: ${p.text}</div>
+    `).join("")}
+    <h3>Регистрация</h3>
+    <input id="teamName" placeholder="Имя команды">
+    <input id="speaker1" placeholder="Спикер 1">
+    <input id="speaker2" placeholder="Спикер 2">
+    <input id="club" placeholder="Клуб">
+    <input id="school" placeholder="Место учебы">
+    <input id="phone" placeholder="Номер телефона">
+    <textarea id="comments" placeholder="Комментарии"></textarea>
+    <button onclick="registerTeam(${id})">Зарегистрироваться</button>
+    <h3>Зарегистрированные</h3>
+    ${tournament.registrations.map(r => `<p>${r.teamName}: ${r.speaker1}, ${r.speaker2}</p>`).join("")}
+    <button onclick="generateGrid(${id})">Сгенерировать сетку</button>
+  `;
 }
 
-function loadProfile() {
+function registerTeam(id) {
+  const tournament = tournaments.find(t => t.id === id);
+  const registration = {
+    teamName: document.getElementById("teamName").value,
+    speaker1: document.getElementById("speaker1").value,
+    speaker2: document.getElementById("speaker2").value,
+    club: document.getElementById("club").value,
+    school: document.getElementById("school").value,
+    phone: document.getElementById("phone").value,
+    comments: document.getElementById("comments").value,
+    userId: user.id
+  };
+  tournament.registrations.push(registration);
+  saveData();
+  showTournament(id);
+}
+
+function generateGrid(id) {
+  const tournament = tournaments.find(t => t.id === id);
+  const teams = tournament.registrations.map(r => r.teamName);
+  const format = prompt("Формат (АПФ/БПФ):");
+  const rounds = parseInt(prompt("Количество раундов (3, 4 и т.д.):"));
+  let grid = [];
+  for (let i = 0; i < rounds; i++) {
+    let shuffled = teams.sort(() => 0.5 - Math.random());
+    grid.push(shuffled.map((t, idx) => idx % 2 === 0 ? `${t} vs ${shuffled[idx + 1] || "BYE"}` : null).filter(Boolean));
+  }
+  tournament.grid = grid;
+  saveData();
   const content = document.getElementById("content");
-  content.innerHTML = "<h2>👤 Личный кабинет</h2><p>Информация о пользователе...</p>";
+  content.innerHTML += `
+    <h3>Сетка</h3>
+    ${grid.map((round, i) => `<p>Раунд ${i + 1}: ${round.join(", ")}</p>`).join("")}
+    <button onclick="setWinners(${id})">Указать прошедших</button>
+  `;
 }
 
-function loadEdu() {
+function setWinners(id) {
+  const tournament = tournaments.find(t => t.id === id);
+  const winners = prompt("Введите команды, прошедшие в плей-офф (через запятую):").split(",").map(w => w.trim());
+  posts.push({ fullName: "PKR", username: "system", text: `Прошедшие в плей-офф ${tournament.name}: ${winners.join(", ")}`, timestamp: Date.now() });
+  const playoffGrid = winners.sort(() => 0.5 - Math.random()).map((t, idx) => idx % 2 === 0 ? `${t} vs ${winners[idx + 1] || "BYE"}` : null).filter(Boolean);
+  tournament.grid = playoffGrid;
+  saveData();
+  showTournament(id);
+}
+
+// Рейтинг
+function showRating() {
+  const now = new Date();
+  if (now.getDate() === 1 && now.getDay() === 1) { // Первый понедельник месяца
+    rating.sort((a, b) => b.wins - a.wins);
+  }
   const content = document.getElementById("content");
-  content.innerHTML = "<h2>🎓 PKR EDU</h2><p>Образовательные материалы...</p>";
+  content.innerHTML = `
+    <h2>Рейтинг</h2>
+    ${rating.map((r, i) => `<div class="rating-item">${i + 1}. ${r.fullName} - ${r.wins} побед</div>`).join("")}
+    <button onclick="addWin()">Добавить победу (тест)</button>
+  `;
 }
 
-// Загружаем ленту по умолчанию
-showSection("feed");
+function addWin() { // Для теста, потом данные будут браться из турниров
+  const player = rating.find(r => r.id === user.id) || { id: user.id, fullName, wins: 0 };
+  player.wins++;
+  if (!rating.some(r => r.id === user.id)) rating.push(player);
+  saveData();
+  showRating();
+}
+
+// Личный кабинет
+function showProfile() {
+  const player = rating.find(r => r.id === user.id) || { wins: 0 };
+  const userTournaments = tournaments.filter(t => t.registrations.some(r => r.userId === user.id)).map(t => t.name);
+  const content = document.getElementById("content");
+  content.innerHTML = `
+    <h2>Личный кабинет</h2>
+    <p>Имя: ${fullName}</p>
+    <p>Побед: ${player.wins}</p>
+    <p>Турниры: ${userTournaments.join(", ") || "Нет"}</p>
+  `;
+}
+
+// PKR EDU
+function showEdu() {
+  const content = document.getElementById("content");
+  content.innerHTML = `
+    <h2>PKR EDU</h2>
+    <p>Как играть в АПФ: [текст или ссылка]</p>
+    <p>Правила БПФ: [текст или ссылка]</p>
+  `;
+}
+
+// Начальная загрузка
+showFeed();
