@@ -2,7 +2,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   margin: 0;
   padding: 0;
-  background-color: #000; /* Чёрный фон, как в Twitter (X) */
+  background-color: #000; /* Чёрный фон */
   color: #fff; /* Белый текст */
   height: 100vh;
   display: flex;
@@ -17,8 +17,8 @@ body {
 
 header {
   padding: 15px;
-  border-bottom: 1px solid #333; /* Серая граница */
-  background-color: #000; /* Чёрный фон шапки */
+  border-bottom: 1px solid #333;
+  background-color: #000;
   position: sticky;
   top: 0;
   z-index: 1000;
@@ -31,20 +31,20 @@ header h1 {
   font-size: 20px;
   font-weight: 800;
   margin: 0;
-  color: #fff; /* Белый цвет заголовка */
+  color: #fff;
 }
 
 #content {
   flex: 1;
   overflow-y: auto;
-  padding-bottom: 60px; /* Чтобы контент не перекрывался меню */
+  padding-bottom: 60px;
 }
 
 #menu {
   display: flex;
   justify-content: space-around;
-  background-color: #000; /* Чёрный фон меню */
-  border-top: 1px solid #333; /* Серая граница */
+  background-color: #000;
+  border-top: 1px solid #333;
   padding: 10px 0;
   position: fixed;
   bottom: 0;
@@ -58,11 +58,10 @@ header h1 {
   padding: 10px;
   color: #fff; /* Белые иконки */
   cursor: pointer;
-  transition: color 0.3s ease; /* Плавный переход цвета */
 }
 
 .menu-btn.active {
-  color: #1DA1F2; /* Синий цвет для активной иконки */
+  color: #1DA1F2; /* Синяя активная иконка */
 }
 
 .menu-btn svg {
@@ -70,151 +69,11 @@ header h1 {
   height: 24px;
 }
 
-.post, .tournament, .rating-item {
-  padding: 15px;
-  border-bottom: 1px solid #333; /* Серая граница между постами */
-  display: flex;
-  gap: 12px;
-  opacity: 0; /* Начальная непрозрачность для анимации */
-  animation: fadeIn 0.3s ease forwards; /* Плавное появление */
+.post, .tournament, .rating-item, .post-input {
+  opacity: 0;
+  animation: fadeIn 0.3s ease forwards;
 }
 
-.post .avatar, .tournament .avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background-color: #333; /* Серый аватар */
-}
-
-.post .content, .tournament .content {
-  flex: 1;
-}
-
-.post .header {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-bottom: 5px;
-}
-
-.post .header .name {
-  font-weight: 700;
-  font-size: 15px;
-  color: #fff; /* Белое имя */
-}
-
-.post .header .username, .post .header .time {
-  font-size: 15px;
-  color: #71767B; /* Серый цвет для username и времени */
-}
-
-.post .text {
-  font-size: 15px;
-  line-height: 20px;
-  margin-bottom: 10px;
-  color: #fff; /* Белый текст поста */
-}
-
-.post .actions {
-  display: flex;
-  gap: 60px;
-  color: #71767B; /* Серый цвет иконок действий */
-  font-size: 13px;
-  margin-top: 10px;
-}
-
-.post .actions button {
-  background: none;
-  border: none;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  cursor: pointer;
-  color: #71767B;
-  transition: color 0.3s ease; /* Плавный переход цвета */
-}
-
-.post .actions button:hover {
-  color: #1DA1F2; /* Синий цвет при наведении */
-}
-
-.tournament .content h3 {
-  font-size: 15px;
-  font-weight: 700;
-  margin: 0;
-  color: #fff;
-}
-
-.tournament .content p {
-  font-size: 15px;
-  color: #71767B;
-  margin: 5px 0;
-}
-
-.post-input {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 15px;
-  border-bottom: 1px solid #333;
-  opacity: 0; /* Начальная непрозрачность для анимации */
-  animation: fadeIn 0.3s ease forwards; /* Плавное появление */
-}
-
-.post-input .avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background-color: #333;
-}
-
-.post-input .input-wrapper {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-textarea {
-  width: 100%;
-  border: none; /* Убрана рамка */
-  background: none; /* Прозрачный фон */
-  padding: 10px 0;
-  font-size: 17px;
-  color: #fff; /* Белый текст */
-  resize: none;
-  min-height: 50px;
-}
-
-button:not(.menu-btn) {
-  background-color: #1DA1F2; /* Синяя кнопка */
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 9999px;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  align-self: flex-end;
-  transition: background-color 0.3s ease; /* Плавный переход цвета */
-}
-
-button:not(.menu-btn):hover {
-  background-color: #1A91DA; /* Чуть темнее при наведении */
-}
-
-input, textarea:not(#newPost) {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #333;
-  border-radius: 5px;
-  font-size: 15px;
-  margin: 5px 0;
-  background-color: #1C2526; /* Тёмный фон для полей ввода */
-  color: #fff;
-}
-
-/* Анимация появления */
 @keyframes fadeIn {
   from {
     opacity: 0;
