@@ -16,19 +16,6 @@ buttons.forEach(button => {
     });
 });
 
-// Профиль
-const username = document.getElementById('username');
-const fullname = document.getElementById('fullname');
-const saveProfileBtn = document.getElementById('save-profile');
-let userData = {};
-
-username.textContent = tg.initDataUnsafe.user ? tg.initDataUnsafe.user.username : 'Неизвестный';
-
-saveProfileBtn.addEventListener('click', () => {
-    userData.fullname = fullname.value;
-    alert('Профиль сохранён!');
-});
-
 // Supabase API функции
 async function supabaseFetch(endpoint, method, body = null) {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, {
@@ -40,15 +27,68 @@ async function supabaseFetch(endpoint, method, body = null) {
         },
         body: body ? JSON.stringify(body) : null
     });
-    console.log(`Supabase response status: ${response.status}`); // Логируем статус
+    console.log(`Supabase response status: ${response.status}`);
     if (!response.ok) {
-        const errorText = await response.text(); // Получаем текст ошибки
+        const errorText = await response.text();
         throw new Error(`Supabase error: ${response.status} - ${errorText}`);
     }
-    // Проверяем, есть ли тело ответа
     const text = await response.text();
-    return text ? JSON.parse(text) : null; // Если тело пустое, возвращаем null
+    return text ? JSON.parse(text) : null;
 }
+
+// Профиль
+const username = document.getElementById('username');
+const fullname = document.getElementById('fullname');
+const saveProfileBtn = document.getElementById('save-profile');
+let userData = {};
+
+username.textContent = tg.initDataUnsafe.user ? tg.initDataUnsafe.user.username : 'Неизвестный';
+
+// Загружаем профиль при старте
+async function loadProfile() {
+    const telegramId = tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : null;
+    if (!telegramId) {
+        console.error('Telegram ID not available');
+        return;
+    }
+    try {
+        const profiles = await supabaseFetch(`profiles?telegram_id=eq.${telegramId}`, 'GET');
+        if (profiles && profiles.length > 0) {
+            userData.fullname = profiles[0].fullname;
+            fullname.value = userData.fullname; // Подставляем имя в поле
+            console.log('Profile loaded:', userData.fullname);
+        }
+    } catch (error) {
+        console.error('Error loading profile:', error);
+    }
+}
+
+// Сохраняем профиль
+saveProfileBtn.addEventListener('click', async () => {
+    const telegramId = tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : null;
+    if (!telegramId) {
+        alert('Telegram ID недоступен!');
+        return;
+    }
+    userData.fullname = fullname.value;
+    try {
+        const existingProfile = await supabaseFetch(`profiles?telegram_id=eq.${telegramId}`, 'GET');
+        if (existingProfile && existingProfile.length > 0) {
+            // Обновляем существующий профиль
+            await supabaseFetch(`profiles?telegram_id=eq.${telegramId}`, 'PATCH', { fullname: userData.fullname });
+        } else {
+            // Создаём новый профиль
+            await supabaseFetch('profiles', 'POST', { telegram_id: telegramId, fullname: userData.fullname });
+        }
+        alert('Профиль сохранён!');
+    } catch (error) {
+        console.error('Error saving profile:', error);
+        alert('Ошибка: ' + error.message);
+    }
+});
+
+// Загружаем профиль при запуске
+loadProfile();
 
 // Лента
 const postText = document.getElementById('post-text');
@@ -79,7 +119,7 @@ async function loadPosts() {
     try {
         const posts = await supabaseFetch('posts?order=timestamp.desc&limit=50', 'GET');
         postsDiv.innerHTML = '';
-        if (posts) { // Проверяем, что posts не null
+        if (posts) {
             posts.forEach(post => {
                 const postDiv = document.createElement('div');
                 postDiv.classList.add('post');
@@ -128,7 +168,7 @@ async function loadTournaments() {
     try {
         const tournaments = await supabaseFetch('tournaments?order=timestamp.desc&limit=50', 'GET');
         tournamentList.innerHTML = '';
-        if (tournaments) { // Проверяем, что tournaments не null
+        if (tournaments) {
             tournaments.forEach(tournament => {
                 const tournamentDiv = document.createElement('div');
                 tournamentDiv.classList.add('tournament');
