@@ -1,265 +1,179 @@
-// Инициализация Telegram Web App
-window.Telegram.WebApp.ready();
-const user = window.Telegram.WebApp.initDataUnsafe.user || { id: 1, username: "testuser" };
+const tg = window.Telegram.WebApp;
+tg.ready();
 
-// Инициализация данных
-let fullName = localStorage.getItem("fullName");
-if (!fullName) {
-  fullName = prompt("Введите ваше имя и фамилию:");
-  localStorage.setItem("fullName", fullName);
-}
+const sections = document.querySelectorAll('.content');
+const buttons = document.querySelectorAll('.nav-btn');
 
-let posts = JSON.parse(localStorage.getItem("posts")) || [
-  { fullName: "Бек Мейр", username: "Meyirov", text: "Сделал едем!", timestamp: Date.now() - 47 * 60 * 1000 }
-];
-let tournaments = JSON.parse(localStorage.getItem("tournaments")) || [
-  { id: 1, name: "ATU CUP VIII", date: "Караганда 11, 2023 - Караганда 12, 2023", hashtag: "#ATUCup", registrations: [], grid: null, level: "Альматы | Худые коры: Бериксия" },
-  { id: 2, name: "DOSTYQ CUP", date: "Караганда 18, 2023 - Караганда 19, 2023", hashtag: "#DostyqCup", registrations: [], grid: null, level: "Альматы | Худые коры: Бериксия" },
-];
-let rating = JSON.parse(localStorage.getItem("rating")) || [{ id: user.id, fullName, wins: 0 }];
+buttons.forEach(button => {
+    button.addEventListener('click', () => {
+        buttons.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+        sections.forEach(section => section.classList.remove('active'));
+        const targetSection = document.getElementById(button.id.replace('-btn', ''));
+        targetSection.classList.add('active');
+        if (button.id === 'feed-btn') loadPosts();
+        if (button.id === 'tournaments-btn') loadTournaments();
+    });
+});
 
-// Сохранение данных
-function saveData() {
-  localStorage.setItem("posts", JSON.stringify(posts));
-  localStorage.setItem("tournaments", JSON.stringify(tournaments));
-  localStorage.setItem("rating", JSON.stringify(rating));
-}
+// Профиль
+const username = document.getElementById('username');
+const fullname = document.getElementById('fullname');
+const saveProfileBtn = document.getElementById('save-profile');
+let userData = {};
 
-// Установка активной кнопки
-function setActiveButton(btnId) {
-  document.querySelectorAll(".menu-btn").forEach(btn => btn.classList.remove("active"));
-  document.getElementById(btnId).classList.add("active");
-}
+username.textContent = tg.initDataUnsafe.user ? tg.initDataUnsafe.user.username : 'Неизвестный';
 
-// Форматирование времени (например, "47m")
-function formatTime(timestamp) {
-  const now = Date.now();
-  const diff = now - timestamp;
-  const minutes = Math.floor(diff / (1000 * 60));
-  if (minutes < 1) return "только что";
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-  const date = new Date(timestamp);
-  return date.toLocaleDateString();
-}
+saveProfileBtn.addEventListener('click', () => {
+    userData.fullname = fullname.value;
+    alert('Профиль сохранён!');
+});
 
 // Лента
-function showFeed() {
-  setActiveButton("feed-btn");
-  const content = document.getElementById("content");
-  content.innerHTML = `
-    <div class="post-input">
-      <div class="avatar"></div>
-      <div class="input-wrapper">
-        <textarea id="newPost" placeholder="Что нового?"></textarea>
-        <button onclick="submitPost()">Опубликовать</button>
-      </div>
-    </div>
-    ${posts.map(post => `
-      <div class="post">
-        <div class="avatar"></div>
-        <div class="content">
-          <div class="header">
-            <span class="name">${post.fullName}</span>
-            <span class="username">@${post.username}</span>
-            <span class="time">· ${formatTime(post.timestamp)}</span>
-          </div>
-          <div class="text">${post.text}</div>
-          <div class="actions">
-            <button><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg> 0</button>
-            <button><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg> 0</button>
-          </div>
-        </div>
-      </div>
-    `).join("")}
-  `;
-}
+const postText = document.getElementById('post-text');
+const submitPost = document.getElementById('submit-post');
+const postsDiv = document.getElementById('posts');
+const BOT_TOKEN = '6943054679:AAH_F8XNpxNfTB2puY1NrsKlTNEArBMPta8'; // Замени
+const FEED_CHAT_ID = '+92no40d8_bBmMjNi'; // Замени
 
-function submitPost() {
-  const text = document.getElementById("newPost").value;
-  if (text) {
-    posts.push({ fullName, username: user.username, text, timestamp: Date.now() });
-    saveData();
-    showFeed();
-  }
+submitPost.addEventListener('click', () => {
+    if (!userData.fullname) {
+        alert('Сначала укажи имя и фамилию в профиле!');
+        return;
+    }
+    const text = `${userData.fullname} (@${tg.initDataUnsafe.user.username}):\n${postText.value}`;
+    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: FEED_CHAT_ID, text })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.ok) {
+            postText.value = '';
+            loadPosts();
+        }
+    });
+});
+
+function loadPosts() {
+    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChatHistory?chat_id=${FEED_CHAT_ID}&limit=50`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.ok) {
+            postsDiv.innerHTML = '';
+            data.result.messages.forEach(msg => {
+                const postDiv = document.createElement('div');
+                postDiv.classList.add('post');
+                postDiv.innerHTML = `${msg.text}<br><small>${new Date(msg.date * 1000).toLocaleString()}</small>`;
+                postsDiv.appendChild(postDiv);
+            });
+        }
+    });
 }
 
 // Турниры
-function showTournaments() {
-  setActiveButton("tournaments-btn");
-  const content = document.getElementById("content");
-  content.innerHTML = `
-    ${tournaments.map(t => `
-      <div class="tournament">
-        <div class="avatar"></div>
-        <div class="content">
-          <h3>${t.name}</h3>
-          <p>${t.date}</p>
-          <p>${t.level}</p>
-          <button onclick="showTournament(${t.id})">Подробнее</button>
-        </div>
-      </div>
-    `).join("")}
-    <div class="fade-in">
-      <button onclick="createTournament()">Создать турнир</button>
-    </div>
-  `;
+const TOURNAMENT_CHAT_ID = 'ТВОЙ_CHAT_ID_ТУРНИРОВ'; // Замени
+const createTournamentBtn = document.getElementById('create-tournament-btn');
+const createTournamentForm = document.getElementById('create-tournament-form');
+const submitTournament = document.getElementById('submit-tournament');
+const tournamentList = document.getElementById('tournament-list');
+
+createTournamentBtn.addEventListener('click', () => {
+    createTournamentForm.classList.toggle('form-hidden');
+});
+
+submitTournament.addEventListener('click', () => {
+    const tournament = {
+        name: document.getElementById('tournament-name').value,
+        date: document.getElementById('tournament-date').value,
+        logo: document.getElementById('tournament-logo').value,
+        desc: document.getElementById('tournament-desc').value,
+        address: document.getElementById('tournament-address').value,
+        deadline: document.getElementById('tournament-deadline').value
+    };
+    const text = `Турнир: ${tournament.name}\nДата: ${tournament.date}\nЛоготип: ${tournament.logo}\nОписание: ${tournament.desc}\nАдрес: ${tournament.address}\nДедлайн: ${tournament.deadline}`;
+    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: TOURNAMENT_CHAT_ID, text })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.ok) {
+            alert('Турнир создан!');
+            createTournamentForm.classList.add('form-hidden');
+            loadTournaments();
+        }
+    });
+});
+
+function loadTournaments() {
+    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChatHistory?chat_id=${TOURNAMENT_CHAT_ID}&limit=50`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.ok) {
+            tournamentList.innerHTML = '';
+            data.result.messages.forEach(msg => {
+                if (msg.text.startsWith('Турнир:')) {
+                    const tournamentDiv = document.createElement('div');
+                    tournamentDiv.classList.add('tournament');
+                    tournamentDiv.innerHTML = `${msg.text}<br><button onclick="showRegistrationForm(${msg.message_id})">Зарегистрироваться</button>`;
+                    tournamentList.appendChild(tournamentDiv);
+                }
+            });
+        }
+    });
 }
 
-function createTournament() {
-  const name = prompt("Название турнира:");
-  const date = prompt("Дата (например, Караганда 11, 2023 - Караганда 12, 2023):");
-  const hashtag = prompt("Хештег (например, #Test1):");
-  const level = prompt("Уровень (например, Альматы | Худые коры: Бериксия):");
-  if (name && date && hashtag && level) {
-    const id = tournaments.length + 1;
-    tournaments.push({ id, name, date, hashtag, level, registrations: [], grid: null });
-    saveData();
-    showTournaments();
-  }
+function showRegistrationForm(tournamentId) {
+    const form = document.createElement('div');
+    form.innerHTML = `
+        <input id="reg-speaker1" type="text" placeholder="Имя и фамилия 1-го спикера">
+        <input id="reg-speaker2" type="text" placeholder="Имя и фамилия 2-го спикера">
+        <input id="reg-club" type="text" placeholder="Клуб">
+        <input id="reg-city" type="text" placeholder="Город">
+        <input id="reg-contacts" type="text" placeholder="Контакты">
+        <textarea id="reg-extra" placeholder="Дополнительно (достижения)"></textarea>
+        <button onclick="submitRegistration(${tournamentId})">Отправить</button>
+    `;
+    tournamentList.appendChild(form);
 }
 
-function showTournament(id) {
-  const tournament = tournaments.find(t => t.id === id);
-  const content = document.getElementById("content");
-  content.innerHTML = `
-    <div class="fade-in">
-      <h3>${tournament.name}</h3>
-      <p>Дата: ${tournament.date}</p>
-      <p>Уровень: ${tournament.level}</p>
-      <h3>Посты</h3>
-      ${posts.filter(p => p.text.includes(tournament.hashtag)).map(p => `
-        <div class="post">
-          <div class="avatar"></div>
-          <div class="content">
-            <div class="header">
-              <span class="name">${p.fullName}</span>
-              <span class="username">@${p.username}</span>
-              <span class="time">· ${formatTime(p.timestamp)}</span>
-            </div>
-            <div class="text">${p.text}</div>
-          </div>
-        </div>
-      `).join("")}
-      <h3>Регистрация</h3>
-      <input id="teamName" placeholder="Имя команды">
-      <input id="speaker1" placeholder="Спикер 1">
-      <input id="speaker2" placeholder="Спикер 2">
-      <input id="club" placeholder="Клуб">
-      <input id="school" placeholder="Место учебы">
-      <input id="phone" placeholder="Номер телефона">
-      <textarea id="comments" placeholder="Комментарии"></textarea>
-      <button onclick="registerTeam(${id})">Зарегистрироваться</button>
-      <h3>Зарегистрированные</h3>
-      ${tournament.registrations.map(r => `<p>${r.teamName}: ${r.speaker1}, ${r.speaker2}</p>`).join("")}
-      <button onclick="generateGrid(${id})">Сгенерировать сетку</button>
-    </div>
-  `;
+function submitRegistration(tournamentId) {
+    const registration = {
+        speaker1: document.getElementById('reg-speaker1').value,
+        speaker2: document.getElementById('reg-speaker2').value,
+        club: document.getElementById('reg-club').value,
+        city: document.getElementById('reg-city').value,
+        contacts: document.getElementById('reg-contacts').value,
+        extra: document.getElementById('reg-extra').value
+    };
+    const text = `Регистрация на турнир #${tournamentId}:\nСпикер 1: ${registration.speaker1}\nСпикер 2: ${registration.speaker2}\nКлуб: ${registration.club}\nГород: ${registration.city}\nКонтакты: ${registration.contacts}\nДополнительно: ${registration.extra}`;
+    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: TOURNAMENT_CHAT_ID, text })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.ok) {
+            alert('Регистрация отправлена!');
+            loadTournaments();
+        }
+    });
 }
 
-function registerTeam(id) {
-  const tournament = tournaments.find(t => t.id === id);
-  const registration = {
-    teamName: document.getElementById("teamName").value,
-    speaker1: document.getElementById("speaker1").value,
-    speaker2: document.getElementById("speaker2").value,
-    club: document.getElementById("club").value,
-    school: document.getElementById("school").value,
-    phone: document.getElementById("phone").value,
-    comments: document.getElementById("comments").value,
-    userId: user.id
-  };
-  tournament.registrations.push(registration);
-  saveData();
-  showTournament(id);
-}
+// Рейтинг (статический)
+const ratingList = document.getElementById('rating-list');
+const rating = [
+    { name: 'Иван Иванов', points: 150 },
+    { name: 'Анна Петрова', points: 120 }
+];
 
-function generateGrid(id) {
-  const tournament = tournaments.find(t => t.id === id);
-  const teams = tournament.registrations.map(r => r.teamName);
-  const format = prompt("Формат (АПФ/БПФ):");
-  const rounds = parseInt(prompt("Количество раундов (3, 4 и т.д.):"));
-  let grid = [];
-  for (let i = 0; i < rounds; i++) {
-    let shuffled = teams.sort(() => 0.5 - Math.random());
-    grid.push(shuffled.map((t, idx) => idx % 2 === 0 ? `${t} vs ${shuffled[idx + 1] || "BYE"}` : null).filter(Boolean));
-  }
-  tournament.grid = grid;
-  saveData();
-  const content = document.getElementById("content");
-  content.innerHTML += `
-    <h3>Сетка</h3>
-    ${grid.map((round, i) => `<p>Раунд ${i + 1}: ${round.join(", ")}</p>`).join("")}
-    <button onclick="setWinners(${id})">Указать прошедших</button>
-  `;
-}
-
-function setWinners(id) {
-  const tournament = tournaments.find(t => t.id === id);
-  const winners = prompt("Введите команды, прошедшие в плей-офф (через запятую):").split(",").map(w => w.trim());
-  posts.push({ fullName: "PKR", username: "system", text: `Прошедшие в плей-офф ${tournament.name}: ${winners.join(", ")}`, timestamp: Date.now() });
-  const playoffGrid = winners.sort(() => 0.5 - Math.random()).map((t, idx) => idx % 2 === 0 ? `${t} vs ${winners[idx + 1] || "BYE"}` : null).filter(Boolean);
-  tournament.grid = playoffGrid;
-  saveData();
-  showTournament(id);
-}
-
-// Рейтинг
-function showRating() {
-  setActiveButton("rating-btn");
-  const now = new Date();
-  if (now.getDate() === 1 && now.getDay() === 1) { // Первый понедельник месяца
-    rating.sort((a, b) => b.wins - a.wins);
-  }
-  const content = document.getElementById("content");
-  content.innerHTML = `
-    <div class="fade-in">
-      <h3>Рейтинг</h3>
-      ${rating.map((r, i) => `
-        <div class="rating-item">${i + 1}. ${r.fullName} - ${r.wins} побед</div>
-      `).join("")}
-      <button onclick="addWin()">Добавить победу (тест)</button>
-    </div>
-  `;
-}
-
-function addWin() {
-  const player = rating.find(r => r.id === user.id) || { id: user.id, fullName, wins: 0 };
-  player.wins++;
-  if (!rating.some(r => r.id === user.id)) rating.push(player);
-  saveData();
-  showRating();
-}
-
-// Личный кабинет
-function showProfile() {
-  setActiveButton("profile-btn");
-  const player = rating.find(r => r.id === user.id) || { wins: 0 };
-  const user  const userTournaments = tournaments.filter(t => t.registrations.some(r => r.userId === user.id)).map(t => t.name);
-  const content = document.getElementById("content");
-  content.innerHTML = `
-    <div class="fade-in">
-      <h3>Личный кабинет</h3>
-      <p>Имя: ${fullName}</p>
-      <p>Побед: ${player.wins}</p>
-      <p>Турниры: ${userTournaments.join(", ") || "Нет"}</p>
-    </div>
-  `;
-}
-
-// PKR EDU
-function showEdu() {
-  setActiveButton("edu-btn");
-  const content = document.getElementById("content");
-  content.innerHTML = `
-    <div class="fade-in">
-      <h3>PKR EDU</h3>
-      <p>Как играть в АПФ: [текст или ссылка]</p>
-      <p>Правила БПФ: [текст или ссылка]</p>
-    </div>
-  `;
-}
-
-// Начальная загрузка
-showFeed();
+rating.forEach(player => {
+    const div = document.createElement('div');
+    div.classList.add('post');
+    div.innerHTML = `<strong>${player.name}</strong> - ${player.points} очков`;
+    ratingList.appendChild(div);
+});
