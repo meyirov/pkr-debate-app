@@ -45,7 +45,7 @@ submitPost.addEventListener('click', () => {
     fetch(`https://api.telegram.org/bot${6943054679:AAH_F8XNpxNfTB2puY1NrsKlTNEArBMPta8}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: FEED_CHAT_ID, text })
+        body: JSON.stringify({ chat_id: +92no40d8_bBmMjNi, text })
     })
     .then(response => response.json())
     .then(data => {
@@ -57,7 +57,7 @@ submitPost.addEventListener('click', () => {
 });
 
 function loadPosts() {
-    fetch(`https://api.telegram.org/bot${6943054679:AAH_F8XNpxNfTB2puY1NrsKlTNEArBMPta8}/getChatHistory?chat_id=${FEED_CHAT_ID}&limit=50`)
+    fetch(`https://api.telegram.org/bot${6943054679:AAH_F8XNpxNfTB2puY1NrsKlTNEArBMPta8}/getChatHistory?chat_id=${+92no40d8_bBmMjNi}&limit=50`)
     .then(response => response.json())
     .then(data => {
         if (data.ok) {
