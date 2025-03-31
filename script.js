@@ -33,9 +33,12 @@ saveProfileBtn.addEventListener('click', () => {
 const postText = document.getElementById('post-text');
 const submitPost = document.getElementById('submit-post');
 const postsDiv = document.getElementById('posts');
-const BOT_TOKEN = '6943054679:AAH_F8XNpxNfTB2puY1NrsKlTNEArBMPta8'; // Твой токен
-const FEED_CHAT_ID = '-1002596440957'; // chat_id группы ленты
-const TOURNAMENT_CHAT_ID = '-1002596440957'; // chat_id чата турниров
+const BOT_TOKEN = '6943054679:AAH_F8XNpxNfTB2puY1NrsKlTNEArBMPta8';
+const FEED_CHAT_ID = '-1002588363927'; // Новый chat_id для ленты
+const TOURNAMENT_CHAT_ID = '-1002596440957'; // chat_id для турниров
+
+// Локальное хранилище постов (в памяти браузера)
+let localPosts = [];
 
 submitPost.addEventListener('click', () => {
     if (!userData.fullname) {
@@ -51,26 +54,43 @@ submitPost.addEventListener('click', () => {
     .then(response => response.json())
     .then(data => {
         if (data.ok) {
+            // Добавляем пост локально сразу после отправки
+            localPosts.unshift({
+                text: text,
+                timestamp: new Date().toLocaleString()
+            });
             postText.value = '';
-            loadPosts();
+            renderPosts();
         } else {
             alert('Ошибка: ' + data.description);
         }
     });
 });
 
+function renderPosts() {
+    postsDiv.innerHTML = '';
+    localPosts.forEach(post => {
+        const postDiv = document.createElement('div');
+        postDiv.classList.add('post');
+        postDiv.innerHTML = `${post.text}<br><small>${post.timestamp}</small>`;
+        postsDiv.appendChild(postDiv);
+    });
+}
+
 function loadPosts() {
-    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChatHistory?chat_id=${FEED_CHAT_ID}&limit=50`)
+    // Попытка загрузить последние сообщения через getUpdates
+    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates`)
     .then(response => response.json())
     .then(data => {
         if (data.ok) {
-            postsDiv.innerHTML = '';
-            data.result.messages.forEach(msg => {
-                const postDiv = document.createElement('div');
-                postDiv.classList.add('post');
-                postDiv.innerHTML = `${msg.text}<br><small>${new Date(msg.date * 1000).toLocaleString()}</small>`;
-                postsDiv.appendChild(postDiv);
-            });
+            const messages = data.result
+                .filter(update => update.message && update.message.chat.id == FEED_CHAT_ID)
+                .map(update => ({
+                    text: update.message.text,
+                    timestamp: new Date(update.message.date * 1000).toLocaleString()
+                }));
+            localPosts = [...new Set([...messages, ...localPosts])]; // Убираем дубли
+            renderPosts();
         }
     });
 }
@@ -111,16 +131,16 @@ submitTournament.addEventListener('click', () => {
 });
 
 function loadTournaments() {
-    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChatHistory?chat_id=${TOURNAMENT_CHAT_ID}&limit=50`)
+    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates`)
     .then(response => response.json())
     .then(data => {
         if (data.ok) {
             tournamentList.innerHTML = '';
-            data.result.messages.forEach(msg => {
-                if (msg.text.startsWith('Турнир:')) {
+            data.result.forEach(update => {
+                if (update.message && update.message.chat.id == TOURNAMENT_CHAT_ID && update.message.text.startsWith('Турнир:')) {
                     const tournamentDiv = document.createElement('div');
                     tournamentDiv.classList.add('tournament');
-                    tournamentDiv.innerHTML = `${msg.text}<br><button onclick="showRegistrationForm(${msg.message_id})">Зарегистрироваться</button>`;
+                    tournamentDiv.innerHTML = `${update.message.text}<br><button onclick="showRegistrationForm(${update.message.message_id})">Зарегистрироваться</button>`;
                     tournamentList.appendChild(tournamentDiv);
                 }
             });
