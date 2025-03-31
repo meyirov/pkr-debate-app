@@ -1,48 +1,69 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PKR</title>
-  <link rel="stylesheet" href="style.css">
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PKR - Дебаты</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
-  <div id="app">
-    <header>
-      <h1>PKR</h1>
-    </header>
-    <div id="content"></div>
-    <nav id="menu">
-      <button onclick="showFeed()" class="menu-btn active" id="feed-btn">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 12h18M3 6h18M3 18h18"></path>
-        </svg>
-      </button>
-      <button onclick="showTournaments()" class="menu-btn" id="tournaments-btn">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
-        </svg>
-      </button>
-      <button onclick="showRating()" class="menu-btn" id="rating-btn">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
-        </svg>
-      </button>
-      <button onclick="showProfile()" class="menu-btn" id="profile-btn">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-          <circle cx="12" cy="7" r="4"></circle>
-        </svg>
-      </button>
-      <button onclick="showEdu()" class="menu-btn" id="edu-btn">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-        </svg>
-      </button>
-    </nav>
-  </div>
-  <script src="script.js"></script>
+    <div class="container">
+        <!-- Основной контент -->
+        <div class="main-content">
+            <!-- Лента -->
+            <section id="feed" class="content active">
+                <div id="new-post">
+                    <textarea id="post-text" placeholder="Что нового?"></textarea>
+                    <button id="submit-post">Твитнуть</button>
+                </div>
+                <div id="posts"></div>
+            </section>
+
+            <!-- Турниры -->
+            <section id="tournaments" class="content">
+                <button id="create-tournament-btn">Создать турнир</button>
+                <div id="create-tournament-form" class="form-hidden">
+                    <input id="tournament-name" type="text" placeholder="Название турнира">
+                    <input id="tournament-date" type="text" placeholder="Дата (например, 10.04.2025)">
+                    <input id="tournament-logo" type="text" placeholder="Ссылка на логотип">
+                    <textarea id="tournament-desc" placeholder="Описание турнира"></textarea>
+                    <input id="tournament-address" type="text" placeholder="Ссылка на 2GIS">
+                    <input id="tournament-deadline" type="text" placeholder="Дедлайн (например, 05.04.2025)">
+                    <button id="submit-tournament">Создать</button>
+                </div>
+                <div id="tournament-list"></div>
+            </section>
+
+            <!-- Рейтинг -->
+            <section id="rating" class="content">
+                <div id="rating-list"></div>
+            </section>
+
+            <!-- Профиль -->
+            <section id="profile" class="content">
+                <h2>Профиль</h2>
+                <p>Username: <span id="username"></span></p>
+                <input id="fullname" type="text" placeholder="Имя и фамилия">
+                <button id="save-profile">Сохранить</button>
+            </section>
+
+            <!-- PKR EDU -->
+            <section id="edu" class="content">
+                <h2>PKR EDU</h2>
+                <p>Обучающий контент скоро появится!</p>
+            </section>
+        </div>
+
+        <!-- Навигация внизу -->
+        <nav class="navbar">
+            <button id="feed-btn" class="nav-btn active"><span>🏠</span> Лента</button>
+            <button id="tournaments-btn" class="nav-btn"><span>🏆</span> Турниры</button>
+            <button id="rating-btn" class="nav-btn"><span>⭐</span> Рейтинг</button>
+            <button id="profile-btn" class="nav-btn"><span>👤</span> Профиль</button>
+            <button id="edu-btn" class="nav-btn"><span>📚</span> EDU</button>
+        </nav>
+    </div>
+    <script src="script.js"></script>
 </body>
 </html>
