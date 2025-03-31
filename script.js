@@ -3,7 +3,16 @@ tg.ready();
 
 const sections = document.querySelectorAll('.content');
 const buttons = document.querySelectorAll('.nav-btn');
-const db = firebase.database();
+let db;
+
+window.addEventListener('load', () => {
+    if (typeof firebase !== 'undefined') {
+        db = firebase.database();
+        console.log("Database connected successfully");
+    } else {
+        console.error("Firebase database not available");
+    }
+});
 
 buttons.forEach(button => {
     button.addEventListener('click', () => {
@@ -12,8 +21,8 @@ buttons.forEach(button => {
         sections.forEach(section => section.classList.remove('active'));
         const targetSection = document.getElementById(button.id.replace('-btn', ''));
         targetSection.classList.add('active');
-        if (button.id === 'feed-btn') loadPosts();
-        if (button.id === 'tournaments-btn') loadTournaments();
+        if (button.id === 'feed-btn' && db) loadPosts();
+        if (button.id === 'tournaments-btn' && db) loadTournaments();
     });
 });
 
@@ -40,6 +49,10 @@ submitPost.addEventListener('click', () => {
         alert('Сначала укажи имя и фамилию в профиле!');
         return;
     }
+    if (!db) {
+        alert('База данных недоступна!');
+        return;
+    }
     const text = `${userData.fullname} (@${tg.initDataUnsafe.user.username}):\n${postText.value}`;
     const post = {
         text: text,
@@ -48,8 +61,12 @@ submitPost.addEventListener('click', () => {
     db.ref('posts').push(post)
         .then(() => {
             postText.value = '';
+            console.log("Post saved successfully");
         })
-        .catch(error => alert('Ошибка: ' + error));
+        .catch(error => {
+            console.error("Error saving post:", error);
+            alert('Ошибка: ' + error.message);
+        });
 });
 
 function loadPosts() {
@@ -65,6 +82,9 @@ function loadPosts() {
             postDiv.innerHTML = `${post.text}<br><small>${new Date(post.timestamp).toLocaleString()}</small>`;
             postsDiv.appendChild(postDiv);
         });
+    }, error => {
+        console.error("Error loading posts:", error);
+        alert('Ошибка загрузки постов: ' + error.message);
     });
 }
 
@@ -79,6 +99,10 @@ createTournamentBtn.addEventListener('click', () => {
 });
 
 submitTournament.addEventListener('click', () => {
+    if (!db) {
+        alert('База данных недоступна!');
+        return;
+    }
     const tournament = {
         name: document.getElementById('tournament-name').value,
         date: document.getElementById('tournament-date').value,
@@ -92,8 +116,12 @@ submitTournament.addEventListener('click', () => {
         .then(() => {
             alert('Турнир создан!');
             createTournamentForm.classList.add('form-hidden');
+            console.log("Tournament saved successfully");
         })
-        .catch(error => alert('Ошибка: ' + error));
+        .catch(error => {
+            console.error("Error saving tournament:", error);
+            alert('Ошибка: ' + error.message);
+        });
 });
 
 function loadTournaments() {
@@ -119,6 +147,9 @@ function loadTournaments() {
             `;
             tournamentList.appendChild(tournamentDiv);
         });
+    }, error => {
+        console.error("Error loading tournaments:", error);
+        alert('Ошибка загрузки турниров: ' + error.message);
     });
 }
 
@@ -137,6 +168,10 @@ function showRegistrationForm(tournamentId) {
 }
 
 function submitRegistration(tournamentId) {
+    if (!db) {
+        alert('База данных недоступна!');
+        return;
+    }
     const registration = {
         speaker1: document.getElementById('reg-speaker1').value,
         speaker2: document.getElementById('reg-speaker2').value,
@@ -150,8 +185,12 @@ function submitRegistration(tournamentId) {
         .then(() => {
             alert('Регистрация отправлена!');
             loadTournaments();
+            console.log("Registration saved successfully");
         })
-        .catch(error => alert('Ошибка: ' + error));
+        .catch(error => {
+            console.error("Error saving registration:", error);
+            alert('Ошибка: ' + error.message);
+        });
 }
 
 // Рейтинг (статический)
