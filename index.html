@@ -6,9 +6,9 @@
     <title>PKR - Дебаты</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js"></script>
+    <!-- Firebase SDK с async -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js" defer></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js" defer></script>
     <script>
       // Твоя конфигурация Firebase
       const firebaseConfig = {
@@ -20,13 +20,27 @@
         messagingSenderId: "968519585840",
         appId: "1:968519585840:web:f88b0bd37ce534dca05df5"
       };
-      // Инициализация Firebase с проверкой
-      window.addEventListener('load', () => {
-        if (typeof firebase !== 'undefined') {
+
+      // Ждём загрузки всех скриптов
+      document.addEventListener('DOMContentLoaded', () => {
+        if (typeof firebase === 'undefined') {
+          console.error("Firebase SDK not loaded yet");
+          return;
+        }
+        try {
           firebase.initializeApp(firebaseConfig);
           console.log("Firebase initialized successfully");
-        } else {
-          console.error("Firebase SDK not loaded");
+          const db = firebase.database();
+          db.ref('.info/connected').on('value', (snap) => {
+            if (snap.val() === true) {
+              console.log("Connected to Firebase Database");
+              window.firebaseDb = db; // Сохраняем db в глобальную переменную
+            } else {
+              console.log("Not connected to Firebase Database");
+            }
+          });
+        } catch (error) {
+          console.error("Firebase initialization error:", error);
         }
       });
     </script>
