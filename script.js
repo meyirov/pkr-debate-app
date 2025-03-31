@@ -3,16 +3,6 @@ tg.ready();
 
 const sections = document.querySelectorAll('.content');
 const buttons = document.querySelectorAll('.nav-btn');
-let db;
-
-window.addEventListener('load', () => {
-    if (typeof firebase !== 'undefined') {
-        db = firebase.database();
-        console.log("Database connected successfully");
-    } else {
-        console.error("Firebase database not available");
-    }
-});
 
 buttons.forEach(button => {
     button.addEventListener('click', () => {
@@ -21,8 +11,8 @@ buttons.forEach(button => {
         sections.forEach(section => section.classList.remove('active'));
         const targetSection = document.getElementById(button.id.replace('-btn', ''));
         targetSection.classList.add('active');
-        if (button.id === 'feed-btn' && db) loadPosts();
-        if (button.id === 'tournaments-btn' && db) loadTournaments();
+        if (button.id === 'feed-btn' && window.firebaseDb) loadPosts();
+        if (button.id === 'tournaments-btn' && window.firebaseDb) loadTournaments();
     });
 });
 
@@ -49,8 +39,9 @@ submitPost.addEventListener('click', () => {
         alert('Сначала укажи имя и фамилию в профиле!');
         return;
     }
-    if (!db) {
-        alert('База данных недоступна!');
+    if (!window.firebaseDb) {
+        alert('База данных недоступна! Проверь консоль.');
+        console.error("Database not available when submitting post");
         return;
     }
     const text = `${userData.fullname} (@${tg.initDataUnsafe.user.username}):\n${postText.value}`;
@@ -58,7 +49,7 @@ submitPost.addEventListener('click', () => {
         text: text,
         timestamp: new Date().toISOString()
     };
-    db.ref('posts').push(post)
+    window.firebaseDb.ref('posts').push(post)
         .then(() => {
             postText.value = '';
             console.log("Post saved successfully");
@@ -70,7 +61,7 @@ submitPost.addEventListener('click', () => {
 });
 
 function loadPosts() {
-    db.ref('posts').orderByChild('timestamp').limitToLast(50).on('value', snapshot => {
+    window.firebaseDb.ref('posts').orderByChild('timestamp').limitToLast(50).on('value', snapshot => {
         postsDiv.innerHTML = '';
         const posts = [];
         snapshot.forEach(child => {
@@ -99,8 +90,9 @@ createTournamentBtn.addEventListener('click', () => {
 });
 
 submitTournament.addEventListener('click', () => {
-    if (!db) {
-        alert('База данных недоступна!');
+    if (!window.firebaseDb) {
+        alert('База данных недоступна! Проверь консоль.');
+        console.error("Database not available when submitting tournament");
         return;
     }
     const tournament = {
@@ -112,7 +104,7 @@ submitTournament.addEventListener('click', () => {
         deadline: document.getElementById('tournament-deadline').value,
         timestamp: new Date().toISOString()
     };
-    db.ref('tournaments').push(tournament)
+    window.firebaseDb.ref('tournaments').push(tournament)
         .then(() => {
             alert('Турнир создан!');
             createTournamentForm.classList.add('form-hidden');
@@ -125,7 +117,7 @@ submitTournament.addEventListener('click', () => {
 });
 
 function loadTournaments() {
-    db.ref('tournaments').orderByChild('timestamp').limitToLast(50).on('value', snapshot => {
+    window.firebaseDb.ref('tournaments').orderByChild('timestamp').limitToLast(50).on('value', snapshot => {
         tournamentList.innerHTML = '';
         const tournaments = [];
         snapshot.forEach(child => {
@@ -168,8 +160,9 @@ function showRegistrationForm(tournamentId) {
 }
 
 function submitRegistration(tournamentId) {
-    if (!db) {
-        alert('База данных недоступна!');
+    if (!window.firebaseDb) {
+        alert('База данных недоступна! Проверь консоль.');
+        console.error("Database not available when submitting registration");
         return;
     }
     const registration = {
@@ -181,7 +174,7 @@ function submitRegistration(tournamentId) {
         extra: document.getElementById('reg-extra').value,
         timestamp: new Date().toISOString()
     };
-    db.ref(`registrations/${tournamentId}`).push(registration)
+    window.firebaseDb.ref(`registrations/${tournamentId}`).push(registration)
         .then(() => {
             alert('Регистрация отправлена!');
             loadTournaments();
