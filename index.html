@@ -6,43 +6,10 @@
     <title>PKR - Дебаты</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Firebase SDK (новая версия, без defer) -->
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js"></script>
     <script>
-      // Твоя конфигурация Firebase
-      const firebaseConfig = {
-        apiKey: "AIzaSyA3MXvtEvpE6znCrF5MLaxWxcONYplZcbo",
-        authDomain: "pkr-app-a7d6a.firebaseapp.com",
-        databaseURL: "https://pkr-app-a7d6a-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "pkr-app-a7d6a",
-        storageBucket: "pkr-app-a7d6a.firebasestorage.app",
-        messagingSenderId: "968519585840",
-        appId: "1:968519585840:web:f88b0bd37ce534dca05df5"
-      };
-
-      // Инициализация Firebase
-      if (typeof firebase === 'undefined') {
-        console.error("Firebase SDK failed to load");
-        alert("Не удалось загрузить Firebase. Проверьте подключение к интернету.");
-      } else {
-        try {
-          firebase.initializeApp(firebaseConfig);
-          console.log("Firebase initialized successfully");
-          const db = firebase.database();
-          window.firebaseDb = db; // Сохраняем в глобальную переменную
-          db.ref('.info/connected').on('value', (snap) => {
-            if (snap.val() === true) {
-              console.log("Connected to Firebase Database");
-            } else {
-              console.log("Not connected to Firebase Database");
-            }
-          });
-        } catch (error) {
-          console.error("Firebase initialization error:", error);
-          alert("Ошибка инициализации Firebase: " + error.message);
-        }
-      }
+      // Конфигурация Supabase
+      const SUPABASE_URL = 'https://dwkbptqrblyiqymnqjiv.supabase.co';
+      const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3a2JwdHFyYmx5aXF5bW5xaml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0MzA3NTcsImV4cCI6MjA1OTAwNjc1N30.QIHms9_kllO7SMxxUlu2U_ugICz1q_cr2-fO61092N4';
     </script>
 </head>
 <body>
