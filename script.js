@@ -33,8 +33,9 @@ saveProfileBtn.addEventListener('click', () => {
 const postText = document.getElementById('post-text');
 const submitPost = document.getElementById('submit-post');
 const postsDiv = document.getElementById('posts');
-const BOT_TOKEN = '6943054679:AAH_F8XNpxNfTB2puY1NrsKlTNEArBMPta8'; // Замени
-const FEED_CHAT_ID = '+92no40d8_bBmMjNi'; // Замени
+const BOT_TOKEN = '6943054679:AAH_F8XNpxNfTB2puY1NrsKlTNEArBMPta8'; // Твой токен
+const FEED_CHAT_ID = '-4657324752'; // chat_id группы ленты
+const TOURNAMENT_CHAT_ID = '-1002596440957'; // chat_id чата турниров
 
 submitPost.addEventListener('click', () => {
     if (!userData.fullname) {
@@ -42,22 +43,24 @@ submitPost.addEventListener('click', () => {
         return;
     }
     const text = `${userData.fullname} (@${tg.initDataUnsafe.user.username}):\n${postText.value}`;
-    fetch(`https://api.telegram.org/bot${6943054679:AAH_F8XNpxNfTB2puY1NrsKlTNEArBMPta8}/sendMessage`, {
+    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: +92no40d8_bBmMjNi, text })
+        body: JSON.stringify({ chat_id: FEED_CHAT_ID, text })
     })
     .then(response => response.json())
     .then(data => {
         if (data.ok) {
             postText.value = '';
             loadPosts();
+        } else {
+            alert('Ошибка: ' + data.description);
         }
     });
 });
 
 function loadPosts() {
-    fetch(`https://api.telegram.org/bot${6943054679:AAH_F8XNpxNfTB2puY1NrsKlTNEArBMPta8}/getChatHistory?chat_id=${+92no40d8_bBmMjNi}&limit=50`)
+    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChatHistory?chat_id=${FEED_CHAT_ID}&limit=50`)
     .then(response => response.json())
     .then(data => {
         if (data.ok) {
@@ -73,7 +76,6 @@ function loadPosts() {
 }
 
 // Турниры
-const TOURNAMENT_CHAT_ID = 'ТВОЙ_CHAT_ID_ТУРНИРОВ'; // Замени
 const createTournamentBtn = document.getElementById('create-tournament-btn');
 const createTournamentForm = document.getElementById('create-tournament-form');
 const submitTournament = document.getElementById('submit-tournament');
@@ -93,7 +95,7 @@ submitTournament.addEventListener('click', () => {
         deadline: document.getElementById('tournament-deadline').value
     };
     const text = `Турнир: ${tournament.name}\nДата: ${tournament.date}\nЛоготип: ${tournament.logo}\nОписание: ${tournament.desc}\nАдрес: ${tournament.address}\nДедлайн: ${tournament.deadline}`;
-    fetch(`https://api.telegram.org/bot${6943054679:AAH_F8XNpxNfTB2puY1NrsKlTNEArBMPta8}/sendMessage`, {
+    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chat_id: TOURNAMENT_CHAT_ID, text })
@@ -109,7 +111,7 @@ submitTournament.addEventListener('click', () => {
 });
 
 function loadTournaments() {
-    fetch(`https://api.telegram.org/bot${6943054679:AAH_F8XNpxNfTB2puY1NrsKlTNEArBMPta8}/getChatHistory?chat_id=${TOURNAMENT_CHAT_ID}&limit=50`)
+    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChatHistory?chat_id=${TOURNAMENT_CHAT_ID}&limit=50`)
     .then(response => response.json())
     .then(data => {
         if (data.ok) {
@@ -150,7 +152,7 @@ function submitRegistration(tournamentId) {
         extra: document.getElementById('reg-extra').value
     };
     const text = `Регистрация на турнир #${tournamentId}:\nСпикер 1: ${registration.speaker1}\nСпикер 2: ${registration.speaker2}\nКлуб: ${registration.club}\nГород: ${registration.city}\nКонтакты: ${registration.contacts}\nДополнительно: ${registration.extra}`;
-    fetch(`https://api.telegram.org/bot${6943054679:AAH_F8XNpxNfTB2puY1NrsKlTNEArBMPta8}/sendMessage`, {
+    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chat_id: TOURNAMENT_CHAT_ID, text })
