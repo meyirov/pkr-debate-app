@@ -20,8 +20,15 @@
         messagingSenderId: "968519585840",
         appId: "1:968519585840:web:f88b0bd37ce534dca05df5"
       };
-      // Инициализация Firebase
-      firebase.initializeApp(firebaseConfig);
+      // Инициализация Firebase с проверкой
+      window.addEventListener('load', () => {
+        if (typeof firebase !== 'undefined') {
+          firebase.initializeApp(firebaseConfig);
+          console.log("Firebase initialized successfully");
+        } else {
+          console.error("Firebase SDK not loaded");
+        }
+      });
     </script>
 </head>
 <body>
