@@ -40,8 +40,14 @@ async function supabaseFetch(endpoint, method, body = null) {
         },
         body: body ? JSON.stringify(body) : null
     });
-    if (!response.ok) throw new Error(`Supabase error: ${response.statusText}`);
-    return response.json();
+    console.log(`Supabase response status: ${response.status}`); // Логируем статус
+    if (!response.ok) {
+        const errorText = await response.text(); // Получаем текст ошибки
+        throw new Error(`Supabase error: ${response.status} - ${errorText}`);
+    }
+    // Проверяем, есть ли тело ответа
+    const text = await response.text();
+    return text ? JSON.parse(text) : null; // Если тело пустое, возвращаем null
 }
 
 // Лента
@@ -73,12 +79,14 @@ async function loadPosts() {
     try {
         const posts = await supabaseFetch('posts?order=timestamp.desc&limit=50', 'GET');
         postsDiv.innerHTML = '';
-        posts.forEach(post => {
-            const postDiv = document.createElement('div');
-            postDiv.classList.add('post');
-            postDiv.innerHTML = `${post.text}<br><small>${new Date(post.timestamp).toLocaleString()}</small>`;
-            postsDiv.appendChild(postDiv);
-        });
+        if (posts) { // Проверяем, что posts не null
+            posts.forEach(post => {
+                const postDiv = document.createElement('div');
+                postDiv.classList.add('post');
+                postDiv.innerHTML = `${post.text}<br><small>${new Date(post.timestamp).toLocaleString()}</small>`;
+                postsDiv.appendChild(postDiv);
+            });
+        }
     } catch (error) {
         console.error('Error loading posts:', error);
         alert('Ошибка загрузки постов: ' + error.message);
@@ -120,20 +128,22 @@ async function loadTournaments() {
     try {
         const tournaments = await supabaseFetch('tournaments?order=timestamp.desc&limit=50', 'GET');
         tournamentList.innerHTML = '';
-        tournaments.forEach(tournament => {
-            const tournamentDiv = document.createElement('div');
-            tournamentDiv.classList.add('tournament');
-            tournamentDiv.innerHTML = `
-                Турнир: ${tournament.name}<br>
-                Дата: ${tournament.date}<br>
-                Логотип: ${tournament.logo}<br>
-                Описание: ${tournament.desc}<br>
-                Адрес: ${tournament.address}<br>
-                Дедлайн: ${tournament.deadline}<br>
-                <button onclick="showRegistrationForm('${tournament.id}')">Зарегистрироваться</button>
-            `;
-            tournamentList.appendChild(tournamentDiv);
-        });
+        if (tournaments) { // Проверяем, что tournaments не null
+            tournaments.forEach(tournament => {
+                const tournamentDiv = document.createElement('div');
+                tournamentDiv.classList.add('tournament');
+                tournamentDiv.innerHTML = `
+                    Турнир: ${tournament.name}<br>
+                    Дата: ${tournament.date}<br>
+                    Логотип: ${tournament.logo}<br>
+                    Описание: ${tournament.desc}<br>
+                    Адрес: ${tournament.address}<br>
+                    Дедлайн: ${tournament.deadline}<br>
+                    <button onclick="showRegistrationForm('${tournament.id}')">Зарегистрироваться</button>
+                `;
+                tournamentList.appendChild(tournamentDiv);
+            });
+        }
     } catch (error) {
         console.error('Error loading tournaments:', error);
         alert('Ошибка загрузки турниров: ' + error.message);
