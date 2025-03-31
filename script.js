@@ -34,7 +34,7 @@ const postText = document.getElementById('post-text');
 const submitPost = document.getElementById('submit-post');
 const postsDiv = document.getElementById('posts');
 const BOT_TOKEN = '6943054679:AAH_F8XNpxNfTB2puY1NrsKlTNEArBMPta8'; // Твой токен
-const FEED_CHAT_ID = '-4657324752'; // chat_id группы ленты
+const FEED_CHAT_ID = '-1002596440957'; // chat_id группы ленты
 const TOURNAMENT_CHAT_ID = '-1002596440957'; // chat_id чата турниров
 
 submitPost.addEventListener('click', () => {
