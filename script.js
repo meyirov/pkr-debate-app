@@ -6,6 +6,7 @@ const appContainer = document.getElementById('app-container');
 const regFullname = document.getElementById('reg-fullname');
 const submitProfileRegBtn = document.getElementById('submit-profile-reg-btn');
 let userData = {};
+let postsCache = []; // Глобальный кэш для постов
 
 // Supabase API функции
 async function supabaseFetch(endpoint, method, body = null) {
@@ -125,9 +126,11 @@ submitPost.addEventListener('click', async () => {
         timestamp: new Date().toISOString()
     };
     try {
-        await supabaseFetch('posts', 'POST', post);
+        const newPost = await supabaseFetch('posts', 'POST', post);
         postText.value = '';
-        loadPosts();
+        // Добавляем новый пост в начало кэша и отображаем его
+        postsCache.unshift(newPost);
+        renderPost(newPost, true); // true означает добавить в начало
     } catch (error) {
         console.error('Error saving post:', error);
         alert('Ошибка: ' + error.message);
@@ -136,68 +139,156 @@ submitPost.addEventListener('click', async () => {
 
 async function loadPosts() {
     try {
-        const posts = await supabaseFetch('posts?order=timestamp.desc&limit=50', 'GET');
-        console.log('Loaded posts:', posts); // Логируем посты для отладки
-        postsDiv.innerHTML = '';
-        if (posts) {
-            for (const post of posts) {
-                const postDiv = document.createElement('div');
-                postDiv.classList.add('post');
-
-                // Разделяем текст поста на имя, username и содержимое
-                const [userInfo, ...contentParts] = post.text.split(':\n');
-                const [fullname, username] = userInfo.split(' (@');
-                const cleanUsername = username ? username.replace(')', '') : '';
-                const content = contentParts.join(':\n');
-
-                // Форматируем время
-                const timeAgo = getTimeAgo(new Date(post.timestamp));
-
-                // Загружаем лайки и дизлайки
-                const reactions = await loadReactions(post.id);
-                const likes = reactions.filter(r => r.type === 'like').length;
-                const dislikes = reactions.filter(r => r.type === 'dislike').length;
-                const userReaction = reactions.find(r => r.user_id === userData.telegramUsername);
-                const likeClass = userReaction && userReaction.type === 'like' ? 'active' : '';
-                const dislikeClass = userReaction && userReaction.type === 'dislike' ? 'active' : '';
-
-                // Загружаем количество комментариев
-                const comments = await loadComments(post.id);
-                const commentCount = comments.length;
-
-                // Создаём структуру поста
-                postDiv.innerHTML = `
-                    <div class="post-header">
-                        <div class="post-user">
-                            <strong>${fullname}</strong>
-                            <span>@${cleanUsername}</span>
-                        </div>
-                        <div class="post-time">${timeAgo}</div>
-                    </div>
-                    <div class="post-content">${content}</div>
-                    <div class="post-actions">
-                        <button class="reaction-btn like-btn ${likeClass}" onclick="toggleReaction(${post.id}, 'like')">👍 ${likes}</button>
-                        <button class="reaction-btn dislike-btn ${dislikeClass}" onclick="toggleReaction(${post.id}, 'dislike')">👎 ${dislikes}</button>
-                        <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (${commentCount})</button>
-                    </div>
-                    <div class="comment-section" id="comments-${post.id}" style="display: none;">
-                        <div class="comment-list" id="comment-list-${post.id}"></div>
-                        <div class="comment-form">
-                            <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
-                            <button onclick="addComment(${post.id})">Отправить</button>
-                        </div>
-                    </div>
-                `;
-                postsDiv.appendChild(postDiv);
-
-                // Загружаем комментарии (но не показываем, пока не нажата кнопка)
-                await renderComments(post.id, comments);
+        // Загружаем посты только если кэш пустой
+        if (postsCache.length === 0) {
+            const posts = await supabaseFetch('posts?order=timestamp.desc&limit=50', 'GET');
+            console.log('Loaded posts:', posts);
+            if (posts) {
+                // Сортируем посты на стороне клиента для стабильности
+                postsCache = posts.sort((a, b) => {
+                    const timeA = new Date(a.timestamp).getTime();
+                    const timeB = new Date(b.timestamp).getTime();
+                    if (timeA === timeB) {
+                        return b.id - a.id; // Если timestamp совпадает, сортируем по id (убывание)
+                    }
+                    return timeB - timeA; // Сортировка по timestamp (убывание)
+                });
+                postsDiv.innerHTML = ''; // Очищаем только при первой загрузке
+                for (const post of postsCache) {
+                    await renderPost(post);
+                }
             }
         }
     } catch (error) {
         console.error('Error loading posts:', error);
         alert('Ошибка загрузки постов: ' + error.message);
     }
+}
+
+// Функция для отображения одного поста
+async function renderPost(post, prepend = false) {
+    const postDiv = document.createElement('div');
+    postDiv.classList.add('post');
+    postDiv.setAttribute('data-post-id', post.id); // Добавляем атрибут для поиска
+
+    // Разделяем текст поста на имя, username и содержимое
+    const [userInfo, ...contentParts] = post.text.split(':\n');
+    const [fullname, username] = userInfo.split(' (@');
+    const cleanUsername = username ? username.replace(')', '') : '';
+    const content = contentParts.join(':\n');
+
+    // Форматируем время
+    const timeAgo = getTimeAgo(new Date(post.timestamp));
+
+    // Загружаем лайки и дизлайки
+    const reactions = await loadReactions(post.id);
+    const likes = reactions.filter(r => r.type === 'like').length;
+    const dislikes = reactions.filter(r => r.type === 'dislike').length;
+    const userReaction = reactions.find(r => r.user_id === userData.telegramUsername);
+    const likeClass = userReaction && userReaction.type === 'like' ? 'active' : '';
+    const dislikeClass = userReaction && userReaction.type === 'dislike' ? 'active' : '';
+
+    // Загружаем количество комментариев
+    const comments = await loadComments(post.id);
+    const commentCount = comments.length;
+
+    // Создаём структуру поста
+    postDiv.innerHTML = `
+        <div class="post-header">
+            <div class="post-user">
+                <strong>${fullname}</strong>
+                <span>@${cleanUsername}</span>
+            </div>
+            <div class="post-time">${timeAgo}</div>
+        </div>
+        <div class="post-content">${content}</div>
+        <div class="post-actions">
+            <button class="reaction-btn like-btn ${likeClass}" onclick="toggleReaction(${post.id}, 'like')">👍 ${likes}</button>
+            <button class="reaction-btn dislike-btn ${dislikeClass}" onclick="toggleReaction(${post.id}, 'dislike')">👎 ${dislikes}</button>
+            <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (${commentCount})</button>
+        </div>
+        <div class="comment-section" id="comments-${post.id}" style="display: none;">
+            <div class="comment-list" id="comment-list-${post.id}"></div>
+            <div class="comment-form">
+                <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
+                <button onclick="addComment(${post.id})">Отправить</button>
+            </div>
+        </div>
+    `;
+
+    // Добавляем пост в DOM
+    if (prepend) {
+        postsDiv.prepend(postDiv);
+    } else {
+        postsDiv.appendChild(postDiv);
+    }
+
+    // Загружаем комментарии (но не показываем, пока не нажата кнопка)
+    await renderComments(post.id, comments);
+}
+
+// Функция для обновления одного поста
+async function updatePost(postId) {
+    const postIndex = postsCache.findIndex(post => post.id === postId);
+    if (postIndex === -1) return;
+
+    // Загружаем обновлённые данные для поста
+    const post = await supabaseFetch(`posts?id=eq.${postId}`, 'GET');
+    if (!post || post.length === 0) return;
+
+    postsCache[postIndex] = post[0]; // Обновляем кэш
+
+    // Находим элемент поста в DOM
+    const postDiv = postsDiv.querySelector(`[data-post-id="${postId}"]`);
+    if (!postDiv) return;
+
+    // Разделяем текст поста на имя, username и содержимое
+    const [userInfo, ...contentParts] = post[0].text.split(':\n');
+    const [fullname, username] = userInfo.split(' (@');
+    const cleanUsername = username ? username.replace(')', '') : '';
+    const content = contentParts.join(':\n');
+
+    // Форматируем время
+    const timeAgo = getTimeAgo(new Date(post[0].timestamp));
+
+    // Загружаем лайки и дизлайки
+    const reactions = await loadReactions(postId);
+    const likes = reactions.filter(r => r.type === 'like').length;
+    const dislikes = reactions.filter(r => r.type === 'dislike').length;
+    const userReaction = reactions.find(r => r.user_id === userData.telegramUsername);
+    const likeClass = userReaction && userReaction.type === 'like' ? 'active' : '';
+    const dislikeClass = userReaction && userReaction.type === 'dislike' ? 'active' : '';
+
+    // Загружаем количество комментариев
+    const comments = await loadComments(postId);
+    const commentCount = comments.length;
+
+    // Обновляем HTML поста
+    postDiv.innerHTML = `
+        <div class="post-header">
+            <div class="post-user">
+                <strong>${fullname}</strong>
+                <span>@${cleanUsername}</span>
+            </div>
+            <div class="post-time">${timeAgo}</div>
+        </div>
+        <div class="post-content">${content}</div>
+        <div class="post-actions">
+            <button class="reaction-btn like-btn ${likeClass}" onclick="toggleReaction(${postId}, 'like')">👍 ${likes}</button>
+            <button class="reaction-btn dislike-btn ${dislikeClass}" onclick="toggleReaction(${postId}, 'dislike')">👎 ${dislikes}</button>
+            <button class="comment-toggle-btn" onclick="toggleComments(${postId})">💬 Комментарии (${commentCount})</button>
+        </div>
+        <div class="comment-section" id="comments-${postId}" style="display: none;">
+            <div class="comment-list" id="comment-list-${postId}"></div>
+            <div class="comment-form">
+                <textarea class="comment-input" id="comment-input-${postId}" placeholder="Написать комментарий..."></textarea>
+                <button onclick="addComment(${postId})">Отправить</button>
+            </div>
+        </div>
+    `;
+
+    // Обновляем комментарии
+    await renderComments(postId, comments);
 }
 
 // Функция для форматирования времени (например, "15h")
@@ -229,6 +320,12 @@ async function toggleReaction(postId, type) {
     postId = parseInt(postId); // Преобразуем postId в число
     console.log('toggleReaction called with postId:', postId, 'type:', type, 'user_id:', userData.telegramUsername);
     try {
+        // Проверяем, существует ли пользователь в profiles
+        const userExists = await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'GET');
+        if (!userExists || userExists.length === 0) {
+            throw new Error('Пользователь не найден в базе данных. Пожалуйста, зарегистрируйтесь.');
+        }
+
         const userReaction = await supabaseFetch(`reactions?post_id=eq.${postId}&user_id=eq.${userData.telegramUsername}`, 'GET');
         console.log('User reaction:', userReaction);
         
@@ -247,7 +344,8 @@ async function toggleReaction(postId, type) {
                 timestamp: new Date().toISOString()
             });
         }
-        loadPosts();
+        // Обновляем только изменённый пост
+        await updatePost(postId);
     } catch (error) {
         console.error('Error toggling reaction:', error);
         alert('Ошибка: ' + error.message);
@@ -294,20 +392,33 @@ async function addComment(postId) {
         return;
     }
 
-    const comment = {
-        post_id: postId,
-        user_id: userData.telegramUsername,
-        text: `${userData.fullname} (@${userData.telegramUsername}):\n${text}`,
-        timestamp: new Date().toISOString()
-    };
-    console.log('Adding comment with data:', comment);
-
     try {
+        // Проверяем, существует ли пост в posts
+        const postExists = await supabaseFetch(`posts?id=eq.${postId}`, 'GET');
+        if (!postExists || postExists.length === 0) {
+            throw new Error('Пост не найден. Возможно, он был удалён.');
+        }
+
+        // Проверяем, существует ли пользователь в profiles
+        const userExists = await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'GET');
+        if (!userExists || userExists.length === 0) {
+            throw new Error('Пользователь не найден в базе данных. Пожалуйста, зарегистрируйтесь.');
+        }
+
+        const comment = {
+            post_id: postId,
+            user_id: userData.telegramUsername,
+            text: `${userData.fullname} (@${userData.telegramUsername}):\n${text}`,
+            timestamp: new Date().toISOString()
+        };
+        console.log('Adding comment with data:', comment);
+
         await supabaseFetch('comments', 'POST', comment);
         commentInput.value = '';
         const comments = await loadComments(postId);
         await renderComments(postId, comments);
-        loadPosts(); // Обновляем посты, чтобы обновить счётчик комментариев
+        // Обновляем только изменённый пост
+        await updatePost(postId);
     } catch (error) {
         console.error('Error adding comment:', error);
         alert('Ошибка: ' + error.message);
