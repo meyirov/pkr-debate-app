@@ -1,20 +1,11 @@
 const tg = window.Telegram.WebApp;
 tg.ready();
 
-const sections = document.querySelectorAll('.content');
-const buttons = document.querySelectorAll('.nav-btn');
-
-buttons.forEach(button => {
-    button.addEventListener('click', () => {
-        buttons.forEach(btn => btn.classList.remove('active'));
-        button.classList.add('active');
-        sections.forEach(section => section.classList.remove('active'));
-        const targetSection = document.getElementById(button.id.replace('-btn', ''));
-        targetSection.classList.add('active');
-        if (button.id === 'feed-btn') loadPosts();
-        if (button.id === 'tournaments-btn') loadTournaments();
-    });
-});
+const registrationModal = document.getElementById('registration-modal');
+const appContainer = document.getElementById('app-container');
+const regFullname = document.getElementById('reg-fullname');
+const submitRegistration = document.getElementById('submit-registration');
+let userData = {};
 
 // Supabase API функции
 async function supabaseFetch(endpoint, method, body = null) {
@@ -36,62 +27,91 @@ async function supabaseFetch(endpoint, method, body = null) {
     return text ? JSON.parse(text) : null;
 }
 
-// Профиль
-const username = document.getElementById('username');
-const fullname = document.getElementById('fullname');
-const saveProfileBtn = document.getElementById('save-profile');
-let userData = {};
-
-username.textContent = tg.initDataUnsafe.user ? tg.initDataUnsafe.user.username : 'Неизвестный';
-
-// Загружаем профиль при старте
-async function loadProfile() {
+// Проверка и регистрация профиля
+async function checkProfile() {
     const telegramUsername = tg.initDataUnsafe.user ? tg.initDataUnsafe.user.username : null;
     if (!telegramUsername) {
-        console.error('Telegram username not available');
+        alert('Telegram username недоступен! Укажите username в настройках Telegram.');
         return;
     }
+    userData.telegramUsername = telegramUsername;
+
     try {
         const profiles = await supabaseFetch(`profiles?telegram_username=eq.${telegramUsername}`, 'GET');
         if (profiles && profiles.length > 0) {
-            userData.fullname = profiles[0].fullname || telegramUsername; // Если fullname пустое, используем username
-            fullname.value = userData.fullname;
-            console.log('Profile loaded:', userData.fullname);
+            userData.fullname = profiles[0].fullname;
+            showApp(); // Показываем приложение, если профиль есть
         } else {
-            userData.fullname = telegramUsername; // По умолчанию используем username
-            fullname.value = userData.fullname;
+            registrationModal.style.display = 'block'; // Показываем окно регистрации
         }
     } catch (error) {
-        console.error('Error loading profile:', error);
-        userData.fullname = telegramUsername; // В случае ошибки используем username
-        fullname.value = userData.fullname;
+        console.error('Error checking profile:', error);
+        registrationModal.style.display = 'block'; // В случае ошибки показываем регистрацию
     }
 }
 
-// Сохраняем профиль
-saveProfileBtn.addEventListener('click', async () => {
-    const telegramUsername = tg.initDataUnsafe.user ? tg.initDataUnsafe.user.username : null;
-    if (!telegramUsername) {
-        alert('Telegram username недоступен!');
+submitRegistration.addEventListener('click', async () => {
+    if (!regFullname.value.trim()) {
+        alert('Пожалуйста, введите имя!');
         return;
     }
-    userData.fullname = fullname.value || telegramUsername; // Если поле пустое, используем username
+    userData.fullname = regFullname.value.trim();
     try {
-        const existingProfile = await supabaseFetch(`profiles?telegram_username=eq.${telegramUsername}`, 'GET');
-        if (existingProfile && existingProfile.length > 0) {
-            await supabaseFetch(`profiles?telegram_username=eq.${telegramUsername}`, 'PATCH', { fullname: userData.fullname });
-        } else {
-            await supabaseFetch('profiles', 'POST', { telegram_username: telegramUsername, fullname: userData.fullname });
-        }
-        alert('Профиль сохранён!');
+        await supabaseFetch('profiles', 'POST', {
+            telegram_username: userData.telegramUsername,
+            fullname: userData.fullname
+        });
+        registrationModal.style.display = 'none';
+        showApp();
     } catch (error) {
         console.error('Error saving profile:', error);
         alert('Ошибка: ' + error.message);
     }
 });
 
-// Загружаем профиль при запуске
-loadProfile();
+// Показываем приложение
+function showApp() {
+    appContainer.style.display = 'block';
+    document.getElementById('username').textContent = userData.telegramUsername;
+    document.getElementById('fullname').value = userData.fullname;
+    loadPosts(); // Загружаем ленту сразу
+}
+
+// Навигация
+const sections = document.querySelectorAll('.content');
+const buttons = document.querySelectorAll('.nav-btn');
+
+buttons.forEach(button => {
+    button.addEventListener('click', () => {
+        buttons.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+        sections.forEach(section => section.classList.remove('active'));
+        const targetSection = document.getElementById(button.id.replace('-btn', ''));
+        targetSection.classList.add('active');
+        if (button.id === 'feed-btn') loadPosts();
+        if (button.id === 'tournaments-btn') loadTournaments();
+    });
+});
+
+// Обновление профиля
+const updateProfileBtn = document.getElementById('update-profile');
+updateProfileBtn.addEventListener('click', async () => {
+    const newFullname = document.getElementById('fullname').value.trim();
+    if (!newFullname) {
+        alert('Пожалуйста, введите новое имя!');
+        return;
+    }
+    userData.fullname = newFullname;
+    try {
+        await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'PATCH', {
+            fullname: userData.fullname
+        });
+        alert('Имя обновлено!');
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        alert('Ошибка: ' + error.message);
+    }
+});
 
 // Лента
 const postText = document.getElementById('post-text');
@@ -99,11 +119,7 @@ const submitPost = document.getElementById('submit-post');
 const postsDiv = document.getElementById('posts');
 
 submitPost.addEventListener('click', async () => {
-    if (!userData.fullname) {
-        alert('Сначала укажи имя и фамилию в профиле или сохрани username!');
-        return;
-    }
-    const text = `${userData.fullname} (@${tg.initDataUnsafe.user.username}):\n${postText.value}`;
+    const text = `${userData.fullname} (@${userData.telegramUsername}):\n${postText.value}`;
     const post = {
         text: text,
         timestamp: new Date().toISOString()
@@ -209,7 +225,7 @@ function showRegistrationForm(tournamentId) {
 
 async function submitRegistration(tournamentId) {
     const registration = {
-        tournament_id: parseInt(tournamentId), // Убеждаемся, что ID — число
+        tournament_id: parseInt(tournamentId),
         speaker1: document.getElementById('reg-speaker1').value,
         speaker2: document.getElementById('reg-speaker2').value,
         club: document.getElementById('reg-club').value,
@@ -241,3 +257,6 @@ rating.forEach(player => {
     div.innerHTML = `<strong>${player.name}</strong> - ${player.points} очков`;
     ratingList.appendChild(div);
 });
+
+// Запускаем проверку профиля
+checkProfile();
