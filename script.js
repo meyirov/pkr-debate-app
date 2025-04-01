@@ -151,24 +151,24 @@ submitPost.addEventListener('click', async () => {
 
 async function loadPosts() {
     try {
-        if (postsCache.length === 0) {
-            const posts = await supabaseFetch('posts?order=timestamp.desc&limit=20', 'GET');
-            console.log('Loaded posts:', posts);
-            if (posts) {
-                postsCache = posts.sort((a, b) => {
-                    const timeA = new Date(a.timestamp).getTime();
-                    const timeB = new Date(b.timestamp).getTime();
-                    if (timeA === timeB) {
-                        return b.id - a.id;
-                    }
-                    return timeB - timeA;
-                });
-                postsDiv.innerHTML = '';
-                const renderPromises = postsCache.map(post => renderPost(post));
-                await Promise.all(renderPromises);
-                if (postsCache.length > 0) {
-                    lastPostTimestamp = postsCache[0].timestamp;
+        postsCache = [];
+        const posts = await supabaseFetch('posts?order=timestamp.desc&limit=20', 'GET');
+        console.log('Loaded posts:', posts);
+        if (posts) {
+            postsCache = posts.sort((a, b) => {
+                const timeA = new Date(a.timestamp).getTime();
+                const timeB = new Date(b.timestamp).getTime();
+                if (timeA === timeB) {
+                    return b.id - a.id;
                 }
+                return timeB - timeA;
+            });
+            postsDiv.innerHTML = '';
+            for (const post of postsCache) {
+                await renderPost(post);
+            }
+            if (postsCache.length > 0) {
+                lastPostTimestamp = postsCache[0].timestamp;
             }
         }
     } catch (error) {
@@ -190,8 +190,18 @@ async function loadNewPosts() {
                 return timeB - timeA;
             });
             postsCache.unshift(...newPosts);
-            const renderPromises = newPosts.map(post => renderPost(post, true));
-            await Promise.all(renderPromises);
+            postsCache.sort((a, b) => {
+                const timeA = new Date(a.timestamp).getTime();
+                const timeB = new Date(b.timestamp).getTime();
+                if (timeA === timeB) {
+                    return b.id - a.id;
+                }
+                return timeB - timeA;
+            });
+            postsDiv.innerHTML = '';
+            for (const post of postsCache) {
+                await renderPost(post);
+            }
             lastPostTimestamp = postsCache[0].timestamp;
         }
     } catch (error) {
