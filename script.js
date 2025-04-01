@@ -227,7 +227,7 @@ async function loadReactions(postId) {
 
 async function toggleReaction(postId, type) {
     postId = parseInt(postId); // Преобразуем postId в число
-    console.log('toggleReaction called with postId:', postId, 'type:', type);
+    console.log('toggleReaction called with postId:', postId, 'type:', type, 'user_id:', userData.telegramUsername);
     try {
         const userReaction = await supabaseFetch(`reactions?post_id=eq.${postId}&user_id=eq.${userData.telegramUsername}`, 'GET');
         console.log('User reaction:', userReaction);
@@ -300,7 +300,7 @@ async function addComment(postId) {
         text: `${userData.fullname} (@${userData.telegramUsername}):\n${text}`,
         timestamp: new Date().toISOString()
     };
-    console.log('Adding comment:', comment);
+    console.log('Adding comment with data:', comment);
 
     try {
         await supabaseFetch('comments', 'POST', comment);
