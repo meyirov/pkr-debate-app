@@ -142,7 +142,27 @@ async function loadPosts() {
             posts.forEach(post => {
                 const postDiv = document.createElement('div');
                 postDiv.classList.add('post');
-                postDiv.innerHTML = `${post.text}<br><small>${new Date(post.timestamp).toLocaleString()}</small>`;
+
+                // Разделяем текст поста на имя, username и содержимое
+                const [userInfo, ...contentParts] = post.text.split(':\n');
+                const [fullname, username] = userInfo.split(' (@');
+                const cleanUsername = username ? username.replace(')', '') : '';
+                const content = contentParts.join(':\n');
+
+                // Форматируем время
+                const timeAgo = getTimeAgo(new Date(post.timestamp));
+
+                // Создаём структуру поста
+                postDiv.innerHTML = `
+                    <div class="post-header">
+                        <div class="post-user">
+                            <strong>${fullname}</strong>
+                            <span>@${cleanUsername}</span>
+                        </div>
+                        <div class="post-time">${timeAgo}</div>
+                    </div>
+                    <div class="post-content">${content}</div>
+                `;
                 postsDiv.appendChild(postDiv);
             });
         }
@@ -150,6 +170,20 @@ async function loadPosts() {
         console.error('Error loading posts:', error);
         alert('Ошибка загрузки постов: ' + error.message);
     }
+}
+
+// Функция для форматирования времени (например, "15h")
+function getTimeAgo(date) {
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+
+    if (diffInSeconds < 60) return `${diffInSeconds}s`;
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    if (diffInMinutes < 60) return `${diffInMinutes}m`;
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours}h`;
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays}d`;
 }
 
 // Турниры
