@@ -7,6 +7,7 @@ const regFullname = document.getElementById('reg-fullname');
 const submitProfileRegBtn = document.getElementById('submit-profile-reg-btn');
 let userData = {};
 let postsCache = [];
+let lastPostTimestamp = null;
 
 async function supabaseFetch(endpoint, method, body = null) {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, {
@@ -14,7 +15,8 @@ async function supabaseFetch(endpoint, method, body = null) {
         headers: {
             'apikey': SUPABASE_KEY,
             'Authorization': `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Prefer': method === 'POST' ? 'return=representation' : undefined
         },
         body: body ? JSON.stringify(body) : null
     });
@@ -73,6 +75,7 @@ function showApp() {
     document.getElementById('username').textContent = userData.telegramUsername;
     document.getElementById('fullname').value = userData.fullname;
     loadPosts();
+    startNewPostCheck();
 }
 
 const sections = document.querySelectorAll('.content');
@@ -112,6 +115,16 @@ updateProfileBtn.addEventListener('click', async () => {
 const postText = document.getElementById('post-text');
 const submitPost = document.getElementById('submit-post');
 const postsDiv = document.getElementById('posts');
+const newPostsBtn = document.createElement('button');
+newPostsBtn.id = 'new-posts-btn';
+newPostsBtn.className = 'new-posts-btn';
+newPostsBtn.style.display = 'none';
+newPostsBtn.innerHTML = 'Новые посты';
+newPostsBtn.addEventListener('click', () => {
+    loadNewPosts();
+    newPostsBtn.style.display = 'none';
+});
+document.getElementById('feed').prepend(newPostsBtn);
 
 submitPost.addEventListener('click', async () => {
     const postContent = postText.value.trim();
@@ -125,24 +138,11 @@ submitPost.addEventListener('click', async () => {
         timestamp: new Date().toISOString()
     };
     try {
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
-            method: 'POST',
-            headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': `Bearer ${SUPABASE_KEY}`,
-                'Content-Type': 'application/json',
-                'Prefer': 'return=representation'
-            },
-            body: JSON.stringify(post)
-        });
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Supabase error: ${response.status} - ${errorText}`);
-        }
-        const newPost = await response.json();
+        const newPost = await supabaseFetch('posts', 'POST', post);
         postText.value = '';
         postsCache.unshift(newPost[0]);
         renderPost(newPost[0], true);
+        lastPostTimestamp = new Date(newPost[0].timestamp).toISOString();
     } catch (error) {
         console.error('Error saving post:', error);
         alert('Ошибка: ' + error.message);
@@ -152,7 +152,7 @@ submitPost.addEventListener('click', async () => {
 async function loadPosts() {
     try {
         if (postsCache.length === 0) {
-            const posts = await supabaseFetch('posts?order=timestamp.desc&limit=50', 'GET');
+            const posts = await supabaseFetch('posts?order=timestamp.desc&limit=20', 'GET');
             console.log('Loaded posts:', posts);
             if (posts) {
                 postsCache = posts.sort((a, b) => {
@@ -164,8 +164,10 @@ async function loadPosts() {
                     return timeB - timeA;
                 });
                 postsDiv.innerHTML = '';
-                for (const post of postsCache) {
-                    await renderPost(post);
+                const renderPromises = postsCache.map(post => renderPost(post));
+                await Promise.all(renderPromises);
+                if (postsCache.length > 0) {
+                    lastPostTimestamp = new Date(postsCache[0].timestamp).toISOString();
                 }
             }
         }
@@ -173,6 +175,42 @@ async function loadPosts() {
         console.error('Error loading posts:', error);
         alert('Ошибка загрузки постов: ' + error.message);
     }
+}
+
+async function loadNewPosts() {
+    try {
+        const newPosts = await supabaseFetch(`posts?timestamp=gt.${lastPostTimestamp}&order=timestamp.desc`, 'GET');
+        if (newPosts && newPosts.length > 0) {
+            newPosts.sort((a, b) => {
+                const timeA = new Date(a.timestamp).getTime();
+                const timeB = new Date(b.timestamp).getTime();
+                if (timeA === timeB) {
+                    return b.id - a.id;
+                }
+                return timeB - timeA;
+            });
+            postsCache.unshift(...newPosts);
+            const renderPromises = newPosts.map(post => renderPost(post, true));
+            await Promise.all(renderPromises);
+            lastPostTimestamp = new Date(postsCache[0].timestamp).toISOString();
+        }
+    } catch (error) {
+        console.error('Error loading new posts:', error);
+    }
+}
+
+function startNewPostCheck() {
+    setInterval(async () => {
+        if (!lastPostTimestamp) return;
+        try {
+            const newPosts = await supabaseFetch(`posts?timestamp=gt.${lastPostTimestamp}&order=timestamp.desc&limit=1`, 'GET');
+            if (newPosts && newPosts.length > 0) {
+                newPostsBtn.style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Error checking for new posts:', error);
+        }
+    }, 30000);
 }
 
 async function renderPost(post, prepend = false) {
