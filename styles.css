@@ -17,8 +17,8 @@ body {
 .main-content {
     flex: 1; /* Растягиваем main-content */
     padding: 10px;
+    padding-bottom: 70px; /* Отступ снизу, чтобы контент не перекрывался навигацией */
     overflow-y: auto;
-    min-height: calc(100vh - 70px); /* Минимальная высота для растяжки */
 }
 
 .content {
@@ -55,7 +55,7 @@ body {
 
 .new-post-actions {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end; /* Кнопка "Твитнуть" справа */
     align-items: center;
     margin-top: 10px;
 }
@@ -66,14 +66,15 @@ body {
 }
 
 #new-post button {
-    padding: 8px 20px;
+    padding: 6px 16px; /* Уменьшаем размер кнопки */
     background: #1e90ff;
     color: white;
     border: none;
     border-radius: 20px; /* Закруглённые края */
     cursor: pointer;
     font-size: 14px;
-    font-weight: bold;
+    font-weight: 500;
+    transition: background 0.2s;
 }
 
 #new-post button:hover {
@@ -157,8 +158,11 @@ body {
     background: #121212;
     padding: 10px 0;
     border-top: 1px solid #333;
-    position: sticky; /* Прикрепляем к низу */
+    position: fixed; /* Фиксируем навигацию внизу */
     bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000; /* Убедимся, что навигация выше контента */
 }
 
 .nav-btn {
