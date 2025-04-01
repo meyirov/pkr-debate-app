@@ -137,6 +137,7 @@ submitPost.addEventListener('click', async () => {
 async function loadPosts() {
     try {
         const posts = await supabaseFetch('posts?order=timestamp.desc&limit=50', 'GET');
+        console.log('Loaded posts:', posts); // Логируем посты для отладки
         postsDiv.innerHTML = '';
         if (posts) {
             for (const post of posts) {
@@ -225,21 +226,20 @@ async function loadReactions(postId) {
 }
 
 async function toggleReaction(postId, type) {
+    postId = parseInt(postId); // Преобразуем postId в число
+    console.log('toggleReaction called with postId:', postId, 'type:', type);
     try {
-        // Проверяем текущую реакцию пользователя
         const userReaction = await supabaseFetch(`reactions?post_id=eq.${postId}&user_id=eq.${userData.telegramUsername}`, 'GET');
+        console.log('User reaction:', userReaction);
         
         if (userReaction && userReaction.length > 0) {
             const currentReaction = userReaction[0];
             if (currentReaction.type === type) {
-                // Если пользователь уже поставил эту реакцию, удаляем её
                 await supabaseFetch(`reactions?id=eq.${currentReaction.id}`, 'DELETE');
             } else {
-                // Если пользователь меняет реакцию (например, с лайка на дизлайк), обновляем
                 await supabaseFetch(`reactions?id=eq.${currentReaction.id}`, 'PATCH', { type: type });
             }
         } else {
-            // Если реакции нет, добавляем новую
             await supabaseFetch('reactions', 'POST', {
                 post_id: postId,
                 user_id: userData.telegramUsername,
@@ -247,7 +247,6 @@ async function toggleReaction(postId, type) {
                 timestamp: new Date().toISOString()
             });
         }
-        // Перезагружаем посты, чтобы обновить счётчики
         loadPosts();
     } catch (error) {
         console.error('Error toggling reaction:', error);
@@ -287,6 +286,7 @@ async function renderComments(postId, comments) {
 }
 
 async function addComment(postId) {
+    postId = parseInt(postId); // Преобразуем postId в число
     const commentInput = document.getElementById(`comment-input-${postId}`);
     const text = commentInput.value.trim();
     if (!text) {
@@ -300,6 +300,7 @@ async function addComment(postId) {
         text: `${userData.fullname} (@${userData.telegramUsername}):\n${text}`,
         timestamp: new Date().toISOString()
     };
+    console.log('Adding comment:', comment);
 
     try {
         await supabaseFetch('comments', 'POST', comment);
