@@ -11,7 +11,7 @@
       const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3a2JwdHFyYmx5aXF5bW5xaml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0MzA3NTcsImV4cCI6MjA1OTAwNjc1N30.QIHms9_kllO7SMxxUlu2U_ugICz1q_cr2-fO61092N4';
     </script>
 </head>
-<body>
+<body style="margin: 0; font-family: Arial, sans-serif; background: #f0f2f5;">
     <!-- Модальное окно регистрации -->
     <div id="registration-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); display: none; justify-content: center; align-items: center; z-index: 1000;">
         <div style="background: white; padding: 20px; border-radius: 8px; text-align: center; max-width: 300px; width: 100%;">
@@ -23,48 +23,48 @@
     </div>
 
     <!-- Основное приложение -->
-    <div id="app-container" class="container" style="display: none;">
-        <div class="main-content">
-            <section id="feed" class="content active">
+    <div id="app-container" class="container" style="display: none; flex-direction: column; height: 100vh;">
+        <div class="main-content" style="flex: 1; padding: 10px; overflow-y: auto;">
+            <section id="feed" class="content" style="display: block;">
                 <div id="new-post">
-                    <textarea id="post-text" placeholder="Что нового?"></textarea>
-                    <button id="submit-post">Твитнуть</button>
+                    <textarea id="post-text" placeholder="Что нового?" style="width: 100%; height: 100px; margin-bottom: 10px; padding: 5px; border: 1px solid #ccc; border-radius: 4px;"></textarea>
+                    <button id="submit-post" style="padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Твитнуть</button>
                 </div>
                 <div id="posts"></div>
             </section>
-            <section id="tournaments" class="content">
-                <button id="create-tournament-btn">Создать турнир</button>
-                <div id="create-tournament-form" class="form-hidden">
-                    <input id="tournament-name" type="text" placeholder="Название турнира">
-                    <input id="tournament-date" type="text" placeholder="Дата (например, 10.04.2025)">
-                    <input id="tournament-logo" type="text" placeholder="Ссылка на логотип">
-                    <textarea id="tournament-desc" placeholder="Описание турнира"></textarea>
-                    <input id="tournament-address" type="text" placeholder="Ссылка на 2GIS">
-                    <input id="tournament-deadline" type="text" placeholder="Дедлайн (например, 05.04.2025)">
-                    <button id="submit-tournament">Создать</button>
+            <section id="tournaments" class="content" style="display: none;">
+                <button id="create-tournament-btn" style="padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Создать турнир</button>
+                <div id="create-tournament-form" class="form-hidden" style="display: none;">
+                    <input id="tournament-name" type="text" placeholder="Название турнира" style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px;">
+                    <input id="tournament-date" type="text" placeholder="Дата (например, 10.04.2025)" style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px;">
+                    <input id="tournament-logo" type="text" placeholder="Ссылка на логотип" style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px;">
+                    <textarea id="tournament-desc" placeholder="Описание турнира" style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px;"></textarea>
+                    <input id="tournament-address" type="text" placeholder="Ссылка на 2GIS" style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px;">
+                    <input id="tournament-deadline" type="text" placeholder="Дедлайн (например, 05.04.2025)" style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px;">
+                    <button id="submit-tournament" style="padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Создать</button>
                 </div>
                 <div id="tournament-list"></div>
             </section>
-            <section id="rating" class="content">
+            <section id="rating" class="content" style="display: none;">
                 <div id="rating-list"></div>
             </section>
-            <section id="profile" class="content">
+            <section id="profile" class="content" style="display: none;">
                 <h2>Профиль</h2>
                 <p>Username: <span id="username"></span></p>
-                <input id="fullname" type="text" placeholder="Имя и фамилия">
-                <button id="update-profile">Изменить имя</button>
+                <input id="fullname" type="text" placeholder="Имя и фамилия" style="width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px;">
+                <button id="update-profile" style="padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Изменить имя</button>
             </section>
-            <section id="edu" class="content">
+            <section id="edu" class="content" style="display: none;">
                 <h2>PKR EDU</h2>
                 <p>Обучающий контент скоро появится!</p>
             </section>
         </div>
-        <nav class="navbar">
-            <button id="feed-btn" class="nav-btn active"><span>🏠</span> Лента</button>
-            <button id="tournaments-btn" class="nav-btn"><span>🏆</span> Турниры</button>
-            <button id="rating-btn" class="nav-btn"><span>⭐</span> Рейтинг</button>
-            <button id="profile-btn" class="nav-btn"><span>👤</span> Профиль</button>
-            <button id="edu-btn" class="nav-btn"><span>📚</span> EDU</button>
+        <nav class="navbar" style="display: flex; justify-content: space-around; background: #007bff; padding: 10px 0; position: sticky; bottom: 0;">
+            <button id="feed-btn" class="nav-btn active" style="background: none; border: none; color: #ffd700; font-size: 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center;"><span style="font-size: 20px;">🏠</span> Лента</button>
+            <button id="tournaments-btn" class="nav-btn" style="background: none; border: none; color: white; font-size: 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center;"><span style="font-size: 20px;">🏆</span> Турниры</button>
+            <button id="rating-btn" class="nav-btn" style="background: none; border: none; color: white; font-size: 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center;"><span style="font-size: 20px;">⭐</span> Рейтинг</button>
+            <button id="profile-btn" class="nav-btn" style="background: none; border: none; color: white; font-size: 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center;"><span style="font-size: 20px;">👤</span> Профиль</button>
+            <button id="edu-btn" class="nav-btn" style="background: none; border: none; color: white; font-size: 16px; cursor: pointer; display: flex; flex-direction: column; align-items: center;"><span style="font-size: 20px;">📚</span> EDU</button>
         </nav>
     </div>
     <script src="script.js"></script>
