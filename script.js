@@ -20,7 +20,6 @@ async function supabaseFetch(endpoint, method, body = null) {
         },
         body: body ? JSON.stringify(body) : null
     });
-    console.log(`Supabase response status: ${response.status}`);
     if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Supabase error: ${response.status} - ${errorText}`);
@@ -141,8 +140,9 @@ submitPost.addEventListener('click', async () => {
         const newPost = await supabaseFetch('posts', 'POST', post);
         postText.value = '';
         postsCache.unshift(newPost[0]);
-        renderPost(newPost[0], true);
-        lastPostTimestamp = newPost[0].timestamp;
+        sortPostsCache();
+        renderPosts();
+        lastPostTimestamp = postsCache[0].timestamp;
     } catch (error) {
         console.error('Error saving post:', error);
         alert('Ошибка: ' + error.message);
@@ -153,20 +153,10 @@ async function loadPosts() {
     try {
         postsCache = [];
         const posts = await supabaseFetch('posts?order=timestamp.desc&limit=20', 'GET');
-        console.log('Loaded posts:', posts);
         if (posts) {
-            postsCache = posts.sort((a, b) => {
-                const timeA = new Date(a.timestamp).getTime();
-                const timeB = new Date(b.timestamp).getTime();
-                if (timeA === timeB) {
-                    return b.id - a.id;
-                }
-                return timeB - timeA;
-            });
-            postsDiv.innerHTML = '';
-            for (const post of postsCache) {
-                await renderPost(post);
-            }
+            postsCache = posts;
+            sortPostsCache();
+            renderPosts();
             if (postsCache.length > 0) {
                 lastPostTimestamp = postsCache[0].timestamp;
             }
@@ -181,27 +171,9 @@ async function loadNewPosts() {
     try {
         const newPosts = await supabaseFetch(`posts?timestamp=gt.${lastPostTimestamp}&order=timestamp.desc`, 'GET');
         if (newPosts && newPosts.length > 0) {
-            newPosts.sort((a, b) => {
-                const timeA = new Date(a.timestamp).getTime();
-                const timeB = new Date(b.timestamp).getTime();
-                if (timeA === timeB) {
-                    return b.id - a.id;
-                }
-                return timeB - timeA;
-            });
             postsCache.unshift(...newPosts);
-            postsCache.sort((a, b) => {
-                const timeA = new Date(a.timestamp).getTime();
-                const timeB = new Date(b.timestamp).getTime();
-                if (timeA === timeB) {
-                    return b.id - a.id;
-                }
-                return timeB - timeA;
-            });
-            postsDiv.innerHTML = '';
-            for (const post of postsCache) {
-                await renderPost(post);
-            }
+            sortPostsCache();
+            renderPosts();
             lastPostTimestamp = postsCache[0].timestamp;
         }
     } catch (error) {
@@ -220,10 +192,28 @@ function startNewPostCheck() {
         } catch (error) {
             console.error('Error checking for new posts:', error);
         }
-    }, 30000);
+    }, 10000); // Проверяем каждые 10 секунд
 }
 
-async function renderPost(post, prepend = false) {
+function sortPostsCache() {
+    postsCache.sort((a, b) => {
+        const timeA = new Date(a.timestamp).getTime();
+        const timeB = new Date(b.timestamp).getTime();
+        if (timeA === timeB) {
+            return b.id - a.id;
+        }
+        return timeB - timeA;
+    });
+}
+
+async function renderPosts() {
+    postsDiv.innerHTML = '';
+    for (const post of postsCache) {
+        await renderPost(post);
+    }
+}
+
+async function renderPost(post) {
     const postDiv = document.createElement('div');
     postDiv.classList.add('post');
     postDiv.setAttribute('data-post-id', post.id);
@@ -268,11 +258,7 @@ async function renderPost(post, prepend = false) {
         </div>
     `;
 
-    if (prepend) {
-        postsDiv.prepend(postDiv);
-    } else {
-        postsDiv.appendChild(postDiv);
-    }
+    postsDiv.appendChild(postDiv);
 
     if (comments) {
         await renderComments(post.id, comments);
@@ -286,54 +272,20 @@ async function updatePost(postId) {
     const post = await supabaseFetch(`posts?id=eq.${postId}`, 'GET');
     if (!post || post.length === 0) return;
 
-    postsCache[postIndex] = post[0];
-
-    const postDiv = postsDiv.querySelector(`[data-post-id="${postId}"]`);
-    if (!postDiv) return;
-
-    const [userInfo, ...contentParts] = post[0].text.split(':\n');
-    const [fullname, username] = userInfo.split(' (@');
-    const cleanUsername = username ? username.replace(')', '') : '';
-    const content = contentParts.join(':\n');
-
-    const timeAgo = getTimeAgo(new Date(post[0].timestamp));
-
     const reactions = await loadReactions(postId);
     const likes = reactions.filter(r => r.type === 'like').length;
     const dislikes = reactions.filter(r => r.type === 'dislike').length;
-    const userReaction = reactions.find(r => r.user_id === userData.telegramUsername);
-    const likeClass = userReaction && userReaction.type === 'like' ? 'active' : '';
-    const dislikeClass = userReaction && userReaction.type === 'dislike' ? 'active' : '';
 
     const comments = await loadComments(postId);
     const commentCount = comments ? comments.length : 0;
 
-    postDiv.innerHTML = `
-        <div class="post-header">
-            <div class="post-user">
-                <strong>${fullname}</strong>
-                <span>@${cleanUsername}</span>
-            </div>
-            <div class="post-time">${timeAgo}</div>
-        </div>
-        <div class="post-content">${content}</div>
-        <div class="post-actions">
-            <button class="reaction-btn like-btn ${likeClass}" onclick="toggleReaction(${postId}, 'like')">👍 ${likes}</button>
-            <button class="reaction-btn dislike-btn ${dislikeClass}" onclick="toggleReaction(${postId}, 'dislike')">👎 ${dislikes}</button>
-            <button class="comment-toggle-btn" onclick="toggleComments(${postId})">💬 Комментарии (${commentCount})</button>
-        </div>
-        <div class="comment-section" id="comments-${postId}" style="display: none;">
-            <div class="comment-list" id="comment-list-${postId}"></div>
-            <div class="comment-form">
-                <textarea class="comment-input" id="comment-input-${postId}" placeholder="Написать комментарий..."></textarea>
-                <button onclick="addComment(${postId})">Отправить</button>
-            </div>
-        </div>
-    `;
+    postsCache[postIndex] = post[0];
+    postsCache[postIndex].likes = likes;
+    postsCache[postIndex].dislikes = dislikes;
+    postsCache[postIndex].comment_count = commentCount;
 
-    if (comments) {
-        await renderComments(postId, comments);
-    }
+    sortPostsCache();
+    renderPosts();
 }
 
 function getTimeAgo(date) {
@@ -361,7 +313,6 @@ async function loadReactions(postId) {
 
 async function toggleReaction(postId, type) {
     postId = parseInt(postId);
-    console.log('toggleReaction called with postId:', postId, 'type:', type, 'user_id:', userData.telegramUsername);
     try {
         const userExists = await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'GET');
         if (!userExists || userExists.length === 0) {
@@ -369,7 +320,6 @@ async function toggleReaction(postId, type) {
         }
 
         const userReaction = await supabaseFetch(`reactions?post_id=eq.${postId}&user_id=eq.${userData.telegramUsername}`, 'GET');
-        console.log('User reaction:', userReaction);
         
         if (userReaction && userReaction.length > 0) {
             const currentReaction = userReaction[0];
@@ -451,7 +401,6 @@ async function addComment(postId) {
             text: `${userData.fullname} (@${userData.telegramUsername}):\n${text}`,
             timestamp: new Date().toISOString()
         };
-        console.log('Adding comment with data:', comment);
 
         await supabaseFetch('comments', 'POST', comment);
         commentInput.value = '';
