@@ -6,9 +6,8 @@ const appContainer = document.getElementById('app-container');
 const regFullname = document.getElementById('reg-fullname');
 const submitProfileRegBtn = document.getElementById('submit-profile-reg-btn');
 let userData = {};
-let postsCache = []; // Глобальный кэш для постов
+let postsCache = [];
 
-// Supabase API функции
 async function supabaseFetch(endpoint, method, body = null) {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, {
         method: method,
@@ -28,7 +27,6 @@ async function supabaseFetch(endpoint, method, body = null) {
     return text ? JSON.parse(text) : null;
 }
 
-// Проверка и регистрация профиля
 async function checkProfile() {
     const telegramUsername = tg.initDataUnsafe.user ? tg.initDataUnsafe.user.username : null;
     if (!telegramUsername) {
@@ -41,13 +39,13 @@ async function checkProfile() {
         const profiles = await supabaseFetch(`profiles?telegram_username=eq.${telegramUsername}`, 'GET');
         if (profiles && profiles.length > 0) {
             userData.fullname = profiles[0].fullname;
-            showApp(); // Показываем приложение, если профиль есть
+            showApp();
         } else {
-            registrationModal.style.display = 'block'; // Показываем окно регистрации
+            registrationModal.style.display = 'block';
         }
     } catch (error) {
         console.error('Error checking profile:', error);
-        registrationModal.style.display = 'block'; // В случае ошибки показываем регистрацию
+        registrationModal.style.display = 'block';
     }
 }
 
@@ -70,15 +68,13 @@ submitProfileRegBtn.addEventListener('click', async () => {
     }
 });
 
-// Показываем приложение
 function showApp() {
     appContainer.style.display = 'block';
     document.getElementById('username').textContent = userData.telegramUsername;
     document.getElementById('fullname').value = userData.fullname;
-    loadPosts(); // Загружаем ленту сразу
+    loadPosts();
 }
 
-// Навигация
 const sections = document.querySelectorAll('.content');
 const buttons = document.querySelectorAll('.nav-btn');
 
@@ -94,7 +90,6 @@ buttons.forEach(button => {
     });
 });
 
-// Обновление профиля
 const updateProfileBtn = document.getElementById('update-profile');
 updateProfileBtn.addEventListener('click', async () => {
     const newFullname = document.getElementById('fullname').value.trim();
@@ -114,13 +109,12 @@ updateProfileBtn.addEventListener('click', async () => {
     }
 });
 
-// Лента
 const postText = document.getElementById('post-text');
 const submitPost = document.getElementById('submit-post');
 const postsDiv = document.getElementById('posts');
 
 submitPost.addEventListener('click', async () => {
-    const postContent = postText.value.trim(); // Убираем пробелы с начала и конца
+    const postContent = postText.value.trim();
     if (!postContent) {
         alert('Пожалуйста, введите текст поста! Пустые посты не допускаются.');
         return;
@@ -131,11 +125,24 @@ submitPost.addEventListener('click', async () => {
         timestamp: new Date().toISOString()
     };
     try {
-        const newPost = await supabaseFetch('posts', 'POST', post);
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify(post)
+        });
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Supabase error: ${response.status} - ${errorText}`);
+        }
+        const newPost = await response.json();
         postText.value = '';
-        // Добавляем новый пост в начало кэша и отображаем его
-        postsCache.unshift(newPost);
-        renderPost(newPost, true); // true означает добавить в начало
+        postsCache.unshift(newPost[0]);
+        renderPost(newPost[0], true);
     } catch (error) {
         console.error('Error saving post:', error);
         alert('Ошибка: ' + error.message);
@@ -144,21 +151,19 @@ submitPost.addEventListener('click', async () => {
 
 async function loadPosts() {
     try {
-        // Загружаем посты только если кэш пустой
         if (postsCache.length === 0) {
             const posts = await supabaseFetch('posts?order=timestamp.desc&limit=50', 'GET');
             console.log('Loaded posts:', posts);
             if (posts) {
-                // Сортируем посты на стороне клиента для стабильности
                 postsCache = posts.sort((a, b) => {
                     const timeA = new Date(a.timestamp).getTime();
                     const timeB = new Date(b.timestamp).getTime();
                     if (timeA === timeB) {
-                        return b.id - a.id; // Если timestamp совпадает, сортируем по id (убывание)
+                        return b.id - a.id;
                     }
-                    return timeB - timeA; // Сортировка по timestamp (убывание)
+                    return timeB - timeA;
                 });
-                postsDiv.innerHTML = ''; // Очищаем только при первой загрузке
+                postsDiv.innerHTML = '';
                 for (const post of postsCache) {
                     await renderPost(post);
                 }
@@ -170,22 +175,18 @@ async function loadPosts() {
     }
 }
 
-// Функция для отображения одного поста
 async function renderPost(post, prepend = false) {
     const postDiv = document.createElement('div');
     postDiv.classList.add('post');
-    postDiv.setAttribute('data-post-id', post.id); // Добавляем атрибут для поиска
+    postDiv.setAttribute('data-post-id', post.id);
 
-    // Разделяем текст поста на имя, username и содержимое
     const [userInfo, ...contentParts] = post.text.split(':\n');
     const [fullname, username] = userInfo.split(' (@');
     const cleanUsername = username ? username.replace(')', '') : '';
     const content = contentParts.join(':\n');
 
-    // Форматируем время
     const timeAgo = getTimeAgo(new Date(post.timestamp));
 
-    // Загружаем лайки и дизлайки
     const reactions = await loadReactions(post.id);
     const likes = reactions.filter(r => r.type === 'like').length;
     const dislikes = reactions.filter(r => r.type === 'dislike').length;
@@ -193,11 +194,9 @@ async function renderPost(post, prepend = false) {
     const likeClass = userReaction && userReaction.type === 'like' ? 'active' : '';
     const dislikeClass = userReaction && userReaction.type === 'dislike' ? 'active' : '';
 
-    // Загружаем количество комментариев
     const comments = await loadComments(post.id);
-    const commentCount = comments.length;
+    const commentCount = comments ? comments.length : 0;
 
-    // Создаём структуру поста
     postDiv.innerHTML = `
         <div class="post-header">
             <div class="post-user">
@@ -221,42 +220,36 @@ async function renderPost(post, prepend = false) {
         </div>
     `;
 
-    // Добавляем пост в DOM
     if (prepend) {
         postsDiv.prepend(postDiv);
     } else {
         postsDiv.appendChild(postDiv);
     }
 
-    // Загружаем комментарии (но не показываем, пока не нажата кнопка)
-    await renderComments(post.id, comments);
+    if (comments) {
+        await renderComments(post.id, comments);
+    }
 }
 
-// Функция для обновления одного поста
 async function updatePost(postId) {
     const postIndex = postsCache.findIndex(post => post.id === postId);
     if (postIndex === -1) return;
 
-    // Загружаем обновлённые данные для поста
     const post = await supabaseFetch(`posts?id=eq.${postId}`, 'GET');
     if (!post || post.length === 0) return;
 
-    postsCache[postIndex] = post[0]; // Обновляем кэш
+    postsCache[postIndex] = post[0];
 
-    // Находим элемент поста в DOM
     const postDiv = postsDiv.querySelector(`[data-post-id="${postId}"]`);
     if (!postDiv) return;
 
-    // Разделяем текст поста на имя, username и содержимое
     const [userInfo, ...contentParts] = post[0].text.split(':\n');
     const [fullname, username] = userInfo.split(' (@');
     const cleanUsername = username ? username.replace(')', '') : '';
     const content = contentParts.join(':\n');
 
-    // Форматируем время
     const timeAgo = getTimeAgo(new Date(post[0].timestamp));
 
-    // Загружаем лайки и дизлайки
     const reactions = await loadReactions(postId);
     const likes = reactions.filter(r => r.type === 'like').length;
     const dislikes = reactions.filter(r => r.type === 'dislike').length;
@@ -264,11 +257,9 @@ async function updatePost(postId) {
     const likeClass = userReaction && userReaction.type === 'like' ? 'active' : '';
     const dislikeClass = userReaction && userReaction.type === 'dislike' ? 'active' : '';
 
-    // Загружаем количество комментариев
     const comments = await loadComments(postId);
-    const commentCount = comments.length;
+    const commentCount = comments ? comments.length : 0;
 
-    // Обновляем HTML поста
     postDiv.innerHTML = `
         <div class="post-header">
             <div class="post-user">
@@ -292,11 +283,11 @@ async function updatePost(postId) {
         </div>
     `;
 
-    // Обновляем комментарии
-    await renderComments(postId, comments);
+    if (comments) {
+        await renderComments(postId, comments);
+    }
 }
 
-// Функция для форматирования времени (например, "15h")
 function getTimeAgo(date) {
     const now = new Date();
     const diffInSeconds = Math.floor((now - date) / 1000);
@@ -310,7 +301,6 @@ function getTimeAgo(date) {
     return `${diffInDays}d`;
 }
 
-// Функции для лайков и дизлайков
 async function loadReactions(postId) {
     try {
         const reactions = await supabaseFetch(`reactions?post_id=eq.${postId}`, 'GET');
@@ -322,10 +312,9 @@ async function loadReactions(postId) {
 }
 
 async function toggleReaction(postId, type) {
-    postId = parseInt(postId); // Преобразуем postId в число
+    postId = parseInt(postId);
     console.log('toggleReaction called with postId:', postId, 'type:', type, 'user_id:', userData.telegramUsername);
     try {
-        // Проверяем, существует ли пользователь в profiles
         const userExists = await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'GET');
         if (!userExists || userExists.length === 0) {
             throw new Error('Пользователь не найден в базе данных. Пожалуйста, зарегистрируйтесь.');
@@ -349,7 +338,6 @@ async function toggleReaction(postId, type) {
                 timestamp: new Date().toISOString()
             });
         }
-        // Обновляем только изменённый пост
         await updatePost(postId);
     } catch (error) {
         console.error('Error toggling reaction:', error);
@@ -357,7 +345,6 @@ async function toggleReaction(postId, type) {
     }
 }
 
-// Функции для комментариев
 async function loadComments(postId) {
     try {
         const comments = await supabaseFetch(`comments?post_id=eq.${postId}&order=timestamp.asc`, 'GET');
@@ -370,6 +357,7 @@ async function loadComments(postId) {
 
 async function renderComments(postId, comments) {
     const commentList = document.getElementById(`comment-list-${postId}`);
+    if (!commentList) return;
     commentList.innerHTML = '';
     comments.forEach(comment => {
         const commentDiv = document.createElement('div');
@@ -389,8 +377,9 @@ async function renderComments(postId, comments) {
 }
 
 async function addComment(postId) {
-    postId = parseInt(postId); // Преобразуем postId в число
+    postId = parseInt(postId);
     const commentInput = document.getElementById(`comment-input-${postId}`);
+    if (!commentInput) return;
     const text = commentInput.value.trim();
     if (!text) {
         alert('Пожалуйста, введите текст комментария!');
@@ -398,13 +387,11 @@ async function addComment(postId) {
     }
 
     try {
-        // Проверяем, существует ли пост в posts
         const postExists = await supabaseFetch(`posts?id=eq.${postId}`, 'GET');
         if (!postExists || postExists.length === 0) {
             throw new Error('Пост не найден. Возможно, он был удалён.');
         }
 
-        // Проверяем, существует ли пользователь в profiles
         const userExists = await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'GET');
         if (!userExists || userExists.length === 0) {
             throw new Error('Пользователь не найден в базе данных. Пожалуйста, зарегистрируйтесь.');
@@ -422,7 +409,6 @@ async function addComment(postId) {
         commentInput.value = '';
         const comments = await loadComments(postId);
         await renderComments(postId, comments);
-        // Обновляем только изменённый пост
         await updatePost(postId);
     } catch (error) {
         console.error('Error adding comment:', error);
@@ -432,10 +418,11 @@ async function addComment(postId) {
 
 function toggleComments(postId) {
     const commentSection = document.getElementById(`comments-${postId}`);
-    commentSection.style.display = commentSection.style.display === 'none' ? 'block' : 'none';
+    if (commentSection) {
+        commentSection.style.display = commentSection.style.display === 'none' ? 'block' : 'none';
+    }
 }
 
-// Турниры
 const createTournamentBtn = document.getElementById('create-tournament-btn');
 const createTournamentForm = document.getElementById('create-tournament-form');
 const submitTournament = document.getElementById('submit-tournament');
@@ -527,7 +514,6 @@ async function submitRegistration(tournamentId) {
     }
 }
 
-// Рейтинг (статический)
 const ratingList = document.getElementById('rating-list');
 const rating = [
     { name: 'Иван Иванов', points: 150 },
@@ -541,5 +527,4 @@ rating.forEach(player => {
     ratingList.appendChild(div);
 });
 
-// Запускаем проверку профиля
 checkProfile();
