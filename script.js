@@ -141,7 +141,7 @@ submitPost.addEventListener('click', async () => {
         postText.value = '';
         postsCache.unshift(newPost[0]);
         sortPostsCache();
-        renderPosts();
+        renderPosts(); // Здесь полное обновление нужно, так как добавляется новый пост
         lastPostTimestamp = postsCache[0].timestamp;
     } catch (error) {
         console.error('Error saving post:', error);
@@ -173,7 +173,7 @@ async function loadNewPosts() {
         if (newPosts && newPosts.length > 0) {
             postsCache.unshift(...newPosts);
             sortPostsCache();
-            renderPosts();
+            renderPosts(); // Здесь тоже полное обновление, так как добавляются новые посты
             lastPostTimestamp = postsCache[0].timestamp;
         }
     } catch (error) {
@@ -275,6 +275,9 @@ async function updatePost(postId) {
     const reactions = await loadReactions(postId);
     const likes = reactions.filter(r => r.type === 'like').length;
     const dislikes = reactions.filter(r => r.type === 'dislike').length;
+    const userReaction = reactions.find(r => r.user_id === userData.telegramUsername);
+    const likeClass = userReaction && userReaction.type === 'like' ? 'active' : '';
+    const dislikeClass = userReaction && userReaction.type === 'dislike' ? 'active' : '';
 
     const comments = await loadComments(postId);
     const commentCount = comments ? comments.length : 0;
@@ -284,8 +287,42 @@ async function updatePost(postId) {
     postsCache[postIndex].dislikes = dislikes;
     postsCache[postIndex].comment_count = commentCount;
 
-    sortPostsCache();
-    renderPosts();
+    const postDiv = postsDiv.querySelector(`[data-post-id="${postId}"]`);
+    if (!postDiv) return;
+
+    const [userInfo, ...contentParts] = post[0].text.split(':\n');
+    const [fullname, username] = userInfo.split(' (@');
+    const cleanUsername = username ? username.replace(')', '') : '';
+    const content = contentParts.join(':\n');
+
+    const timeAgo = getTimeAgo(new Date(post[0].timestamp));
+
+    postDiv.innerHTML = `
+        <div class="post-header">
+            <div class="post-user">
+                <strong>${fullname}</strong>
+                <span>@${cleanUsername}</span>
+            </div>
+            <div class="post-time">${timeAgo}</div>
+        </div>
+        <div class="post-content">${content}</div>
+        <div class="post-actions">
+            <button class="reaction-btn like-btn ${likeClass}" onclick="toggleReaction(${postId}, 'like')">👍 ${likes}</button>
+            <button class="reaction-btn dislike-btn ${dislikeClass}" onclick="toggleReaction(${postId}, 'dislike')">👎 ${dislikes}</button>
+            <button class="comment-toggle-btn" onclick="toggleComments(${postId})">💬 Комментарии (${commentCount})</button>
+        </div>
+        <div class="comment-section" id="comments-${postId}" style="display: none;">
+            <div class="comment-list" id="comment-list-${postId}"></div>
+            <div class="comment-form">
+                <textarea class="comment-input" id="comment-input-${postId}" placeholder="Написать комментарий..."></textarea>
+                <button onclick="addComment(${postId})">Отправить</button>
+            </div>
+        </div>
+    `;
+
+    if (comments) {
+        await renderComments(postId, comments);
+    }
 }
 
 function getTimeAgo(date) {
@@ -336,7 +373,7 @@ async function toggleReaction(postId, type) {
                 timestamp: new Date().toISOString()
             });
         }
-        await updatePost(postId);
+        await updatePost(postId); // Обновляем только этот пост
     } catch (error) {
         console.error('Error toggling reaction:', error);
         alert('Ошибка: ' + error.message);
@@ -404,9 +441,7 @@ async function addComment(postId) {
 
         await supabaseFetch('comments', 'POST', comment);
         commentInput.value = '';
-        const comments = await loadComments(postId);
-        await renderComments(postId, comments);
-        await updatePost(postId);
+        await updatePost(postId); // Обновляем только этот пост
     } catch (error) {
         console.error('Error adding comment:', error);
         alert('Ошибка: ' + error.message);
