@@ -1,3 +1,7 @@
+* {
+    box-sizing: border-box; /* Учитываем padding и border в ширине */
+}
+
 body {
     margin: 0;
     font-family: Arial, sans-serif;
@@ -32,9 +36,10 @@ body {
 #new-post {
     margin-bottom: 20px;
     background: #2a2a2a;
-    padding: 15px;
+    padding: 10px; /* Уменьшаем padding, чтобы не выходить за рамки */
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    width: 100%; /* Убедимся, что ширина не превышает контейнер */
 }
 
 #new-post textarea {
@@ -67,7 +72,7 @@ body {
 
 #new-post button {
     padding: 6px 16px; /* Уменьшаем размер кнопки */
-    background: #1e90ff;
+    background: #8b5cf6; /* Фиолетовый цвет */
     color: white;
     border: none;
     border-radius: 20px; /* Закруглённые края */
@@ -78,7 +83,7 @@ body {
 }
 
 #new-post button:hover {
-    background: #1c86ee;
+    background: #7c3aed; /* Фиолетовый при наведении */
 }
 
 #posts {
@@ -137,7 +142,7 @@ body {
 
 .tournament button {
     padding: 8px;
-    background: #1e90ff;
+    background: #8b5cf6; /* Фиолетовый цвет */
     color: white;
     border: none;
     border-radius: 4px;
@@ -145,7 +150,7 @@ body {
 }
 
 .tournament button:hover {
-    background: #1c86ee;
+    background: #7c3aed; /* Фиолетовый при наведении */
 }
 
 .form-hidden {
@@ -177,7 +182,7 @@ body {
 }
 
 .nav-btn.active {
-    color: #1e90ff;
+    color: #8b5cf6; /* Фиолетовый для активной кнопки */
 }
 
 .nav-btn span {
@@ -220,7 +225,7 @@ body {
 
 .modal-content button {
     padding: 10px 20px;
-    background: #1e90ff;
+    background: #8b5cf6; /* Фиолетовый цвет */
     color: white;
     border: none;
     border-radius: 4px;
@@ -228,5 +233,5 @@ body {
 }
 
 .modal-content button:hover {
-    background: #1c86ee;
+    background: #7c3aed; /* Фиолетовый при наведении */
 }
