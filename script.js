@@ -120,7 +120,12 @@ const submitPost = document.getElementById('submit-post');
 const postsDiv = document.getElementById('posts');
 
 submitPost.addEventListener('click', async () => {
-    const text = `${userData.fullname} (@${userData.telegramUsername}):\n${postText.value}`;
+    const postContent = postText.value.trim(); // Убираем пробелы с начала и конца
+    if (!postContent) {
+        alert('Пожалуйста, введите текст поста! Пустые посты не допускаются.');
+        return;
+    }
+    const text = `${userData.fullname} (@${userData.telegramUsername}):\n${postContent}`;
     const post = {
         text: text,
         timestamp: new Date().toISOString()
