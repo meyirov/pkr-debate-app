@@ -3,18 +3,22 @@ body {
     font-family: Arial, sans-serif;
     background: #1a1a1a; /* Тёмный фон */
     color: #e0e0e0; /* Светлый текст */
+    height: 100vh; /* Устанавливаем высоту body на 100% viewport */
+    display: flex;
+    flex-direction: column;
 }
 
 .container {
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    flex: 1; /* Растягиваем container на всю доступную высоту */
 }
 
 .main-content {
-    flex: 1;
+    flex: 1; /* Растягиваем main-content */
     padding: 10px;
     overflow-y: auto;
+    min-height: calc(100vh - 70px); /* Минимальная высота: высота экрана минус высота навигации */
 }
 
 .content {
@@ -87,8 +91,6 @@ body {
     justify-content: space-around;
     background: #121212;
     padding: 10px 0;
-    position: sticky;
-    bottom: 0;
     border-top: 1px solid #333;
 }
 
