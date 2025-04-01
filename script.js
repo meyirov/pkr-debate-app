@@ -4,7 +4,7 @@ tg.ready();
 const registrationModal = document.getElementById('registration-modal');
 const appContainer = document.getElementById('app-container');
 const regFullname = document.getElementById('reg-fullname');
-const submitRegistration = document.getElementById('submit-registration');
+const submitProfileRegistration = document.getElementById('submit-profile-registration');
 let userData = {};
 
 // Supabase API функции
@@ -21,7 +21,7 @@ async function supabaseFetch(endpoint, method, body = null) {
     console.log(`Supabase response status: ${response.status}`);
     if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Supabase error: ${response.status} - ${errorText}`);
+        throw levadoError(`Supabase error: ${response.status} - ${errorText}`);
     }
     const text = await response.text();
     return text ? JSON.parse(text) : null;
@@ -50,7 +50,7 @@ async function checkProfile() {
     }
 }
 
-submitRegistration.addEventListener('click', async () => {
+submitProfileRegistration.addEventListener('click', async () => {
     if (!regFullname.value.trim()) {
         alert('Пожалуйста, введите имя!');
         return;
