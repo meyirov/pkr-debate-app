@@ -139,7 +139,7 @@ async function loadPosts() {
         const posts = await supabaseFetch('posts?order=timestamp.desc&limit=50', 'GET');
         postsDiv.innerHTML = '';
         if (posts) {
-            posts.forEach(post => {
+            for (const post of posts) {
                 const postDiv = document.createElement('div');
                 postDiv.classList.add('post');
 
@@ -152,6 +152,18 @@ async function loadPosts() {
                 // Форматируем время
                 const timeAgo = getTimeAgo(new Date(post.timestamp));
 
+                // Загружаем лайки и дизлайки
+                const reactions = await loadReactions(post.id);
+                const likes = reactions.filter(r => r.type === 'like').length;
+                const dislikes = reactions.filter(r => r.type === 'dislike').length;
+                const userReaction = reactions.find(r => r.user_id === userData.telegramUsername);
+                const likeClass = userReaction && userReaction.type === 'like' ? 'active' : '';
+                const dislikeClass = userReaction && userReaction.type === 'dislike' ? 'active' : '';
+
+                // Загружаем количество комментариев
+                const comments = await loadComments(post.id);
+                const commentCount = comments.length;
+
                 // Создаём структуру поста
                 postDiv.innerHTML = `
                     <div class="post-header">
@@ -162,9 +174,24 @@ async function loadPosts() {
                         <div class="post-time">${timeAgo}</div>
                     </div>
                     <div class="post-content">${content}</div>
+                    <div class="post-actions">
+                        <button class="reaction-btn like-btn ${likeClass}" onclick="toggleReaction(${post.id}, 'like')">👍 ${likes}</button>
+                        <button class="reaction-btn dislike-btn ${dislikeClass}" onclick="toggleReaction(${post.id}, 'dislike')">👎 ${dislikes}</button>
+                        <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (${commentCount})</button>
+                    </div>
+                    <div class="comment-section" id="comments-${post.id}" style="display: none;">
+                        <div class="comment-list" id="comment-list-${post.id}"></div>
+                        <div class="comment-form">
+                            <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
+                            <button onclick="addComment(${post.id})">Отправить</button>
+                        </div>
+                    </div>
                 `;
                 postsDiv.appendChild(postDiv);
-            });
+
+                // Загружаем комментарии (но не показываем, пока не нажата кнопка)
+                await renderComments(post.id, comments);
+            }
         }
     } catch (error) {
         console.error('Error loading posts:', error);
@@ -184,6 +211,111 @@ function getTimeAgo(date) {
     if (diffInHours < 24) return `${diffInHours}h`;
     const diffInDays = Math.floor(diffInHours / 24);
     return `${diffInDays}d`;
+}
+
+// Функции для лайков и дизлайков
+async function loadReactions(postId) {
+    try {
+        const reactions = await supabaseFetch(`reactions?post_id=eq.${postId}`, 'GET');
+        return reactions || [];
+    } catch (error) {
+        console.error('Error loading reactions:', error);
+        return [];
+    }
+}
+
+async function toggleReaction(postId, type) {
+    try {
+        // Проверяем текущую реакцию пользователя
+        const userReaction = await supabaseFetch(`reactions?post_id=eq.${postId}&user_id=eq.${userData.telegramUsername}`, 'GET');
+        
+        if (userReaction && userReaction.length > 0) {
+            const currentReaction = userReaction[0];
+            if (currentReaction.type === type) {
+                // Если пользователь уже поставил эту реакцию, удаляем её
+                await supabaseFetch(`reactions?id=eq.${currentReaction.id}`, 'DELETE');
+            } else {
+                // Если пользователь меняет реакцию (например, с лайка на дизлайк), обновляем
+                await supabaseFetch(`reactions?id=eq.${currentReaction.id}`, 'PATCH', { type: type });
+            }
+        } else {
+            // Если реакции нет, добавляем новую
+            await supabaseFetch('reactions', 'POST', {
+                post_id: postId,
+                user_id: userData.telegramUsername,
+                type: type,
+                timestamp: new Date().toISOString()
+            });
+        }
+        // Перезагружаем посты, чтобы обновить счётчики
+        loadPosts();
+    } catch (error) {
+        console.error('Error toggling reaction:', error);
+        alert('Ошибка: ' + error.message);
+    }
+}
+
+// Функции для комментариев
+async function loadComments(postId) {
+    try {
+        const comments = await supabaseFetch(`comments?post_id=eq.${postId}&order=timestamp.asc`, 'GET');
+        return comments || [];
+    } catch (error) {
+        console.error('Error loading comments:', error);
+        return [];
+    }
+}
+
+async function renderComments(postId, comments) {
+    const commentList = document.getElementById(`comment-list-${postId}`);
+    commentList.innerHTML = '';
+    comments.forEach(comment => {
+        const commentDiv = document.createElement('div');
+        commentDiv.classList.add('comment');
+        const [userInfo, ...contentParts] = comment.text.split(':\n');
+        const [fullname, username] = userInfo.split(' (@');
+        const cleanUsername = username ? username.replace(')', '') : '';
+        const content = contentParts.join(':\n');
+        commentDiv.innerHTML = `
+            <div class="comment-user">
+                <strong>${fullname}</strong> <span>@${cleanUsername}</span>
+            </div>
+            <div class="comment-content">${content}</div>
+        `;
+        commentList.appendChild(commentDiv);
+    });
+}
+
+async function addComment(postId) {
+    const commentInput = document.getElementById(`comment-input-${postId}`);
+    const text = commentInput.value.trim();
+    if (!text) {
+        alert('Пожалуйста, введите текст комментария!');
+        return;
+    }
+
+    const comment = {
+        post_id: postId,
+        user_id: userData.telegramUsername,
+        text: `${userData.fullname} (@${userData.telegramUsername}):\n${text}`,
+        timestamp: new Date().toISOString()
+    };
+
+    try {
+        await supabaseFetch('comments', 'POST', comment);
+        commentInput.value = '';
+        const comments = await loadComments(postId);
+        await renderComments(postId, comments);
+        loadPosts(); // Обновляем посты, чтобы обновить счётчик комментариев
+    } catch (error) {
+        console.error('Error adding comment:', error);
+        alert('Ошибка: ' + error.message);
+    }
+}
+
+function toggleComments(postId) {
+    const commentSection = document.getElementById(`comments-${postId}`);
+    commentSection.style.display = commentSection.style.display === 'none' ? 'block' : 'none';
 }
 
 // Турниры
