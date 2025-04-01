@@ -1,5 +1,6 @@
 const tg = window.Telegram.WebApp;
 tg.ready();
+console.log('Telegram Web App initialized:', tg.initDataUnsafe); // Для отладки
 
 const registrationModal = document.getElementById('registration-modal');
 const appContainer = document.getElementById('app-container');
@@ -40,13 +41,13 @@ async function checkProfile() {
         const profiles = await supabaseFetch(`profiles?telegram_username=eq.${telegramUsername}`, 'GET');
         if (profiles && profiles.length > 0) {
             userData.fullname = profiles[0].fullname;
-            showApp(); // Показываем приложение, если профиль есть
+            showApp();
         } else {
-            registrationModal.style.display = 'block'; // Показываем окно регистрации
+            registrationModal.style.display = 'block';
         }
     } catch (error) {
         console.error('Error checking profile:', error);
-        registrationModal.style.display = 'block'; // В случае ошибки показываем регистрацию
+        registrationModal.style.display = 'block';
     }
 }
 
@@ -74,7 +75,7 @@ function showApp() {
     appContainer.style.display = 'block';
     document.getElementById('username').textContent = userData.telegramUsername;
     document.getElementById('fullname').value = userData.fullname;
-    loadPosts(); // Загружаем ленту сразу
+    loadPosts();
 }
 
 // Навигация
@@ -198,9 +199,12 @@ async function loadTournaments() {
                     Описание: ${tournament.desc}<br>
                     Адрес: ${tournament.address}<br>
                     Дедлайн: ${tournament.deadline}<br>
-                    <button onclick="showRegistrationForm('${tournament.id}')">Зарегистрироваться</button>
+                    <button class="register-btn" data-tournament-id="${tournament.id}">Зарегистрироваться</button>
                 `;
                 tournamentList.appendChild(tournamentDiv);
+            });
+            document.querySelectorAll('.register-btn').forEach(btn => {
+                btn.addEventListener('click', () => showRegistrationForm(btn.dataset.tournamentId));
             });
         }
     } catch (error) {
@@ -210,7 +214,11 @@ async function loadTournaments() {
 }
 
 function showRegistrationForm(tournamentId) {
+    const existingForm = document.querySelector('.registration-form');
+    if (existingForm) existingForm.remove();
+
     const form = document.createElement('div');
+    form.className = 'registration-form';
     form.innerHTML = `
         <input id="reg-speaker1" type="text" placeholder="Имя и фамилия 1-го спикера">
         <input id="reg-speaker2" type="text" placeholder="Имя и фамилия 2-го спикера">
@@ -218,12 +226,14 @@ function showRegistrationForm(tournamentId) {
         <input id="reg-city" type="text" placeholder="Город">
         <input id="reg-contacts" type="text" placeholder="Контакты">
         <textarea id="reg-extra" placeholder="Дополнительно (достижения)"></textarea>
-        <button onclick="submitRegistration('${tournamentId}')">Отправить</button>
+        <button id="submit-tournament-reg">Отправить</button>
     `;
     tournamentList.appendChild(form);
+
+    document.getElementById('submit-tournament-reg').addEventListener('click', () => submitTournamentRegistration(tournamentId));
 }
 
-async function submitRegistration(tournamentId) {
+async function submitTournamentRegistration(tournamentId) {
     const registration = {
         tournament_id: parseInt(tournamentId),
         speaker1: document.getElementById('reg-speaker1').value,
