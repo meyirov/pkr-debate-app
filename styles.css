@@ -1,13 +1,13 @@
 * {
-    box-sizing: border-box;
+    box-sizing: border-box; /* Учитываем padding и border в ширине */
 }
 
 body {
     margin: 0;
     font-family: Arial, sans-serif;
-    background: #1a1a1a;
-    color: #e0e0e0;
-    height: 100vh;
+    background: #1a1a1a; /* Тёмный фон */
+    color: #e0e0e0; /* Светлый текст */
+    height: 100vh; /* Устанавливаем высоту body на 100% viewport */
     display: flex;
     flex-direction: column;
 }
@@ -15,13 +15,13 @@ body {
 .container {
     display: flex;
     flex-direction: column;
-    flex: 1;
+    flex: 1; /* Растягиваем container на всю доступную высоту */
 }
 
 .main-content {
-    flex: 1;
+    flex: 1; /* Растягиваем main-content */
     padding: 10px;
-    padding-bottom: 70px;
+    padding-bottom: 70px; /* Отступ снизу, чтобы контент не перекрывался навигацией */
     overflow-y: auto;
 }
 
@@ -36,10 +36,10 @@ body {
 #new-post {
     margin-bottom: 20px;
     background: #2a2a2a;
-    padding: 10px;
+    padding: 10px; /* Уменьшаем padding, чтобы не выходить за рамки */
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    width: 100%;
+    width: 100%; /* Убедимся, что ширина не превышает контейнер */
 }
 
 #new-post textarea {
@@ -60,17 +60,22 @@ body {
 
 .new-post-actions {
     display: flex;
-    justify-content: flex-end;
+    justify-content: flex-end; /* Кнопка "Твитнуть" справа */
     align-items: center;
     margin-top: 10px;
 }
 
+.new-post-icons {
+    flex: 1;
+    /* Здесь можно добавить иконки в будущем */
+}
+
 #new-post button {
-    padding: 6px 16px;
-    background: #8b5cf6;
+    padding: 6px 16px; /* Уменьшаем размер кнопки */
+    background: #8b5cf6; /* Фиолетовый цвет */
     color: white;
     border: none;
-    border-radius: 20px;
+    border-radius: 20px; /* Закруглённые края */
     cursor: pointer;
     font-size: 14px;
     font-weight: 500;
@@ -78,12 +83,12 @@ body {
 }
 
 #new-post button:hover {
-    background: #7c3aed;
+    background: #7c3aed; /* Фиолетовый при наведении */
 }
 
 #posts {
-    max-height: calc(100vh - 200px);
-    overflow-y: auto;
+    max-height: calc(100vh - 200px); /* Ограничиваем высоту: высота экрана минус высота new-post и навигации */
+    overflow-y: auto; /* Включаем скролл */
 }
 
 .post {
@@ -92,7 +97,7 @@ body {
     margin-bottom: 10px;
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    border-bottom: 1px solid #444;
+    border-bottom: 1px solid #444; /* Визуальное разделение */
 }
 
 .post-header {
@@ -112,7 +117,11 @@ body {
     margin-right: 5px;
 }
 
-.post-user span,
+.post-user span {
+    color: #888;
+    font-size: 14px;
+}
+
 .post-time {
     color: #888;
     font-size: 14px;
@@ -123,17 +132,156 @@ body {
     line-height: 1.5;
 }
 
+.post-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.reaction-btn {
+    background: #444; /* Серый цвет */
+    color: #e0e0e0;
+    border: none;
+    border-radius: 4px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.reaction-btn:hover {
+    background: #555;
+}
+
+.reaction-btn.active {
+    background: #8b5cf6; /* Фиолетовый при нажатии */
+}
+
+.reaction-btn.active:hover {
+    background: #7c3aed;
+}
+
+.comment-toggle-btn {
+    background: #444;
+    color: #e0e0e0;
+    border: none;
+    border-radius: 4px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.comment-toggle-btn:hover {
+    background: #555;
+}
+
+.comment-section {
+    margin-top: 10px;
+    padding: 10px;
+    background: #252525;
+    border-radius: 8px;
+}
+
+.comment-list {
+    margin-bottom: 10px;
+}
+
+.comment {
+    padding: 5px 0;
+    border-bottom: 1px solid #333;
+}
+
+.comment-user {
+    font-size: 14px;
+    margin-bottom: 5px;
+}
+
+.comment-user strong {
+    margin-right: 5px;
+}
+
+.comment-user span {
+    color: #888;
+}
+
+.comment-content {
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.comment-form {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.comment-input {
+    width: 100%;
+    height: 40px;
+    padding: 5px;
+    border: none;
+    border-radius: 4px;
+    background: #3a3a3a;
+    color: #e0e0e0;
+    resize: none;
+    font-size: 14px;
+}
+
+.comment-input:focus {
+    outline: none;
+}
+
+.comment-form button {
+    padding: 5px 10px;
+    background: #8b5cf6;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.comment-form button:hover {
+    background: #7c3aed;
+}
+
+.tournament {
+    background: #2a2a2a;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.tournament button {
+    padding: 8px;
+    background: #8b5cf6; /* Фиолетовый цвет */
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.tournament button:hover {
+    background: #7c3aed; /* Фиолетовый при наведении */
+}
+
+.form-hidden {
+    display: none;
+}
+
 .navbar {
     display: flex;
     justify-content: space-around;
     background: #121212;
     padding: 10px 0;
     border-top: 1px solid #333;
-    position: fixed;
+    position: fixed; /* Фиксируем навигацию внизу */
     bottom: 0;
     left: 0;
     right: 0;
-    z-index: 1000;
+    z-index: 1000; /* Убедимся, что навигация выше контента */
 }
 
 .nav-btn {
@@ -148,13 +296,14 @@ body {
 }
 
 .nav-btn.active {
-    color: #8b5cf6;
+    color: #8b5cf6; /* Фиолетовый для активной кнопки */
 }
 
 .nav-btn span {
     font-size: 20px;
 }
 
+/* Стили для модального окна */
 .modal {
     position: fixed;
     top: 0;
@@ -190,7 +339,7 @@ body {
 
 .modal-content button {
     padding: 10px 20px;
-    background: #8b5cf6;
+    background: #8b5cf6; /* Фиолетовый цвет */
     color: white;
     border: none;
     border-radius: 4px;
@@ -198,30 +347,5 @@ body {
 }
 
 .modal-content button:hover {
-    background: #7c3aed;
-}
-
-.tournament {
-    background: #2a2a2a;
-    padding: 10px;
-    margin-bottom: 10px;
-    border-radius: 4px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-.tournament button {
-    padding: 8px;
-    background: #8b5cf6;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-.tournament button:hover {
-    background: #7c3aed;
-}
-
-.form-hidden {
-    display: none;
+    background: #7c3aed; /* Фиолетовый при наведении */
 }
