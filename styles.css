@@ -33,14 +33,17 @@ body {
     display: block;
 }
 
+
 #new-post {
-    margin-bottom: 20px;
-    background: #2a2a2a;
-    padding: 10px; /* Уменьшаем padding, чтобы не выходить за рамки */
-    border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    width: 100%; /* Убедимся, что ширина не превышает контейнер */
+    background: #16181c;
+    padding: 12px;
+    border-radius: 16px;
+    margin: 10px 12px;
+    box-shadow: 0 0 0 1px #2f3336;
+    display: flex;
+    flex-direction: column;
 }
+
 
 #new-post textarea {
     width: 100%;
@@ -160,9 +163,12 @@ body {
     color: #8b5cf6;
 }
 
+
 .reaction-btn.active {
     color: #8b5cf6;
+    background: none;
 }
+
 
 .reaction-btn svg,
 .comment-toggle-btn svg {
@@ -191,9 +197,12 @@ body {
     background: #555;
 }
 
+
 .reaction-btn.active {
-    background: #8b5cf6; /* Фиолетовый при нажатии */
+    color: #8b5cf6;
+    background: none;
 }
+
 
 .reaction-btn.active:hover {
     background: #7c3aed;
@@ -389,15 +398,17 @@ body {
 }
 
 /* Новый стиль блока создания поста */
+
 #new-post {
     background: #16181c;
     padding: 12px;
     border-radius: 16px;
-    margin: 10px;
+    margin: 10px 12px;
     box-shadow: 0 0 0 1px #2f3336;
     display: flex;
     flex-direction: column;
 }
+
 
 #new-post textarea {
     background: transparent;
@@ -458,9 +469,12 @@ body {
     color: #8b5cf6;
 }
 
+
 .reaction-btn.active {
     color: #8b5cf6;
+    background: none;
 }
+
 
 .reaction-btn svg,
 .comment-toggle-btn svg {
