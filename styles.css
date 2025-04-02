@@ -339,7 +339,7 @@ body {
 
 .modal-content button {
     padding: 10px 20px;
-    background: #8b5cf6; /* Фиолетовый цвет */
+    background: #8b5cf6;
     color: white;
     border: none;
     border-radius: 4px;
@@ -347,5 +347,50 @@ body {
 }
 
 .modal-content button:hover {
-    background: #7c3aed; /* Фиолетовый при наведении */
+    background: #7c3aed;
+}
+
+/* Обновлённая навигация в стиле Twitter */
+.navbar {
+    display: flex;
+    justify-content: space-around;
+    background: #1a1a1a;
+    padding: 12px 0;
+    border-top: 1px solid #333;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+}
+
+.nav-btn {
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: color 0.2s ease;
+}
+
+.nav-btn span {
+    font-size: 22px;
+    margin-bottom: 2px;
+}
+
+.nav-btn.active {
+    color: #8b5cf6;
+}
+
+.nav-btn:hover {
+    color: #c2a3ff;
+}
+
+.nav-btn:focus {
+    outline: none;
+    color: #8b5cf6;
 }
