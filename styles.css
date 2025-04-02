@@ -387,3 +387,90 @@ body {
 .modal-content button:hover {
     background: #7c3aed; /* Фиолетовый при наведении */
 }
+
+/* Новый стиль блока создания поста */
+#new-post {
+    background: #16181c;
+    padding: 12px;
+    border-radius: 16px;
+    margin: 10px;
+    box-shadow: 0 0 0 1px #2f3336;
+    display: flex;
+    flex-direction: column;
+}
+
+#new-post textarea {
+    background: transparent;
+    border: none;
+    resize: none;
+    color: #e0e0e0;
+    font-size: 16px;
+    padding: 8px 0;
+    min-height: 60px;
+}
+
+#new-post textarea::placeholder {
+    color: #6e767d;
+}
+
+#new-post textarea:focus {
+    outline: none;
+}
+
+.new-post-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+}
+
+#new-post button {
+    padding: 6px 16px;
+    background: #8b5cf6;
+    color: white;
+    border: none;
+    border-radius: 9999px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+#new-post button:hover {
+    background: #7c3aed;
+}
+
+/* Кнопки реакций и комментариев */
+.reaction-btn,
+.comment-toggle-btn {
+    background: none;
+    border: none;
+    color: #6e767d;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.reaction-btn:hover,
+.comment-toggle-btn:hover {
+    color: #8b5cf6;
+}
+
+.reaction-btn.active {
+    color: #8b5cf6;
+}
+
+.reaction-btn svg,
+.comment-toggle-btn svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+}
+
+/* Чтобы числа не терялись при цвете фона */
+.reaction-count {
+    font-size: 14px;
+    color: inherit;
+}
