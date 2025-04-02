@@ -185,7 +185,9 @@ function startNewPostCheck() {
     setInterval(async () => {
         if (!lastPostTimestamp) return;
         try {
-            const newPosts = await supabaseFetch(`posts?timestamp=gt.${lastPostTimestamp}&order=timestamp.desc&limit=1`, 'GET');
+            // Исправляем формат времени, убираем пробелы и лишние символы
+            const formattedTimestamp = lastPostTimestamp.replace(' ', '+');
+            const newPosts = await supabaseFetch(`posts?timestamp=gt.${encodeURIComponent(formattedTimestamp)}&order=timestamp.desc&limit=1`, 'GET');
             if (newPosts && newPosts.length > 0) {
                 newPostsBtn.style.display = 'block';
             }
@@ -494,8 +496,10 @@ async function loadTournaments() {
             tournaments.forEach(tournament => {
                 const tournamentDiv = document.createElement('div');
                 tournamentDiv.classList.add('tournament');
+                // Добавляем запасной логотип, если ссылка не работает
+                const logoSrc = tournament.logo && tournament.logo.startsWith('http') ? tournament.logo : 'https://via.placeholder.com/80';
                 tournamentDiv.innerHTML = `
-                    <img src="${tournament.logo}" alt="Логотип">
+                    <img src="${logoSrc}" alt="Логотип" onerror="this.src='https://via.placeholder.com/80';">
                     <div class="tournament-info">
                         <h3>${tournament.name}</h3>
                         <p>${tournament.date}</p>
@@ -518,8 +522,9 @@ function showTournamentPage(tournament) {
     tournamentPage.classList.add('active');
 
     const header = document.getElementById('tournament-header');
+    const logoSrc = tournament.logo && tournament.logo.startsWith('http') ? tournament.logo : 'https://via.placeholder.com/100';
     header.innerHTML = `
-        <img src="${tournament.logo}" alt="Логотип">
+        <img src="${logoSrc}" alt="Логотип" onerror="this.src='https://via.placeholder.com/100';">
         <h2>${tournament.name}</h2>
         <p>Дата: ${tournament.date}</p>
         <p>Дедлайн: ${tournament.deadline}</p>
