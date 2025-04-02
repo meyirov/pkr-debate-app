@@ -185,7 +185,6 @@ function startNewPostCheck() {
     setInterval(async () => {
         if (!lastPostTimestamp) return;
         try {
-            // Исправляем формат времени, убираем пробелы и лишние символы
             const formattedTimestamp = lastPostTimestamp.replace(' ', '+');
             const newPosts = await supabaseFetch(`posts?timestamp=gt.${encodeURIComponent(formattedTimestamp)}&order=timestamp.desc&limit=1`, 'GET');
             if (newPosts && newPosts.length > 0) {
@@ -491,23 +490,25 @@ submitTournament.addEventListener('click', async () => {
 async function loadTournaments() {
     try {
         const tournaments = await supabaseFetch('tournaments?order=timestamp.desc&limit=50', 'GET');
+        console.log('Loaded tournaments:', tournaments); // Логируем данные из Supabase
         tournamentList.innerHTML = '';
         if (tournaments) {
             tournaments.forEach(tournament => {
                 const tournamentDiv = document.createElement('div');
                 tournamentDiv.classList.add('tournament');
-                // Проверяем ссылку на логотип, если нет — используем picsum.photos
                 const logoSrc = tournament.logo && tournament.logo.startsWith('http') ? tournament.logo : 'https://picsum.photos/80';
                 tournamentDiv.innerHTML = `
-                    <img src="${logoSrc}" alt="Логотип" onerror="this.src='https://picsum.photos/80';">
+                    <img src="${logoSrc}" alt="Логотип" onerror="this.onerror=null; this.src='https://picsum.photos/80';">
                     <div class="tournament-info">
-                        <h3>${tournament.name}</h3>
-                        <p>${tournament.date}</p>
+                        <h3>${tournament.name || 'Без названия'}</h3>
+                        <p>${tournament.date || 'Дата не указана'}</p>
                     </div>
                 `;
                 tournamentDiv.addEventListener('click', () => showTournamentPage(tournament));
                 tournamentList.appendChild(tournamentDiv);
             });
+        } else {
+            tournamentList.innerHTML = '<p>Турниры не найдены.</p>';
         }
     } catch (error) {
         console.error('Error loading tournaments:', error);
@@ -515,11 +516,8 @@ async function loadTournaments() {
     }
 }
 
-// ... (весь код до showTournamentPage остается без изменений) ...
-
 function showTournamentPage(tournament) {
-    // Логируем объект tournament, чтобы увидеть, что приходит
-    console.log('Tournament data:', tournament);
+    console.log('Tournament data:', tournament); // Логируем данные, которые передаются
 
     const sections = document.querySelectorAll('.content');
     sections.forEach(section => section.classList.remove('active'));
@@ -527,7 +525,7 @@ function showTournamentPage(tournament) {
     tournamentPage.classList.add('active');
 
     const header = document.getElementById('tournament-header');
-    // Добавляем запасные значения для всех полей
+    // Проверяем все поля и задаем запасные значения
     const logoSrc = tournament.logo && tournament.logo.startsWith('http') ? tournament.logo : 'https://picsum.photos/100';
     const name = tournament.name || 'Без названия';
     const date = tournament.date || 'Дата не указана';
@@ -578,8 +576,6 @@ function showTournamentPage(tournament) {
         document.getElementById('tournaments').classList.add('active');
     });
 }
-
-// ... (весь код после showTournamentPage остается без изменений) ...
 
 const ratingList = document.getElementById('rating-list');
 const rating = [
