@@ -33,17 +33,14 @@ body {
     display: block;
 }
 
-
 #new-post {
-    margin: 16px;
-    background: #16181c;
-    padding: 12px;
-    border-radius: 16px;
-    box-shadow: 0 0 0 1px #2f3336;
-    width: auto;
-    max-width: 100%;
+    margin-bottom: 20px;
+    background: #2a2a2a;
+    padding: 10px; /* Уменьшаем padding, чтобы не выходить за рамки */
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    width: 100%; /* Убедимся, что ширина не превышает контейнер */
 }
-
 
 #new-post textarea {
     width: 100%;
@@ -120,7 +117,7 @@ body {
     margin-right: 5px;
 }
 
-.post-user span {
+.post-user span   span {
     color: #888;
     font-size: 14px;
 }
@@ -156,17 +153,13 @@ body {
     background: #555;
 }
 
-
 .reaction-btn.active {
-    color: #8b5cf6 !important;
+    background: #8b5cf6; /* Фиолетовый при нажатии */
 }
-
-
 
 .reaction-btn.active:hover {
-    color: #a78bfa !important;
+    background: #7c3aed;
 }
-
 
 .comment-toggle-btn {
     background: #444;
@@ -355,4 +348,54 @@ body {
 
 .modal-content button:hover {
     background: #7c3aed; /* Фиолетовый при наведении */
+}
+
+/* Стили для турнирной сетки */
+.tournament-grid {
+    margin-top: 15px;
+    padding: 10px;
+    background: #252525;
+    border-radius: 8px;
+}
+
+.grid-round {
+    margin-bottom: 20px;
+}
+
+.grid-round h3 {
+    color: #8b5cf6;
+    margin-bottom: 10px;
+}
+
+.grid-match {
+    background: #2a2a2a;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.grid-match span {
+    font-size: 14px;
+}
+
+.grid-match .vs {
+    color: #888;
+    font-weight: bold;
+}
+
+.grid-button {
+    padding: 5px 10px;
+    background: #8b5cf6;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-left: 10px;
+}
+
+.grid-button:hover {
+    background: #7c3aed;
 }
