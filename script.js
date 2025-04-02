@@ -496,10 +496,10 @@ async function loadTournaments() {
             tournaments.forEach(tournament => {
                 const tournamentDiv = document.createElement('div');
                 tournamentDiv.classList.add('tournament');
-                // Добавляем запасной логотип, если ссылка не работает
-                const logoSrc = tournament.logo && tournament.logo.startsWith('http') ? tournament.logo : 'https://via.placeholder.com/80';
+                // Проверяем ссылку на логотип, если нет — используем picsum.photos
+                const logoSrc = tournament.logo && tournament.logo.startsWith('http') ? tournament.logo : 'https://picsum.photos/80';
                 tournamentDiv.innerHTML = `
-                    <img src="${logoSrc}" alt="Логотип" onerror="this.src='https://via.placeholder.com/80';">
+                    <img src="${logoSrc}" alt="Логотип" onerror="this.src='https://picsum.photos/80';">
                     <div class="tournament-info">
                         <h3>${tournament.name}</h3>
                         <p>${tournament.date}</p>
@@ -522,9 +522,9 @@ function showTournamentPage(tournament) {
     tournamentPage.classList.add('active');
 
     const header = document.getElementById('tournament-header');
-    const logoSrc = tournament.logo && tournament.logo.startsWith('http') ? tournament.logo : 'https://via.placeholder.com/100';
+    const logoSrc = tournament.logo && tournament.logo.startsWith('http') ? tournament.logo : 'https://picsum.photos/100';
     header.innerHTML = `
-        <img src="${logoSrc}" alt="Логотип" onerror="this.src='https://via.placeholder.com/100';">
+        <img src="${logoSrc}" alt="Логотип" onerror="this.src='https://picsum.photos/100';">
         <h2>${tournament.name}</h2>
         <p>Дата: ${tournament.date}</p>
         <p>Дедлайн: ${tournament.deadline}</p>
