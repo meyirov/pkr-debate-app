@@ -6,6 +6,7 @@
     <title>PKR - Дебаты</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
       const SUPABASE_URL = 'https://dwkbptqrblyiqymnqjiv.supabase.co';
       const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3a2JwdHFyYmx5aXF5bW5xaml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0MzA3NTcsImV4cCI6MjA1OTAwNjc1N30.QIHms9_kllO7SMxxUlu2U_ugICz1q_cr2-fO61092N4';
@@ -38,17 +39,57 @@
                 <div id="posts"></div>
             </section>
             <section id="tournaments" class="content">
+                <div id="tournament-list"></div>
+                <div id="tournament-page" style="display: none;">
+                    <div class="tournament-header">
+                        <img id="tournament-logo" class="tournament-logo" src="" alt="Tournament Logo">
+                        <div class="tournament-header-info">
+                            <h2 id="tournament-name"></h2>
+                            <p id="tournament-date"></p>
+                            <div id="tournament-details" style="display: none;">
+                                <p id="tournament-description"></p>
+                                <p>Адрес: <a id="tournament-address" href="" target="_blank"></a></p>
+                            </div>
+                            <button id="toggle-details-btn">Показать дальше</button>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="tournament-tabs">
+                        <button id="tournament-posts-tab" class="tab-btn active">Посты турнира</button>
+                        <button id="tournament-registration-tab" class="tab-btn">Регистрация</button>
+                    </div>
+                    <div id="tournament-posts-content" class="tab-content active">
+                        <div id="tournament-post-form" style="display: none;">
+                            <input type="text" id="tournament-post-title" placeholder="Заголовок поста">
+                            <textarea id="tournament-post-text" placeholder="Текст поста"></textarea>
+                            <button id="submit-tournament-post">Опубликовать</button>
+                        </div>
+                        <div id="tournament-posts-list"></div>
+                    </div>
+                    <div id="tournament-registration-content" class="tab-content" style="display: none;">
+                        <div id="registration-form">
+                            <input type="text" id="reg-faction-name" placeholder="Название фракции" required>
+                            <input type="text" id="reg-speaker1" placeholder="Имя и фамилия 1-го спикера" required>
+                            <input type="text" id="reg-speaker2" placeholder="Имя и фамилия 2-го спикера" required>
+                            <input type="text" id="reg-university" placeholder="Университет" required>
+                            <input type="text" id="reg-club" placeholder="Клуб" required>
+                            <input type="text" id="reg-contacts" placeholder="Контакты" required>
+                            <textarea id="reg-extra" placeholder="Дополнительно (опционально)"></textarea>
+                            <button id="submit-registration">Зарегистрироваться</button>
+                        </div>
+                        <div id="registered-teams"></div>
+                    </div>
+                </div>
                 <button id="create-tournament-btn">Создать турнир</button>
                 <div id="create-tournament-form" class="form-hidden">
-                    <input id="tournament-name" type="text" placeholder="Название турнира">
-                    <input id="tournament-date" type="text" placeholder="Дата (например, 10.04.2025)">
-                    <input id="tournament-logo" type="text" placeholder="Ссылка на логотип">
-                    <textarea id="tournament-desc" placeholder="Описание турнира"></textarea>
-                    <input id="tournament-address" type="text" placeholder="Ссылка на 2GIS">
-                    <input id="tournament-deadline" type="text" placeholder="Дедлайн (например, 05.04.2025)">
+                    <input type="text" id="tournament-name" placeholder="Название турнира">
+                    <input type="date" id="tournament-date" placeholder="Дата">
+                    <input type="text" id="tournament-logo" placeholder="Ссылка на логотип">
+                    <textarea id="tournament-desc" placeholder="Описание"></textarea>
+                    <input type="text" id="tournament-address" placeholder="Адрес (ссылка)">
+                    <input type="date" id="tournament-deadline" placeholder="Дедлайн">
                     <button id="submit-tournament">Создать</button>
                 </div>
-                <div id="tournament-list"></div>
             </section>
             <section id="rating" class="content">
                 <div id="rating-list"></div>
