@@ -1,140 +1,71 @@
-body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background: #1a1a1a;
-    color: #e0e0e0;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PKR - Дебаты</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <!-- Модальное окно регистрации -->
+    <div id="registration-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h2>Добро пожаловать!</h2>
+            <p>Пожалуйста, введите ваше имя для регистрации:</p>
+            <input id="reg-fullname" type="text" placeholder="Имя и фамилия">
+            <button id="submit-profile-reg-btn">Зарегистрироваться</button>
+        </div>
+    </div>
 
-.container {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-}
-
-.main-content {
-    flex: 1;
-    padding: 10px;
-    padding-bottom: 70px;
-    overflow-y: auto;
-}
-
-.content {
-    display: none;
-}
-
-.content.active {
-    display: block;
-}
-
-#new-post {
-    background: #2a2a2a;
-    padding: 10px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-}
-
-#new-post textarea {
-    width: 100%;
-    height: 60px;
-    padding: 10px;
-    background: #3a3a3a;
-    border: none;
-    border-radius: 8px;
-    color: #e0e0e0;
-    font-size: 16px;
-    resize: none;
-}
-
-.new-post-actions {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 10px;
-}
-
-#new-post button {
-    padding: 6px 16px;
-    background: #8b5cf6;
-    color: white;
-    border: none;
-    border-radius: 20px;
-    cursor: pointer;
-    font-size: 14px;
-}
-
-#posts {
-    max-height: calc(100vh - 200px);
-    overflow-y: auto;
-}
-
-.tournament {
-    display: flex;
-    align-items: center;
-    background: #2a2a2a;
-    border-radius: 8px;
-    padding: 12px;
-    margin-bottom: 12px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-.tournament-logo {
-    width: 80px;
-    height: 80px;
-    object-fit: contain;
-    border-radius: 4px;
-    margin-right: 16px;
-    background: #1a1a1a;
-}
-
-.tournament-content {
-    flex: 1;
-}
-
-.tournament-title {
-    font-size: 20px;
-    font-weight: bold;
-    margin-bottom: 6px;
-}
-
-.tournament-date {
-    font-size: 14px;
-    color: #aaa;
-}
-
-.navbar {
-    display: flex;
-    justify-content: space-around;
-    background: #121212;
-    padding: 10px 0;
-    border-top: 1px solid #333;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 1000;
-}
-
-.nav-btn {
-    background: none;
-    border: none;
-    color: #b0b0b0;
-    font-size: 16px;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.nav-btn.active {
-    color: #8b5cf6;
-}
-
-.nav-btn span {
-    font-size: 20px;
-}
-
-.form-hidden {
-    display: none;
-}
+    <!-- Основное приложение -->
+    <div id="app-container" class="container" style="display: none;">
+        <div class="main-content">
+            <section id="feed" class="content active">
+                <div id="new-post">
+                    <textarea id="post-text" placeholder="Что нового?"></textarea>
+                    <div class="new-post-actions">
+                        <div class="new-post-icons"></div>
+                        <button id="submit-post">Твитнуть</button>
+                    </div>
+                </div>
+                <div id="posts"></div>
+            </section>
+            <section id="tournaments" class="content">
+                <button id="create-tournament-btn">Создать турнир</button>
+                <div id="create-tournament-form" class="form-hidden">
+                    <input id="tournament-name" type="text" placeholder="Название турнира">
+                    <input id="tournament-date" type="text" placeholder="Дата (например, 10.04.2025)">
+                    <input id="tournament-logo" type="text" placeholder="Ссылка на логотип">
+                    <textarea id="tournament-desc" placeholder="Описание турнира"></textarea>
+                    <input id="tournament-address" type="text" placeholder="Ссылка на 2GIS">
+                    <input id="tournament-deadline" type="text" placeholder="Дедлайн (например, 05.04.2025)">
+                    <button id="submit-tournament">Создать</button>
+                </div>
+                <div id="tournament-list"></div>
+            </section>
+            <section id="rating" class="content">
+                <div id="rating-list"></div>
+            </section>
+            <section id="profile" class="content">
+                <h2>Профиль</h2>
+                <p>Username: <span id="username"></span></p>
+                <input id="fullname" type="text" placeholder="Имя и фамилия">
+                <button id="update-profile">Изменить имя</button>
+            </section>
+            <section id="edu" class="content">
+                <h2>PKR EDU</h2>
+                <p>Обучающий контент скоро появится!</p>
+            </section>
+        </div>
+        <nav class="navbar">
+            <button id="feed-btn" class="nav-btn active"><span>🏠</span> Лента</button>
+            <button id="tournaments-btn" class="nav-btn"><span>🏆</span> Турниры</button>
+            <button id="rating-btn" class="nav-btn"><span>⭐</span> Рейтинг</button>
+            <button id="profile-btn" class="nav-btn"><span>👤</span> Профиль</button>
+            <button id="edu-btn" class="nav-btn"><span>📚</span> EDU</button>
+        </nav>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
