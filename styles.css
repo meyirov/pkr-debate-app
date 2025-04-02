@@ -91,48 +91,86 @@ body {
     overflow-y: auto; /* Включаем скролл */
 }
 
+
 .post {
-    background: #2a2a2a;
-    padding: 15px;
-    margin-bottom: 10px;
-    border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    border-bottom: 1px solid #444; /* Визуальное разделение */
+    background: transparent;
+    padding: 16px 16px 8px 16px;
+    margin: 0;
+    border-bottom: 1px solid #2f3336;
+    transition: background 0.2s;
+}
+
+.post:hover {
+    background: #16181c;
 }
 
 .post-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    gap: 8px;
+    margin-bottom: 4px;
+    font-size: 15px;
 }
 
-.post-user {
-    display: flex;
-    align-items: center;
-}
-
-.post-user strong {
+.post-header strong {
     font-weight: bold;
-    margin-right: 5px;
+    color: #fff;
 }
 
-.post-user span {
-    color: #888;
+.post-header span {
+    color: #6e767d;
     font-size: 14px;
 }
 
 .post-time {
-    color: #888;
+    color: #6e767d;
     font-size: 14px;
+    margin-left: auto;
 }
 
 .post-content {
-    margin-top: 10px;
+    font-size: 15px;
     line-height: 1.5;
+    white-space: pre-wrap;
+    margin-bottom: 10px;
 }
 
 .post-actions {
+    display: flex;
+    justify-content: space-between;
+    padding-right: 30%;
+    margin-top: 4px;
+}
+
+.reaction-btn,
+.comment-toggle-btn {
+    background: none;
+    border: none;
+    color: #6e767d;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.reaction-btn:hover,
+.comment-toggle-btn:hover {
+    color: #8b5cf6;
+}
+
+.reaction-btn.active {
+    color: #8b5cf6;
+}
+
+.reaction-btn svg,
+.comment-toggle-btn svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+}
+
     display: flex;
     gap: 10px;
     margin-top: 10px;
@@ -339,7 +377,7 @@ body {
 
 .modal-content button {
     padding: 10px 20px;
-    background: #8b5cf6;
+    background: #8b5cf6; /* Фиолетовый цвет */
     color: white;
     border: none;
     border-radius: 4px;
@@ -347,50 +385,5 @@ body {
 }
 
 .modal-content button:hover {
-    background: #7c3aed;
-}
-
-/* Обновлённая навигация в стиле Twitter */
-.navbar {
-    display: flex;
-    justify-content: space-around;
-    background: #1a1a1a;
-    padding: 12px 0;
-    border-top: 1px solid #333;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 1000;
-}
-
-.nav-btn {
-    background: none;
-    border: none;
-    color: #aaa;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    transition: color 0.2s ease;
-}
-
-.nav-btn span {
-    font-size: 22px;
-    margin-bottom: 2px;
-}
-
-.nav-btn.active {
-    color: #8b5cf6;
-}
-
-.nav-btn:hover {
-    color: #c2a3ff;
-}
-
-.nav-btn:focus {
-    outline: none;
-    color: #8b5cf6;
+    background: #7c3aed; /* Фиолетовый при наведении */
 }
