@@ -246,27 +246,6 @@ body {
     background: #7c3aed;
 }
 
-.tournament {
-    background: #2a2a2a;
-    padding: 10px;
-    margin-bottom: 10px;
-    border-radius: 4px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-.tournament button {
-    padding: 8px;
-    background: #8b5cf6; /* Фиолетовый цвет */
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-.tournament button:hover {
-    background: #7c3aed; /* Фиолетовый при наведении */
-}
-
 .form-hidden {
     display: none;
 }
@@ -348,4 +327,194 @@ body {
 
 .modal-content button:hover {
     background: #7c3aed; /* Фиолетовый при наведении */
+}
+
+/* Стили для турниров */
+.tournament-card {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    margin: 10px 0;
+    border: 1px solid #444;
+    border-radius: 8px;
+    background: #2a2a2a;
+    cursor: pointer;
+}
+
+.tournament-card img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-right: 15px;
+}
+
+.tournament-card h3 {
+    font-size: 1.5em;
+    font-weight: bold;
+    margin: 0;
+}
+
+.tournament-header {
+    display: flex;
+    align-items: flex-start;
+    padding: 15px;
+}
+
+.tournament-logo {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-right: 20px;
+}
+
+.tournament-header-info {
+    flex: 1;
+}
+
+.tournament-header-info h2 {
+    margin: 0;
+    font-size: 1.8em;
+}
+
+.tournament-header-info p {
+    margin: 5px 0;
+}
+
+#tournament-details {
+    margin-top: 10px;
+}
+
+#tournament-details a {
+    color: #8b5cf6;
+    text-decoration: none;
+}
+
+#tournament-details a:hover {
+    text-decoration: underline;
+}
+
+#toggle-details-btn {
+    background-color: #8b5cf6;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+#toggle-details-btn:hover {
+    background-color: #7c3aed;
+}
+
+.tournament-tabs {
+    display: flex;
+    border-bottom: 1px solid #444;
+    margin: 10px 0;
+}
+
+.tab-btn {
+    padding: 10px 20px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1em;
+    color: #b0b0b0;
+}
+
+.tab-btn.active {
+    border-bottom: 2px solid #8b5cf6;
+    color: #e0e0e0;
+    font-weight: bold;
+}
+
+.tab-content {
+    padding: 10px;
+}
+
+.tab-content:not(.active) {
+    display: none;
+}
+
+#tournament-post-form {
+    margin-bottom: 20px;
+}
+
+#tournament-post-title,
+#tournament-post-text {
+    width: 100%;
+    margin-bottom: 10px;
+    padding: 8px;
+    border: 1px solid #444;
+    border-radius: 5px;
+    background: #3a3a3a;
+    color: #e0e0e0;
+}
+
+#tournament-post-text {
+    height: 100px;
+}
+
+#submit-tournament-post {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#submit-tournament-post:hover {
+    background-color: #218838;
+}
+
+.tournament-post {
+    padding: 10px;
+    margin: 10px 0;
+    border: 1px solid #444;
+    border-radius: 5px;
+    background: #2a2a2a;
+}
+
+.tournament-post h4 {
+    margin: 0;
+    font-size: 1.2em;
+}
+
+#registration-form input,
+#registration-form textarea {
+    width: 100%;
+    margin-bottom: 10px;
+    padding: 8px;
+    border: 1px solid #444;
+    border-radius: 5px;
+    background: #3a3a3a;
+    color: #e0e0e0;
+}
+
+#registration-form textarea {
+    height: 80px;
+}
+
+#submit-registration {
+    background-color: #8b5cf6;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#submit-registration:hover {
+    background-color: #7c3aed;
+}
+
+.registered-team {
+    padding: 10px;
+    margin: 10px 0;
+    border: 1px solid #444;
+    border-radius: 5px;
+    background: #2a2a2a;
 }
