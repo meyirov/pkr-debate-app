@@ -35,13 +35,12 @@ body {
 
 
 #new-post {
+    margin: 16px 12px 20px 12px;
     background: #16181c;
     padding: 12px;
     border-radius: 16px;
-    margin: 10px 12px;
     box-shadow: 0 0 0 1px #2f3336;
-    display: flex;
-    flex-direction: column;
+    width: auto;
 }
 
 
@@ -94,89 +93,48 @@ body {
     overflow-y: auto; /* Включаем скролл */
 }
 
-
 .post {
-    background: transparent;
-    padding: 16px 16px 8px 16px;
-    margin: 0;
-    border-bottom: 1px solid #2f3336;
-    transition: background 0.2s;
-}
-
-.post:hover {
-    background: #16181c;
+    background: #2a2a2a;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    border-bottom: 1px solid #444; /* Визуальное разделение */
 }
 
 .post-header {
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 4px;
-    font-size: 15px;
+    margin-bottom: 10px;
 }
 
-.post-header strong {
+.post-user {
+    display: flex;
+    align-items: center;
+}
+
+.post-user strong {
     font-weight: bold;
-    color: #fff;
+    margin-right: 5px;
 }
 
-.post-header span {
-    color: #6e767d;
+.post-user span {
+    color: #888;
     font-size: 14px;
 }
 
 .post-time {
-    color: #6e767d;
+    color: #888;
     font-size: 14px;
-    margin-left: auto;
 }
 
 .post-content {
-    font-size: 15px;
+    margin-top: 10px;
     line-height: 1.5;
-    white-space: pre-wrap;
-    margin-bottom: 10px;
 }
 
 .post-actions {
-    display: flex;
-    justify-content: space-between;
-    padding-right: 30%;
-    margin-top: 4px;
-}
-
-.reaction-btn,
-.comment-toggle-btn {
-    background: none;
-    border: none;
-    color: #6e767d;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    cursor: pointer;
-    transition: color 0.2s;
-}
-
-.reaction-btn:hover,
-.comment-toggle-btn:hover {
-    color: #8b5cf6;
-}
-
-
-.reaction-btn.active {
-    color: #8b5cf6;
-    background: none;
-}
-
-
-.reaction-btn svg,
-.comment-toggle-btn svg {
-    width: 16px;
-    height: 16px;
-    stroke: currentColor;
-}
-
     display: flex;
     gap: 10px;
     margin-top: 10px;
@@ -204,9 +162,12 @@ body {
 }
 
 
+
 .reaction-btn.active:hover {
-    background: #7c3aed;
+    color: #a78bfa;
+    background: none;
 }
+
 
 .comment-toggle-btn {
     background: #444;
@@ -395,96 +356,4 @@ body {
 
 .modal-content button:hover {
     background: #7c3aed; /* Фиолетовый при наведении */
-}
-
-/* Новый стиль блока создания поста */
-
-#new-post {
-    background: #16181c;
-    padding: 12px;
-    border-radius: 16px;
-    margin: 10px 12px;
-    box-shadow: 0 0 0 1px #2f3336;
-    display: flex;
-    flex-direction: column;
-}
-
-
-#new-post textarea {
-    background: transparent;
-    border: none;
-    resize: none;
-    color: #e0e0e0;
-    font-size: 16px;
-    padding: 8px 0;
-    min-height: 60px;
-}
-
-#new-post textarea::placeholder {
-    color: #6e767d;
-}
-
-#new-post textarea:focus {
-    outline: none;
-}
-
-.new-post-actions {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 8px;
-}
-
-#new-post button {
-    padding: 6px 16px;
-    background: #8b5cf6;
-    color: white;
-    border: none;
-    border-radius: 9999px;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 14px;
-    transition: background 0.2s;
-}
-
-#new-post button:hover {
-    background: #7c3aed;
-}
-
-/* Кнопки реакций и комментариев */
-.reaction-btn,
-.comment-toggle-btn {
-    background: none;
-    border: none;
-    color: #6e767d;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    transition: color 0.2s;
-}
-
-.reaction-btn:hover,
-.comment-toggle-btn:hover {
-    color: #8b5cf6;
-}
-
-
-.reaction-btn.active {
-    color: #8b5cf6;
-    background: none;
-}
-
-
-.reaction-btn svg,
-.comment-toggle-btn svg {
-    width: 16px;
-    height: 16px;
-    stroke: currentColor;
-}
-
-/* Чтобы числа не терялись при цвете фона */
-.reaction-count {
-    font-size: 14px;
-    color: inherit;
 }
