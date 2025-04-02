@@ -493,56 +493,28 @@ async function loadTournaments() {
             tournaments.forEach(tournament => {
                 const tournamentDiv = document.createElement('div');
                 tournamentDiv.classList.add('tournament');
-                tournamentDiv.innerHTML = `
-                    Турнир: ${tournament.name}<br>
-                    Дата: ${tournament.date}<br>
-                    Логотип: ${tournament.logo}<br>
-                    Описание: ${tournament.desc}<br>
-                    Адрес: ${tournament.address}<br>
-                    Дедлайн: ${tournament.deadline}<br>
-                    <button onclick="showRegistrationForm('${tournament.id}')">Зарегистрироваться</button>
+
+                const logo = document.createElement('img');
+                logo.className = 'tournament-logo';
+                logo.src = tournament.logo || '';
+                logo.alt = 'Логотип';
+
+                const content = document.createElement('div');
+                content.className = 'tournament-content';
+                content.innerHTML = `
+                    <div class="tournament-title">${tournament.name}</div>
+                    <div class="tournament-date">${tournament.date}</div>
                 `;
+
+                tournamentDiv.appendChild(logo);
+                tournamentDiv.appendChild(content);
+
                 tournamentList.appendChild(tournamentDiv);
             });
         }
     } catch (error) {
         console.error('Error loading tournaments:', error);
         alert('Ошибка загрузки турниров: ' + error.message);
-    }
-}
-
-function showRegistrationForm(tournamentId) {
-    const form = document.createElement('div');
-    form.innerHTML = `
-        <input id="reg-speaker1" type="text" placeholder="Имя и фамилия 1-го спикера">
-        <input id="reg-speaker2" type="text" placeholder="Имя и фамилия 2-го спикера">
-        <input id="reg-club" type="text" placeholder="Клуб">
-        <input id="reg-city" type="text" placeholder="Город">
-        <input id="reg-contacts" type="text" placeholder="Контакты">
-        <textarea id="reg-extra" placeholder="Дополнительно (достижения)"></textarea>
-        <button onclick="submitRegistration('${tournamentId}')">Отправить</button>
-    `;
-    tournamentList.appendChild(form);
-}
-
-async function submitRegistration(tournamentId) {
-    const registration = {
-        tournament_id: parseInt(tournamentId),
-        speaker1: document.getElementById('reg-speaker1').value,
-        speaker2: document.getElementById('reg-speaker2').value,
-        club: document.getElementById('reg-club').value,
-        city: document.getElementById('reg-city').value,
-        contacts: document.getElementById('reg-contacts').value,
-        extra: document.getElementById('reg-extra').value,
-        timestamp: new Date().toISOString()
-    };
-    try {
-        await supabaseFetch('registrations', 'POST', registration);
-        alert('Регистрация отправлена!');
-        loadTournaments();
-    } catch (error) {
-        console.error('Error saving registration:', error);
-        alert('Ошибка: ' + error.message);
     }
 }
 
