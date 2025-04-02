@@ -1,13 +1,13 @@
 * {
-    box-sizing: border-box; /* Учитываем padding и border в ширине */
+    box-sizing: border-box;
 }
 
 body {
     margin: 0;
     font-family: Arial, sans-serif;
-    background: #1a1a1a; /* Тёмный фон */
-    color: #e0e0e0; /* Светлый текст */
-    height: 100vh; /* Устанавливаем высоту body на 100% viewport */
+    background: #1a1a1a;
+    color: #e0e0e0;
+    height: 100vh;
     display: flex;
     flex-direction: column;
 }
@@ -15,13 +15,13 @@ body {
 .container {
     display: flex;
     flex-direction: column;
-    flex: 1; /* Растягиваем container на всю доступную высоту */
+    flex: 1;
 }
 
 .main-content {
-    flex: 1; /* Растягиваем main-content */
+    flex: 1;
     padding: 10px;
-    padding-bottom: 70px; /* Отступ снизу, чтобы контент не перекрывался навигацией */
+    padding-bottom: 70px;
     overflow-y: auto;
 }
 
@@ -36,10 +36,10 @@ body {
 #new-post {
     margin-bottom: 20px;
     background: #2a2a2a;
-    padding: 10px; /* Уменьшаем padding, чтобы не выходить за рамки */
+    padding: 10px;
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    width: 100%; /* Убедимся, что ширина не превышает контейнер */
+    width: 100%;
 }
 
 #new-post textarea {
@@ -60,22 +60,21 @@ body {
 
 .new-post-actions {
     display: flex;
-    justify-content: flex-end; /* Кнопка "Твитнуть" справа */
+    justify-content: flex-end;
     align-items: center;
     margin-top: 10px;
 }
 
 .new-post-icons {
     flex: 1;
-    /* Здесь можно добавить иконки в будущем */
 }
 
 #new-post button {
-    padding: 6px 16px; /* Уменьшаем размер кнопки */
-    background: #8b5cf6; /* Фиолетовый цвет */
+    padding: 6px 16px;
+    background: #8b5cf6;
     color: white;
     border: none;
-    border-radius: 20px; /* Закруглённые края */
+    border-radius: 20px;
     cursor: pointer;
     font-size: 14px;
     font-weight: 500;
@@ -83,12 +82,12 @@ body {
 }
 
 #new-post button:hover {
-    background: #7c3aed; /* Фиолетовый при наведении */
+    background: #7c3aed;
 }
 
 #posts {
-    max-height: calc(100vh - 200px); /* Ограничиваем высоту: высота экрана минус высота new-post и навигации */
-    overflow-y: auto; /* Включаем скролл */
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
 }
 
 .post {
@@ -97,7 +96,7 @@ body {
     margin-bottom: 10px;
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    border-bottom: 1px solid #444; /* Визуальное разделение */
+    border-bottom: 1px solid #444;
 }
 
 .post-header {
@@ -117,7 +116,7 @@ body {
     margin-right: 5px;
 }
 
-.post-user span   span {
+.post-user span {
     color: #888;
     font-size: 14px;
 }
@@ -139,7 +138,7 @@ body {
 }
 
 .reaction-btn {
-    background: #444; /* Серый цвет */
+    background: #444;
     color: #e0e0e0;
     border: none;
     border-radius: 4px;
@@ -154,7 +153,7 @@ body {
 }
 
 .reaction-btn.active {
-    background: #8b5cf6; /* Фиолетовый при нажатии */
+    background: #8b5cf6;
 }
 
 .reaction-btn.active:hover {
@@ -247,24 +246,32 @@ body {
 }
 
 .tournament {
+    display: flex;
+    align-items: center;
     background: #2a2a2a;
     padding: 10px;
     margin-bottom: 10px;
     border-radius: 4px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-.tournament button {
-    padding: 8px;
-    background: #8b5cf6; /* Фиолетовый цвет */
-    color: white;
-    border: none;
-    border-radius: 4px;
     cursor: pointer;
 }
 
-.tournament button:hover {
-    background: #7c3aed; /* Фиолетовый при наведении */
+.tournament img {
+    width: 80px;
+    height: 80px;
+    margin-right: 15px;
+    border-radius: 4px;
+}
+
+.tournament-info h3 {
+    font-size: 20px;
+    font-weight: bold;
+    margin: 0;
+}
+
+.tournament-info p {
+    margin: 5px 0 0;
+    color: #888;
 }
 
 .form-hidden {
@@ -277,11 +284,11 @@ body {
     background: #121212;
     padding: 10px 0;
     border-top: 1px solid #333;
-    position: fixed; /* Фиксируем навигацию внизу */
+    position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    z-index: 1000; /* Убедимся, что навигация выше контента */
+    z-index: 1000;
 }
 
 .nav-btn {
@@ -296,14 +303,13 @@ body {
 }
 
 .nav-btn.active {
-    color: #8b5cf6; /* Фиолетовый для активной кнопки */
+    color: #8b5cf6;
 }
 
 .nav-btn span {
     font-size: 20px;
 }
 
-/* Стили для модального окна */
 .modal {
     position: fixed;
     top: 0;
@@ -339,7 +345,7 @@ body {
 
 .modal-content button {
     padding: 10px 20px;
-    background: #8b5cf6; /* Фиолетовый цвет */
+    background: #8b5cf6;
     color: white;
     border: none;
     border-radius: 4px;
@@ -347,43 +353,60 @@ body {
 }
 
 .modal-content button:hover {
-    background: #7c3aed; /* Фиолетовый при наведении */
+    background: #7c3aed;
 }
 
-/* Стили для турнирной сетки */
-.tournament-grid {
-    margin-top: 15px;
-    padding: 10px;
-    background: #252525;
-    border-radius: 8px;
-}
-
-.grid-round {
-    margin-bottom: 20px;
-}
-
-.grid-round h3 {
-    color: #8b5cf6;
-    margin-bottom: 10px;
-}
-
-.grid-match {
+#tournament-header {
     background: #2a2a2a;
-    padding: 10px;
+    padding: 15px;
+    border-radius: 8px;
     margin-bottom: 10px;
+}
+
+#tournament-header img {
+    width: 100px;
+    height: 100px;
     border-radius: 4px;
+    float: left;
+    margin-right: 15px;
+}
+
+#tournament-header h2 {
+    margin: 0;
+    font-size: 24px;
+}
+
+#tournament-header .desc-hidden {
+    display: none;
+}
+
+#tournament-tabs {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
 }
 
-.grid-match span {
-    font-size: 14px;
+.tab-btn {
+    padding: 8px 16px;
+    background: #444;
+    color: #e0e0e0;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
 }
 
-.grid-match .vs {
-    color: #888;
-    font-weight: bold;
+.tab-btn.active {
+    background: #8b5cf6;
+}
+
+.tab-btn:hover {
+    background: #555;
+}
+
+#tournament-content {
+    background: #252525;
+    padding: 15px;
+    border-radius: 8px;
 }
 
 .grid-button {
@@ -393,7 +416,7 @@ body {
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    margin-left: 10px;
+    margin-top: 10px;
 }
 
 .grid-button:hover {
