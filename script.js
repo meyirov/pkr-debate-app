@@ -515,32 +515,45 @@ async function loadTournaments() {
     }
 }
 
+// ... (весь код до showTournamentPage остается без изменений) ...
+
 function showTournamentPage(tournament) {
+    // Логируем объект tournament, чтобы увидеть, что приходит
+    console.log('Tournament data:', tournament);
+
     const sections = document.querySelectorAll('.content');
     sections.forEach(section => section.classList.remove('active'));
     const tournamentPage = document.getElementById('tournament-page');
     tournamentPage.classList.add('active');
 
     const header = document.getElementById('tournament-header');
+    // Добавляем запасные значения для всех полей
     const logoSrc = tournament.logo && tournament.logo.startsWith('http') ? tournament.logo : 'https://picsum.photos/100';
+    const name = tournament.name || 'Без названия';
+    const date = tournament.date || 'Дата не указана';
+    const deadline = tournament.deadline || 'Дедлайн не указан';
+    const address = tournament.address || '#';
+    const desc = tournament.desc || 'Описание отсутствует';
+    const tournamentId = tournament.id || 'unknown';
+
     header.innerHTML = `
-        <img src="${logoSrc}" alt="Логотип" onerror="this.src='https://picsum.photos/100';">
-        <h2>${tournament.name}</h2>
-        <p>Дата: ${tournament.date}</p>
-        <p>Дедлайн: ${tournament.deadline}</p>
-        <p><a href="${tournament.address}" target="_blank">Адрес</a></p>
-        <p id="desc-${tournament.id}" class="desc-hidden">${tournament.desc}</p>
-        <button id="toggle-desc-${tournament.id}" class="grid-button">Показать дальше</button>
+        <img src="${logoSrc}" alt="Логотип" onerror="this.onerror=null; this.src='https://picsum.photos/100';">
+        <h2>${name}</h2>
+        <p>Дата: ${date}</p>
+        <p>Дедлайн: ${deadline}</p>
+        <p><a href="${address}" target="_blank">Адрес</a></p>
+        <p id="desc-${tournamentId}" class="desc-hidden">${desc}</p>
+        <button id="toggle-desc-${tournamentId}" class="grid-button">Показать дальше</button>
     `;
 
-    document.getElementById(`toggle-desc-${tournament.id}`).addEventListener('click', () => {
-        const desc = document.getElementById(`desc-${tournament.id}`);
+    document.getElementById(`toggle-desc-${tournamentId}`).addEventListener('click', () => {
+        const desc = document.getElementById(`desc-${tournamentId}`);
         if (desc.classList.contains('desc-hidden')) {
             desc.classList.remove('desc-hidden');
-            document.getElementById(`toggle-desc-${tournament.id}`).textContent = 'Скрыть';
+            document.getElementById(`toggle-desc-${tournamentId}`).textContent = 'Скрыть';
         } else {
             desc.classList.add('desc-hidden');
-            document.getElementById(`toggle-desc-${tournament.id}`).textContent = 'Показать дальше';
+            document.getElementById(`toggle-desc-${tournamentId}`).textContent = 'Показать дальше';
         }
     });
 
@@ -565,6 +578,8 @@ function showTournamentPage(tournament) {
         document.getElementById('tournaments').classList.add('active');
     });
 }
+
+// ... (весь код после showTournamentPage остается без изменений) ...
 
 const ratingList = document.getElementById('rating-list');
 const rating = [
