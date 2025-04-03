@@ -350,7 +350,11 @@ function getTimeAgo(date) {
 
 async function loadReactions(postId) {
     try {
-        const reactions = await supabaseFetch(`reactions?post_id=eq.${postId}`, 'GET');
+        console.log('postId in loadReactions:', postId); // Логирование для отладки
+        if (typeof postId !== 'number' && typeof postId !== 'string') {
+            throw new Error('Invalid postId: ' + postId);
+        }
+        const reactions = await supabaseFetch('reactions?post_id=eq.' + postId, 'GET');
         return reactions || [];
     } catch (error) {
         console.error('Error loading reactions:', error);
