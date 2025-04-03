@@ -223,7 +223,7 @@ async function renderPosts() {
     }
 }
 
-async 🙂function renderPost(post) {
+async function renderPost(post) {
     const postDiv = document.createElement('div');
     postDiv.classList.add('post');
     postDiv.setAttribute('data-post-id', post.id);
