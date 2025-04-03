@@ -558,7 +558,8 @@ async function showTournamentDetails(tournamentId) {
             }
         };
 
-        // Инициализация регистрации
+        // Инициализация табов и регистрации
+        initTabs();
         initRegistration();
         loadRegistrations(tournamentId);
     } catch (error) {
@@ -569,6 +570,27 @@ async function showTournamentDetails(tournamentId) {
 
 function extractCityFromAddress(address) {
     return address.split('/')[3] || 'Не указан';
+}
+
+function initTabs() {
+    const postsTab = document.getElementById('posts-tab');
+    const registrationTab = document.getElementById('registration-tab');
+    const postsContent = document.getElementById('tournament-posts');
+    const registrationContent = document.getElementById('tournament-registration');
+
+    postsTab.onclick = () => {
+        postsTab.classList.add('active');
+        registrationTab.classList.remove('active');
+        postsContent.classList.add('active');
+        registrationContent.classList.remove('active');
+    };
+
+    registrationTab.onclick = () => {
+        registrationTab.classList.add('active');
+        postsTab.classList.remove('active');
+        registrationContent.classList.add('active');
+        postsContent.classList.remove('active');
+    };
 }
 
 function initRegistration() {
