@@ -8,6 +8,7 @@ const submitProfileRegBtn = document.getElementById('submit-profile-reg-btn');
 let userData = {};
 let postsCache = [];
 let lastPostTimestamp = null;
+let currentTournamentId = null;
 
 async function supabaseFetch(endpoint, method, body = null) {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, {
@@ -521,6 +522,7 @@ async function showTournamentDetails(tournamentId) {
         const tournament = await supabaseFetch(`tournaments?id=eq.${tournamentId}`, 'GET');
         if (!tournament || tournament.length === 0) return;
 
+        currentTournamentId = tournamentId; // Сохраняем ID текущего турнира
         const data = tournament[0];
         const city = data.address ? extractCityFromAddress(data.address) : 'Не указан';
 
@@ -543,7 +545,7 @@ async function showTournamentDetails(tournamentId) {
         // Переключаем видимость секции
         sections.forEach(section => section.classList.remove('active'));
         document.getElementById('tournament-details').classList.add('active');
-        buttons.forEach(btn => btn.classList.remove('active')); // Убираем активность с кнопок навигации
+        buttons.forEach(btn => btn.classList.remove('active'));
 
         // Обработчик кнопки разворачивания
         toggleBtn.onclick = () => {
@@ -555,6 +557,10 @@ async function showTournamentDetails(tournamentId) {
                 toggleBtn.textContent = 'Развернуть описание';
             }
         };
+
+        // Инициализация регистрации
+        initRegistration();
+        loadRegistrations(tournamentId);
     } catch (error) {
         console.error('Error loading tournament details:', error);
         alert('Ошибка: ' + error.message);
@@ -565,38 +571,76 @@ function extractCityFromAddress(address) {
     return address.split('/')[3] || 'Не указан';
 }
 
-function showRegistrationForm(tournamentId) {
-    const form = document.createElement('div');
-    form.innerHTML = `
-        <input id="reg-speaker1" type="text" placeholder="Имя и фамилия 1-го спикера">
-        <input id="reg-speaker2" type="text" placeholder="Имя и фамилия 2-го спикера">
-        <input id="reg-club" type="text" placeholder="Клуб">
-        <input id="reg-city" type="text" placeholder="Город">
-        <input id="reg-contacts" type="text" placeholder="Контакты">
-        <textarea id="reg-extra" placeholder="Дополнительно (достижения)"></textarea>
-        <button onclick="submitRegistration('${tournamentId}')">Отправить</button>
-    `;
-    tournamentList.appendChild(form);
+function initRegistration() {
+    const registerBtn = document.getElementById('register-tournament-btn');
+    const registrationForm = document.getElementById('registration-form');
+    const submitRegistrationBtn = document.getElementById('submit-registration-btn');
+
+    registerBtn.onclick = () => {
+        registrationForm.classList.toggle('form-hidden');
+    };
+
+    submitRegistrationBtn.onclick = async () => {
+        const registration = {
+            tournament_id: currentTournamentId,
+            speaker1: document.getElementById('reg-speaker1').value,
+            speaker2: document.getElementById('reg-speaker2').value,
+            club: document.getElementById('reg-club').value,
+            city: document.getElementById('reg-city').value,
+            contacts: document.getElementById('reg-contacts').value,
+            extra: document.getElementById('reg-extra').value,
+            timestamp: new Date().toISOString()
+        };
+
+        if (!registration.club) {
+            alert('Пожалуйста, укажите название клуба!');
+            return;
+        }
+
+        try {
+            await supabaseFetch('registrations', 'POST', registration);
+            alert('Регистрация отправлена!');
+            registrationForm.classList.add('form-hidden');
+            document.getElementById('reg-speaker1').value = '';
+            document.getElementById('reg-speaker2').value = '';
+            document.getElementById('reg-club').value = '';
+            document.getElementById('reg-city').value = '';
+            document.getElementById('reg-contacts').value = '';
+            document.getElementById('reg-extra').value = '';
+            loadRegistrations(currentTournamentId);
+        } catch (error) {
+            console.error('Error saving registration:', error);
+            alert('Ошибка: ' + error.message);
+        }
+    };
 }
 
-async function submitRegistration(tournamentId) {
-    const registration = {
-        tournament_id: parseInt(tournamentId),
-        speaker1: document.getElementById('reg-speaker1').value,
-        speaker2: document.getElementById('reg-speaker2').value,
-        club: document.getElementById('reg-club').value,
-        city: document.getElementById('reg-city').value,
-        contacts: document.getElementById('reg-contacts').value,
-        extra: document.getElementById('reg-extra').value,
-        timestamp: new Date().toISOString()
-    };
+async function loadRegistrations(tournamentId) {
     try {
-        await supabaseFetch('registrations', 'POST', registration);
-        alert('Регистрация отправлена!');
-        loadTournaments();
+        const registrations = await supabaseFetch(`registrations?tournament_id=eq.${tournamentId}&order=timestamp.asc`, 'GET');
+        const registrationList = document.getElementById('registration-list');
+        registrationList.innerHTML = '';
+
+        if (registrations && registrations.length > 0) {
+            registrations.forEach(reg => {
+                const regCard = document.createElement('div');
+                regCard.classList.add('registration-card');
+                regCard.innerHTML = `
+                    <strong>${reg.club}</strong>
+                    <p>Спикер 1: ${reg.speaker1 || 'Не указано'}</p>
+                    <p>Спикер 2: ${reg.speaker2 || 'Не указано'}</p>
+                    <p>Город: ${reg.city || 'Не указано'}</p>
+                    <p>Контакты: ${reg.contacts || 'Не указано'}</p>
+                    <p>Дополнительно: ${reg.extra || 'Нет'}</p>
+                `;
+                registrationList.appendChild(regCard);
+            });
+        } else {
+            registrationList.innerHTML = '<p>Пока нет зарегистрированных команд.</p>';
+        }
     } catch (error) {
-        console.error('Error saving registration:', error);
-        alert('Ошибка: ' + error.message);
+        console.error('Error loading registrations:', error);
+        alert('Ошибка загрузки регистраций: ' + error.message);
     }
 }
 
