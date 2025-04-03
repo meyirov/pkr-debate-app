@@ -472,7 +472,6 @@ submitTournament.addEventListener('click', async () => {
         desc: document.getElementById('tournament-desc').value,
         address: document.getElementById('tournament-address').value,
         deadline: document.getElementById('tournament-deadline').value,
-        level: document.getElementById('tournament-level').value,
         timestamp: new Date().toISOString()
     };
     try {
@@ -501,12 +500,11 @@ async function loadTournaments() {
                 const city = tournament.address ? extractCityFromAddress(tournament.address) : 'Не указан';
 
                 tournamentCard.innerHTML = `
-                    <img src="${logoUrl}" class="tournament-logo" alt="Логотип турнира" onerror="this.src='https://picsum.photos/200'">
+                    <img src="${logoUrl}" class="tournament-logo" alt="Логотип турнира" onerror="this.src='placeholder.png'">
                     <div class="tournament-info">
                         <strong>${tournament.name}</strong>
                         <span>Дата: ${tournament.date}</span>
                         <span>Город: ${city}</span>
-                        <span>Уровень: ${tournament.level || 'Не указан'}</span>
                     </div>
                 `;
                 tournamentList.appendChild(tournamentCard);
@@ -534,7 +532,6 @@ async function showTournamentDetails(tournamentId) {
                 <strong>${data.name}</strong>
                 <p>Дата: ${data.date}</p>
                 <p>Город: ${city}</p>
-                <p>Уровень: ${data.level || 'Не указан'}</p>
                 <p>Описание: ${data.desc || 'Описание отсутствует'}</p>
                 <p>Адрес: <a href="${data.address}" target="_blank">${data.address}</a></p>
                 <p>Дедлайн: ${data.deadline}</p>
