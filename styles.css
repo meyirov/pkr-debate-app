@@ -548,6 +548,18 @@ body {
 
 .bracket-match p {
     margin: 5px 0;
+    font-size: 14px;
+}
+
+.bracket-match p.team-info {
+    font-weight: bold;
+    color: #e0e0e0;
+}
+
+.bracket-match p.team-info span.club {
+    font-weight: normal;
+    color: #b0b0b0;
+    font-size: 13px;
 }
 
 .bracket-match input {
