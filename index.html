@@ -56,7 +56,26 @@
                 <button id="toggle-description-btn">Развернуть описание</button>
                 <hr class="section-divider">
                 <div id="tournament-future-content">
-                    <p>Здесь будет будущий контент</p>
+                    <div class="tournament-section">
+                        <h3>Посты</h3>
+                        <div id="tournament-posts">
+                            <p>Посты скоро появятся!</p>
+                        </div>
+                    </div>
+                    <div class="tournament-section">
+                        <h3>Регистрация</h3>
+                        <button id="register-tournament-btn">Зарегистрироваться</button>
+                        <div id="registration-form" class="form-hidden">
+                            <input id="reg-speaker1" type="text" placeholder="Имя и фамилия 1-го спикера">
+                            <input id="reg-speaker2" type="text" placeholder="Имя и фамилия 2-го спикера">
+                            <input id="reg-club" type="text" placeholder="Клуб">
+                            <input id="reg-city" type="text" placeholder="Город">
+                            <input id="reg-contacts" type="text" placeholder="Контакты">
+                            <textarea id="reg-extra" placeholder="Дополнительно (достижения)"></textarea>
+                            <button id="submit-registration-btn">Отправить</button>
+                        </div>
+                        <div id="registration-list"></div>
+                    </div>
                 </div>
             </section>
             <section id="rating" class="content">
@@ -82,5 +101,5 @@
         </nav>
     </div>
     <script src="script.js"></script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'92a8c634fddfaf9e',t:'MTc0MzY4NTQ5Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';DOCUMENT.body.appendChild(a);if('loading'!==DOCUMENT.readyState)c();else if(window.addEventListener)DOCUMENT.addEventListener('DOMContentLoaded',c);else{var e=DOCUMENT.onreadystatechange||function(){};DOCUMENT.onreadystatechange=function(b){e(b);'loading'!==DOCUMENT.readyState&&(DOCUMENT.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'92a8c634fddfaf9e',t:'MTc0MzY4NTQ5Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
