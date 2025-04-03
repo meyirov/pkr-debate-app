@@ -113,7 +113,7 @@ updateProfileBtn.addEventListener('click', async () => {
 });
 
 const postText = document.getElementById('post-text');
-const submitPost = document.getElementById('submit-post');
+const submitPost = document.getElementById('submit-posts');
 const postsDiv = document.getElementById('posts');
 const newPostsBtn = document.createElement('button');
 newPostsBtn.id = 'new-posts-btn';
@@ -743,7 +743,7 @@ async function loadRegistrations(tournamentId) {
                 const regCard = document.createElement('div');
                 regCard.classList.add('registration-card');
                 regCard.innerHTML = `
-                    <strong>${reg.faction_name || 'Не указано'} (${reg.club})</strong>
+                    <strong>${reg.faction_name} (${reg.club})</strong>
                     <p>Спикер 1: ${reg.speaker1 || 'Не указано'}</p>
                     <p>Спикер 2: ${reg.speaker2 || 'Не указано'}</p>
                     <p>Город: ${reg.city || 'Не указано'}</p>
@@ -811,7 +811,10 @@ async function generateBracket() {
         return;
     }
 
-    const teams = registrations.slice(0, factionCount).map(reg => ({ faction_name: reg.faction_name, club: reg.club }));
+    const teams = registrations.slice(0, factionCount).map(reg => ({
+        faction_name: reg.faction_name,
+        club: reg.club
+    }));
     const positions = format === 'АПФ' ? ['Правительство', 'Оппозиция'] : ['Открывающая Правительство', 'Открывающая Оппозиция', 'Закрывающая Правительство', 'Закрывающая Оппозиция'];
     const teamsPerMatch = format === 'АПФ' ? 2 : 4;
 
@@ -828,7 +831,7 @@ async function generateBracket() {
                 matchTeams.push(availableTeams.splice(randomIndex, 1)[0]);
             }
 
-            const matchKey = matchTeams.map(t => t.faction_name).sort().join('|');
+            const matchKey = matchTeams.map(team => team.faction_name).sort().join('|');
             if (usedPairs.has(matchKey)) {
                 availableTeams.push(...matchTeams);
                 continue;
@@ -839,10 +842,10 @@ async function generateBracket() {
                 teams: matchTeams.map((team, idx) => ({
                     faction_name: team.faction_name,
                     club: team.club,
-                    position: positions[idx]
-                })),
-                room: '',
-                judge: ''
+                    position: positions[idx],
+                    room: '',
+                    judge: ''
+                }))
             };
             roundMatches.push(match);
         }
@@ -888,7 +891,7 @@ async function loadBracket(tournamentId) {
         if (data.published || isCreator) {
             data.matches.forEach(round => {
                 const roundDiv = document.createElement('div');
-                round Div.classList.add('bracket-round');
+                roundDiv.classList.add('bracket-round');
                 roundDiv.innerHTML = `<h3>Раунд ${round.round}</h3>`;
                 
                 round.matches.forEach((match, matchIdx) => {
@@ -896,7 +899,7 @@ async function loadBracket(tournamentId) {
                     matchDiv.classList.add('bracket-match');
                     let matchHTML = '';
                     match.teams.forEach(team => {
-                        matchHTML += `<p>${team.position}: ${team.faction_name || 'Не указано'} (${team.club})</p>`;
+                        matchHTML += `<p class="team-info">${team.position}: ${team.faction_name || 'Не указано'} <span class="club">(${team.club})</span></p>`;
                     });
                     if (isCreator && !data.published) {
                         matchHTML += `
