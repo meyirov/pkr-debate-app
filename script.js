@@ -888,7 +888,7 @@ async function loadBracket(tournamentId) {
         if (data.published || isCreator) {
             data.matches.forEach(round => {
                 const roundDiv = document.createElement('div');
-                round 🙂Div.classList.add('bracket-round');
+                round Div.classList.add('bracket-round');
                 roundDiv.innerHTML = `<h3>Раунд ${round.round}</h3>`;
                 
                 round.matches.forEach((match, matchIdx) => {
