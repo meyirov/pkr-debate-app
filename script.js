@@ -490,7 +490,7 @@ submitTournament.addEventListener('click', async () => {
 async function loadTournaments() {
     try {
         const tournaments = await supabaseFetch('tournaments?order=timestamp.desc&limit=50', 'GET');
-        console.log('Loaded tournaments:', tournaments); // Логируем данные из Supabase
+        console.log('Loaded tournaments:', tournaments);
         tournamentList.innerHTML = '';
         if (tournaments) {
             tournaments.forEach(tournament => {
@@ -516,8 +516,66 @@ async function loadTournaments() {
     }
 }
 
+async function loadRegistrations(tournamentId) {
+    try {
+        const registrations = await supabaseFetch(`tournament_registrations?tournament_id=eq.${tournamentId}`, 'GET');
+        return registrations || [];
+    } catch (error) {
+        console.error('Error loading registrations:', error);
+        return [];
+    }
+}
+
+async function renderRegistrations(tournamentId) {
+    const registrations = await loadRegistrations(tournamentId);
+    const content = document.getElementById('tournament-content');
+    content.innerHTML = '';
+
+    const userRegistration = registrations.find(r => r.user_id === userData.telegramUsername);
+    const isRegistered = !!userRegistration;
+
+    const regButton = document.createElement('button');
+    regButton.className = 'grid-button';
+    regButton.textContent = isRegistered ? 'Вы уже зарегистрированы' : 'Зарегистрироваться';
+    regButton.disabled = isRegistered;
+    regButton.addEventListener('click', async () => {
+        try {
+            await supabaseFetch('tournament_registrations', 'POST', {
+                tournament_id: tournamentId,
+                user_id: userData.telegramUsername,
+                timestamp: new Date().toISOString()
+            });
+            alert('Вы успешно зарегистрированы!');
+            renderRegistrations(tournamentId);
+        } catch (error) {
+            console.error('Error registering for tournament:', error);
+            alert('Ошибка регистрации: ' + error.message);
+        }
+    });
+
+    content.appendChild(regButton);
+
+    if (registrations.length > 0) {
+        const list = document.createElement('div');
+        list.className = 'registrations-list';
+        for (const reg of registrations) {
+            const userProfile = await supabaseFetch(`profiles?telegram_username=eq.${reg.user_id}`, 'GET');
+            const userName = userProfile && userProfile.length > 0 ? userProfile[0].fullname : reg.user_id;
+            const item = document.createElement('div');
+            item.className = 'registration-item';
+            item.innerHTML = `<strong>${userName}</strong> (@${reg.user_id})`;
+            list.appendChild(item);
+        }
+        content.appendChild(list);
+    } else {
+        const noRegistrations = document.createElement('p');
+        noRegistrations.textContent = 'Пока никто не зарегистрирован.';
+        content.appendChild(noRegistrations);
+    }
+}
+
 function showTournamentPage(tournament) {
-    console.log('Tournament data:', tournament); // Логируем данные, которые передаются
+    console.log('Tournament data:', tournament);
 
     const sections = document.querySelectorAll('.content');
     sections.forEach(section => section.classList.remove('active'));
@@ -525,7 +583,6 @@ function showTournamentPage(tournament) {
     tournamentPage.classList.add('active');
 
     const header = document.getElementById('tournament-header');
-    // Проверяем все поля и задаем запасные значения
     const logoSrc = tournament.logo && tournament.logo.startsWith('http') ? tournament.logo : 'https://picsum.photos/100';
     const name = tournament.name || 'Без названия';
     const date = tournament.date || 'Дата не указана';
@@ -536,22 +593,25 @@ function showTournamentPage(tournament) {
 
     header.innerHTML = `
         <img src="${logoSrc}" alt="Логотип" onerror="this.onerror=null; this.src='https://picsum.photos/100';">
-        <h2>${name}</h2>
-        <p>Дата: ${date}</p>
-        <p>Дедлайн: ${deadline}</p>
-        <p><a href="${address}" target="_blank">Адрес</a></p>
-        <p id="desc-${tournamentId}" class="desc-hidden">${desc}</p>
-        <button id="toggle-desc-${tournamentId}" class="grid-button">Показать дальше</button>
+        <div class="info">
+            <h2>${name}</h2>
+            <p>Дата: ${date}</p>
+            <p>Дедлайн: ${deadline}</p>
+            <p><a href="${address}" target="_blank">Адрес</a></p>
+            <p id="desc-${tournamentId}" class="desc-hidden">${desc}</p>
+            <button id="toggle-desc-${tournamentId}" class="grid-button">Показать дальше</button>
+        </div>
     `;
 
     document.getElementById(`toggle-desc-${tournamentId}`).addEventListener('click', () => {
         const desc = document.getElementById(`desc-${tournamentId}`);
+        const toggleButton = document.getElementById(`toggle-desc-${tournamentId}`);
         if (desc.classList.contains('desc-hidden')) {
             desc.classList.remove('desc-hidden');
-            document.getElementById(`toggle-desc-${tournamentId}`).textContent = 'Скрыть';
+            toggleButton.textContent = 'Скрыть';
         } else {
             desc.classList.add('desc-hidden');
-            document.getElementById(`toggle-desc-${tournamentId}`).textContent = 'Показать дальше';
+            toggleButton.textContent = 'Показать дальше';
         }
     });
 
@@ -565,9 +625,11 @@ function showTournamentPage(tournament) {
         tab.addEventListener('click', () => {
             tabs.forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
-            if (tab.id === 'tournament-posts-btn') content.innerHTML = '<p>Посты турнира скоро появятся!</p>';
-            if (tab.id === 'tournament-reg-btn') content.innerHTML = '<p>Регистрация скоро появится!</p>';
-            if (tab.id === 'tournament-grid-btn') content.innerHTML = '<p>Сетка скоро появится!</p>';
+            if (tab.id === 'tournament-posts-btn') {
+                content.innerHTML = '<p>Посты турнира скоро появятся!</p>';
+            } else if (tab.id === 'tournament-reg-btn') {
+                renderRegistrations(tournamentId);
+            }
         });
     });
 
