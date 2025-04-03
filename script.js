@@ -500,7 +500,7 @@ async function loadTournaments() {
                 const city = tournament.address ? extractCityFromAddress(tournament.address) : 'Не указан';
 
                 tournamentCard.innerHTML = `
-                    <img src="${logoUrl}" class="tournament-logo" alt="Логотип турнира" onerror="this.src='placeholder.png'">
+                    <img src="${logoUrl}" class="tournament-logo" alt="Логотип турнира" onerror="this.src='https://picsum.photos/200'">
                     <div class="tournament-info">
                         <strong>${tournament.name}</strong>
                         <span>Дата: ${tournament.date}</span>
@@ -528,7 +528,7 @@ async function showTournamentDetails(tournamentId) {
 
         modalContent.innerHTML = `
             <div class="tournament-details">
-                <img src="${data.logo || 'placeholder.png'}" alt="Логотип турнира" onerror="this.src='placeholder.png'">
+                <img src="${data.logo || 'placeholder.png'}" alt="Логотип турнира" onerror="this.src='https://picsum.photos/200'">
                 <strong>${data.name}</strong>
                 <p>Дата: ${data.date}</p>
                 <p>Город: ${city}</p>
