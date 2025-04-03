@@ -17,7 +17,7 @@ async function supabaseFetch(endpoint, method, body = null) {
             'apikey': SUPABASE_KEY,
             'Authorization': `Bearer ${SUPABASE_KEY}`,
             'Content-Type': 'application/json',
-            'Prefer': method === 'POST' ? 'return=representation' : undefined
+            'Prefer': method === 'POST' || method === 'PATCH' ? 'return=representation' : undefined
         },
         body: body ? JSON.stringify(body) : null
     });
@@ -473,7 +473,7 @@ submitTournament.addEventListener('click', async () => {
         desc: document.getElementById('tournament-desc').value,
         address: document.getElementById('tournament-address').value,
         deadline: document.getElementById('tournament-deadline').value,
-        creator_id: userData.telegramUsername, // Сохраняем создателя
+        creator_id: userData.telegramUsername,
         timestamp: new Date().toISOString()
     };
     try {
@@ -529,7 +529,7 @@ async function showTournamentDetails(tournamentId) {
         const tournament = await supabaseFetch(`tournaments?id=eq.${tournamentId}`, 'GET');
         if (!tournament || tournament.length === 0) return;
 
-        currentTournamentId = tournamentId; // Сохраняем ID текущего турнира
+        currentTournamentId = tournamentId;
         const data = tournament[0];
         const city = data.address ? extractCityFromAddress(data.address) : 'Не указан';
         const isCreator = data.creator_id === userData.telegramUsername;
@@ -550,12 +550,10 @@ async function showTournamentDetails(tournamentId) {
             <p>Описание: ${data.desc || 'Описание отсутствует'}</p>
         `;
 
-        // Переключаем видимость секции
         sections.forEach(section => section.classList.remove('active'));
         document.getElementById('tournament-details').classList.add('active');
         buttons.forEach(btn => btn.classList.remove('active'));
 
-        // Обработчик кнопки разворачивания
         toggleBtn.onclick = () => {
             if (description.classList.contains('description-hidden')) {
                 description.classList.remove('description-hidden');
@@ -566,12 +564,13 @@ async function showTournamentDetails(tournamentId) {
             }
         };
 
-        // Инициализация табов, постов и регистрации
         initTabs();
         initTournamentPosts(isCreator, data.name);
         loadTournamentPosts(tournamentId);
         initRegistration();
         loadRegistrations(tournamentId);
+        initBracket(isCreator);
+        loadBracket(tournamentId);
     } catch (error) {
         console.error('Error loading tournament details:', error);
         alert('Ошибка: ' + error.message);
@@ -585,21 +584,36 @@ function extractCityFromAddress(address) {
 function initTabs() {
     const postsTab = document.getElementById('posts-tab');
     const registrationTab = document.getElementById('registration-tab');
+    const bracketTab = document.getElementById('bracket-tab');
     const postsContent = document.getElementById('tournament-posts');
     const registrationContent = document.getElementById('tournament-registration');
+    const bracketContent = document.getElementById('tournament-bracket');
 
     postsTab.onclick = () => {
         postsTab.classList.add('active');
         registrationTab.classList.remove('active');
+        bracketTab.classList.remove('active');
         postsContent.classList.add('active');
         registrationContent.classList.remove('active');
+        bracketContent.classList.remove('active');
     };
 
     registrationTab.onclick = () => {
         registrationTab.classList.add('active');
         postsTab.classList.remove('active');
+        bracketTab.classList.remove('active');
         registrationContent.classList.add('active');
         postsContent.classList.remove('active');
+        bracketContent.classList.remove('active');
+    };
+
+    bracketTab.onclick = () => {
+        bracketTab.classList.add('active');
+        postsTab.classList.remove('active');
+        registrationTab.classList.remove('active');
+        bracketContent.classList.add('active');
+        postsContent.classList.remove('active');
+        registrationContent.classList.remove('active');
     };
 }
 
@@ -738,6 +752,189 @@ async function loadRegistrations(tournamentId) {
     } catch (error) {
         console.error('Error loading registrations:', error);
         alert('Ошибка загрузки регистраций: ' + error.message);
+    }
+}
+
+function initBracket(isCreator) {
+    const bracketSection = document.getElementById('tournament-bracket');
+    bracketSection.innerHTML = '';
+    if (isCreator) {
+        bracketSection.innerHTML = `
+            <div id="bracket-form">
+                <select id="bracket-format">
+                    <option value="АПФ">АПФ</option>
+                    <option value="БПФ">БПФ</option>
+                </select>
+                <input id="bracket-faction-count" type="number" placeholder="Количество фракций (чётное)" min="2" step="2">
+                <select id="bracket-round-count">
+                    <option value="1">1 раунд</option>
+                    <option value="2">2 раунда</option>
+                    <option value="3">3 раунда</option>
+                    <option value="4">4 раунда</option>
+                    <option value="5">5 раундов</option>
+                </select>
+                <button id="generate-bracket-btn">Сформировать сетку</button>
+            </div>
+            <div id="bracket-display"></div>
+        `;
+        document.getElementById('generate-bracket-btn').onclick = async () => {
+            generateBracket();
+        };
+    } else {
+        bracketSection.innerHTML = `<div id="bracket-display"></div>`;
+    }
+}
+
+async function generateBracket() {
+    const format = document.getElementById('bracket-format').value;
+    const factionCount = parseInt(document.getElementById('bracket-faction-count').value);
+    const roundCount = parseInt(document.getElementById('bracket-round-count').value);
+
+    if (isNaN(factionCount) || factionCount < 2 || factionCount % 2 !== 0) {
+        alert('Количество фракций должно быть чётным и больше 0!');
+        return;
+    }
+    if (format === 'БПФ' && factionCount % 4 !== 0) {
+        alert('Для формата БПФ количество фракций должно быть кратно 4!');
+        return;
+    }
+
+    const registrations = await supabaseFetch(`registrations?tournament_id=eq.${currentTournamentId}&order=timestamp.asc`, 'GET');
+    if (!registrations || registrations.length < factionCount) {
+        alert('Недостаточно зарегистрированных команд!');
+        return;
+    }
+
+    const teams = registrations.slice(0, factionCount).map(reg => reg.club);
+    const positions = format === 'АПФ' ? ['Правительство', 'Оппозиция'] : ['Открывающая Правительство', 'Открывающая Оппозиция', 'Закрывающая Правительство', 'Закрывающая Оппозиция'];
+    const teamsPerMatch = format === 'АПФ' ? 2 : 4;
+
+    const matches = [];
+    const usedPairs = new Set();
+
+    for (let round = 0; round < roundCount; round++) {
+        const roundMatches = [];
+        const availableTeams = [...teams];
+        while (availableTeams.length >= teamsPerMatch) {
+            const matchTeams = [];
+            for (let i = 0; i < teamsPerMatch; i++) {
+                const randomIndex = Math.floor(Math.random() * availableTeams.length);
+                matchTeams.push(availableTeams.splice(randomIndex, 1)[0]);
+            }
+
+            const matchKey = matchTeams.sort().join('|');
+            if (usedPairs.has(matchKey)) {
+                availableTeams.push(...matchTeams);
+                continue;
+            }
+            usedPairs.add(matchKey);
+
+            const match = {
+                teams: matchTeams.map((team, idx) => ({
+                    name: team,
+                    position: positions[idx],
+                    room: '',
+                    judge: ''
+                }))
+            };
+            roundMatches.push(match);
+        }
+        if (roundMatches.length > 0) {
+            matches.push({ round: round + 1, matches: roundMatches });
+        }
+    }
+
+    const bracket = {
+        tournament_id: currentTournamentId,
+        format: format,
+        faction_count: factionCount,
+        round_count: roundCount,
+        matches: matches,
+        published: false,
+        timestamp: new Date().toISOString()
+    };
+
+    try {
+        await supabaseFetch('brackets', 'POST', bracket);
+        loadBracket(currentTournamentId);
+    } catch (error) {
+        console.error('Error saving bracket:', error);
+        alert('Ошибка: ' + error.message);
+    }
+}
+
+async function loadBracket(tournamentId) {
+    const bracketSection = document.getElementById('tournament-bracket');
+    const bracketDisplay = document.getElementById('bracket-display');
+    const isCreator = (await supabaseFetch(`tournaments?id=eq.${tournamentId}`, 'GET'))[0].creator_id === userData.telegramUsername;
+
+    try {
+        const bracket = await supabaseFetch(`brackets?tournament_id=eq.${tournamentId}&order=timestamp.desc&limit=1`, 'GET');
+        if (!bracket || bracket.length === 0) {
+            bracketDisplay.innerHTML = '<p>Сетка ещё не сформирована.</p>';
+            return;
+        }
+
+        const data = bracket[0];
+        bracketDisplay.innerHTML = '';
+
+        if (data.published || isCreator) {
+            data.matches.forEach(round => {
+                const roundDiv = document.createElement('div');
+                roundDiv.classList.add('bracket-round');
+                roundDiv.innerHTML = `<h3>Раунд ${round.round}</h3>`;
+                
+                round.matches.forEach((match, matchIdx) => {
+                    const matchDiv = document.createElement('div');
+                    matchDiv.classList.add('bracket-match');
+                    let matchHTML = '';
+                    match.teams.forEach(team => {
+                        matchHTML += `<p>${team.position}: ${team.name}</p>`;
+                        if (isCreator && !data.published) {
+                            matchHTML += `
+                                <input type="text" placeholder="Кабинет" value="${team.room || ''}" data-round="${round.round}" data-match="${matchIdx}" data-team="${team.name}" class="room-input">
+                                <input type="text" placeholder="Судья" value="${team.judge || ''}" data-round="${round.round}" data-match="${matchIdx}" data-team="${team.name}" class="judge-input">
+                            `;
+                        } else if (data.published) {
+                            matchHTML += `
+                                <p>Кабинет: ${team.room || 'Не указан'}</p>
+                                <p>Судья: ${team.judge || 'Не указан'}</p>
+                            `;
+                        }
+                    });
+                    matchDiv.innerHTML = matchHTML;
+                    roundDiv.appendChild(matchDiv);
+                });
+                bracketDisplay.appendChild(roundDiv);
+            });
+
+            if (isCreator && !data.published) {
+                const publishBtn = document.createElement('button');
+                publishBtn.id = 'publish-bracket-btn';
+                publishBtn.textContent = 'Опубликовать';
+                publishBtn.onclick = async () => {
+                    const updatedMatches = data.matches.map(round => ({
+                        round: round.round,
+                        matches: round.matches.map(match => ({
+                            teams: match.teams.map(team => ({
+                                name: team.name,
+                                position: team.position,
+                                room: document.querySelector(`.room-input[data-round="${round.round}"][data-match="${matchIdx}"][data-team="${team.name}"]`).value,
+                                judge: document.querySelector(`.judge-input[data-round="${round.round}"][data-match="${matchIdx}"][data-team="${team.name}"]`).value
+                            }))
+                        }))
+                    }));
+                    await supabaseFetch(`brackets?id=eq.${data.id}`, 'PATCH', { matches: updatedMatches, published: true });
+                    loadBracket(tournamentId);
+                };
+                bracketDisplay.appendChild(publishBtn);
+            }
+        } else {
+            bracketDisplay.innerHTML = '<p>Сетка ещё не опубликована.</p>';
+        }
+    } catch (error) {
+        console.error('Error loading bracket:', error);
+        bracketDisplay.innerHTML = '<p>Ошибка загрузки сетки.</p>';
     }
 }
 
