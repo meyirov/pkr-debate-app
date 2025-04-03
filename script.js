@@ -9,7 +9,7 @@ let userData = {};
 let postsCache = [];
 let lastPostTimestamp = null;
 
-// Функция для экранирования HTML
+// Function to escape HTML
 const escapeHTML = (str) => {
     if (typeof str !== 'string') return '';
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -332,4 +332,116 @@ function getTimeAgo(date) {
 
     if (diffInSeconds < 60) return `${diffInSeconds}s`;
     const diffInMinutes = Math.floor(diffInSeconds / 60);
-    if (diffInMinutes < 60) return `${diffInMinutes
+    if (diffInMinutes < 60) return `${diffInMinutes}m`;
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours}h`;
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays}d`;
+}
+
+async function loadReactions(postId) {
+    try {
+        if (typeof postId !== 'number' && typeof postId !== 'string') {
+            throw new Error('Invalid postId: ' + postId);
+        }
+        const reactions = await supabaseFetch('reactions?post_id=eq.' + postId, 'GET');
+        return reactions || [];
+    } catch (error) {
+        console.error('Error loading reactions:', error);
+        return [];
+    }
+}
+
+async function toggleReaction(postId, type) {
+    postId = parseInt(postId);
+    try {
+        const userExists = await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'GET');
+        if (!userExists || userExists.length === 0) {
+            throw new Error('Пользователь не найден в базе данных. Пожалуйста, зарегистрируйтесь.');
+        }
+
+        const userReaction = await supabaseFetch(`reactions?post_id=eq.${postId}&user_id=eq.${userData.telegramUsername}`, 'GET');
+        
+        if (userReaction?.length > 0) {
+            const currentReaction = userReaction[0];
+            if (currentReaction.type === type) {
+                await supabaseFetch(`reactions?id=eq.${currentReaction.id}`, 'DELETE');
+            } else {
+                await supabaseFetch(`reactions?id=eq.${currentReaction.id}`, 'PATCH', { type: type });
+            }
+        } else {
+            await supabaseFetch('reactions', 'POST', {
+                post_id: postId,
+                user_id: userData.telegramUsername,
+                type: type,
+                timestamp: new Date().toISOString()
+            });
+        }
+        await updatePost(postId);
+    } catch (error) {
+        console.error('Error toggling reaction:', error);
+        alert('Ошибка: ' + error.message);
+    }
+}
+
+async function loadComments(postId) {
+    try {
+        const comments = await supabaseFetch(`comments?post_id=eq.${postId}&order=timestamp.asc`, 'GET');
+        return comments || [];
+    } catch (error) {
+        console.error('Error loading comments:', error);
+        return [];
+    }
+}
+
+async function renderComments(postId, comments) {
+    const commentList = document.getElementById(`comment-list-${postId}`);
+    if (!commentList) return;
+    commentList.innerHTML = '';
+    comments.forEach(comment => {
+        const commentDiv = document.createElement('div');
+        commentDiv.classList.add('comment');
+        const [userInfo, ...contentParts] = comment.text.split(':\n');
+        const [fullname, username] = userInfo.split(' (@');
+        const cleanUsername = username?.replace(')', '');
+        const content = contentParts.join(':\n');
+        commentDiv.innerHTML = `
+            <div class="comment-user">
+                <strong>${escapeHTML(fullname)}</strong> <span>@${escapeHTML(cleanUsername)}</span>
+            </div>
+            <div class="comment-content">${escapeHTML(content)}</div>
+        `;
+        commentList.appendChild(commentDiv);
+    });
+}
+
+async function addComment(postId) {
+    postId = parseInt(postId);
+    const commentInput = document.getElementById(`comment-input-${postId}`);
+    if (!commentInput) return;
+    const text = commentInput.value.trim();
+    if (!text) {
+        alert('Пожалуйста, введите текст комментария!');
+        return;
+    }
+
+    try {
+        const postExists = await supabaseFetch(`posts?id=eq.${postId}`, 'GET');
+        if (!postExists?.length) {
+            throw new Error('Пост не найден. Возможно, он был удалён.');
+        }
+
+        const userExists = await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'GET');
+        if (!userExists?.length) {
+            throw new Error('Пользователь не найден в базе данных. Пожалуйста, зарегистрируйтесь.');
+        }
+
+        const comment = {
+            post_id: postId,
+            user_id: userData.telegramUsername,
+            text: `${userData.fullname} (@${userData.telegramUsername}):\n${text}`,
+            timestamp: new Date().toISOString()
+        };
+
+        await supabaseFetch('comments', 'POST', comment);
+       
