@@ -473,12 +473,19 @@ submitTournament.addEventListener('click', async () => {
         desc: document.getElementById('tournament-desc').value,
         address: document.getElementById('tournament-address').value,
         deadline: document.getElementById('tournament-deadline').value,
+        creator_id: userData.telegramUsername, // Сохраняем создателя
         timestamp: new Date().toISOString()
     };
     try {
         await supabaseFetch('tournaments', 'POST', tournament);
         alert('Турнир создан!');
         createTournamentForm.classList.add('form-hidden');
+        document.getElementById('tournament-name').value = '';
+        document.getElementById('tournament-date').value = '';
+        document.getElementById('tournament-logo').value = '';
+        document.getElementById('tournament-desc').value = '';
+        document.getElementById('tournament-address').value = '';
+        document.getElementById('tournament-deadline').value = '';
         loadTournaments();
     } catch (error) {
         console.error('Error saving tournament:', error);
@@ -525,6 +532,7 @@ async function showTournamentDetails(tournamentId) {
         currentTournamentId = tournamentId; // Сохраняем ID текущего турнира
         const data = tournament[0];
         const city = data.address ? extractCityFromAddress(data.address) : 'Не указан';
+        const isCreator = data.creator_id === userData.telegramUsername;
 
         const header = document.getElementById('tournament-header');
         const description = document.getElementById('tournament-description');
@@ -558,8 +566,10 @@ async function showTournamentDetails(tournamentId) {
             }
         };
 
-        // Инициализация табов и регистрации
+        // Инициализация табов, постов и регистрации
         initTabs();
+        initTournamentPosts(isCreator, data.name);
+        loadTournamentPosts(tournamentId);
         initRegistration();
         loadRegistrations(tournamentId);
     } catch (error) {
@@ -591,6 +601,71 @@ function initTabs() {
         registrationContent.classList.add('active');
         postsContent.classList.remove('active');
     };
+}
+
+function initTournamentPosts(isCreator, tournamentName) {
+    const postsSection = document.getElementById('tournament-posts');
+    postsSection.innerHTML = '';
+    if (isCreator) {
+        postsSection.innerHTML = `
+            <div id="new-tournament-post">
+                <textarea id="tournament-post-text" placeholder="Создать пост от имени турнира"></textarea>
+                <button id="submit-tournament-post">Опубликовать</button>
+            </div>
+            <div id="tournament-posts-list"></div>
+        `;
+        document.getElementById('submit-tournament-post').onclick = async () => {
+            const text = document.getElementById('tournament-post-text').value.trim();
+            if (!text) {
+                alert('Пожалуйста, введите текст поста!');
+                return;
+            }
+            try {
+                await supabaseFetch('tournament_posts', 'POST', {
+                    tournament_id: currentTournamentId,
+                    creator_id: userData.telegramUsername,
+                    text: text,
+                    timestamp: new Date().toISOString()
+                });
+                document.getElementById('tournament-post-text').value = '';
+                loadTournamentPosts(currentTournamentId);
+            } catch (error) {
+                console.error('Error saving tournament post:', error);
+                alert('Ошибка: ' + error.message);
+            }
+        };
+    } else {
+        postsSection.innerHTML = `<div id="tournament-posts-list"></div>`;
+    }
+}
+
+async function loadTournamentPosts(tournamentId) {
+    try {
+        const posts = await supabaseFetch(`tournament_posts?tournament_id=eq.${tournamentId}&order=timestamp.desc`, 'GET');
+        const postsList = document.getElementById('tournament-posts-list');
+        postsList.innerHTML = '';
+        if (posts && posts.length > 0) {
+            const tournament = await supabaseFetch(`tournaments?id=eq.${tournamentId}`, 'GET');
+            const tournamentName = tournament[0].name;
+            posts.forEach(post => {
+                const postDiv = document.createElement('div');
+                postDiv.classList.add('post');
+                postDiv.innerHTML = `
+                    <div class="post-header">
+                        <strong>Турнир: ${tournamentName}</strong>
+                        <span>${getTimeAgo(new Date(post.timestamp))}</span>
+                    </div>
+                    <div class="post-content">${post.text}</div>
+                `;
+                postsList.appendChild(postDiv);
+            });
+        } else {
+            postsList.innerHTML = '<p>Пока нет постов от турнира.</p>';
+        }
+    } catch (error) {
+        console.error('Error loading tournament posts:', error);
+        postsList.innerHTML = '<p>Ошибка загрузки постов.</p>';
+    }
 }
 
 function initRegistration() {
