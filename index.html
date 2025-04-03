@@ -8,12 +8,12 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
       const SUPABASE_URL = 'https://dwkbptqrblyiqymnqjiv.supabase.co';
-      const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3a2JwdHFyYmx5aXF5bW5xaml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0MzA3NTcsImV4cCI6MjA1OTAwNjc1N30.QIHms9_[...]
+      const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3a2JwdHFyYmx5aXF5bW5xaml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0MzA3NTcsImV4cCI6MjA1OTAwNjc1N30.QIHms9_kllO7SMxxUlu2U_ugICz1q_cr2-fO61092N4';
     </script>
 </head>
 <body>
     <!-- Модальное окно регистрации -->
-    <div id="registration-modal" class="modal hidden">
+    <div id="registration-modal" class="modal" style="display: none;">
         <div class="modal-content">
             <h2>Добро пожаловать!</h2>
             <p>Пожалуйста, введите ваше имя для регистрации:</p>
@@ -23,7 +23,7 @@
     </div>
 
     <!-- Основное приложение -->
-    <div id="app-container" class="container hidden">
+    <div id="app-container" class="container" style="display: none;">
         <div class="main-content">
             <section id="feed" class="content active">
                 <div id="new-post">
@@ -41,14 +41,21 @@
                 <button id="create-tournament-btn">Создать турнир</button>
                 <div id="create-tournament-form" class="form-hidden">
                     <input id="tournament-name" type="text" placeholder="Название турнира">
-                    <input id="tournament-date" type="date" placeholder="Дата">
-                    <input id="tournament-logo" type="url" placeholder="Ссылка на логотип">
+                    <input id="tournament-date" type="text" placeholder="Дата (например, 10.04.2025)">
+                    <input id="tournament-logo" type="text" placeholder="Ссылка на логотип">
                     <textarea id="tournament-desc" placeholder="Описание турнира"></textarea>
-                    <input id="tournament-address" type="url" placeholder="Ссылка на 2GIS">
-                    <input id="tournament-deadline" type="date" placeholder="Дедлайн">
+                    <input id="tournament-address" type="text" placeholder="Ссылка на 2GIS">
+                    <input id="tournament-deadline" type="text" placeholder="Дедлайн (например, 05.04.2025)">
+                    <select id="tournament-level">
+                        <option value="Городской">Городской</option>
+                        <option value="Республиканский">Республиканский</option>
+                    </select>
                     <button id="submit-tournament">Создать</button>
                 </div>
                 <div id="tournament-list"></div>
+                <div id="tournament-modal" class="modal" style="display: none;">
+                    <div class="modal-content" id="tournament-modal-content"></div>
+                </div>
             </section>
             <section id="rating" class="content">
                 <div id="rating-list"></div>
@@ -63,16 +70,6 @@
                 <h2>PKR EDU</h2>
                 <p>Обучающий контент скоро появится!</p>
             </section>
-            <!-- Страница турнира -->
-            <section id="tournament-page" class="content hidden">
-                <div id="tournament-header"></div>
-                <div id="tournament-tabs">
-                    <button id="tournament-posts-btn" class="tab-btn active">Посты</button>
-                    <button id="tournament-reg-btn" class="tab-btn">Регистрация</button>
-                </div>
-                <div id="tournament-content"></div>
-                <button id="back-to-tournaments" class="grid-button">Назад</button>
-            </section>
         </div>
         <nav class="navbar">
             <button id="feed-btn" class="nav-btn active"><span>🏠</span> Лента</button>
@@ -83,5 +80,5 @@
         </nav>
     </div>
     <script src="script.js"></script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'92a8c634fddfaf9e',t:'MTc0MzY4NTQ5Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
