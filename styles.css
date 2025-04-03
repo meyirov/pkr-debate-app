@@ -352,13 +352,38 @@ body {
     margin: 20px 0;
 }
 
-.tournament-section {
-    margin-bottom: 20px;
+.tournament-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
 }
 
-.tournament-section h3 {
-    font-size: 18px;
-    margin-bottom: 10px;
+.tab-btn {
+    padding: 8px 16px;
+    background: #2a2a2a;
+    color: #e0e0e0;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background 0.2s, color 0.2s;
+}
+
+.tab-btn:hover {
+    background: #333;
+}
+
+.tab-btn.active {
+    background: #8b5cf6;
+    color: white;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
 }
 
 #register-tournament-btn {
