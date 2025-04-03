@@ -500,7 +500,7 @@ async function loadTournaments() {
                 const city = tournament.address ? extractCityFromAddress(tournament.address) : 'Не указан';
 
                 tournamentCard.innerHTML = `
-                    <img src="${logoUrl}" class="tournament-logo" alt="Логотип турнира" onerror="this.src='https://picsum.photos/200'">
+                    <img src="${logoUrl}" class="tournament-logo" alt="Логотип турнира" onerror="this.src='placeholder.png'">
                     <div class="tournament-info">
                         <strong>${tournament.name}</strong>
                         <span>Дата: ${tournament.date}</span>
@@ -521,24 +521,40 @@ async function showTournamentDetails(tournamentId) {
         const tournament = await supabaseFetch(`tournaments?id=eq.${tournamentId}`, 'GET');
         if (!tournament || tournament.length === 0) return;
 
-        const modal = document.getElementById('tournament-modal');
-        const modalContent = document.getElementById('tournament-modal-content');
         const data = tournament[0];
         const city = data.address ? extractCityFromAddress(data.address) : 'Не указан';
 
-        modalContent.innerHTML = `
-            <div class="tournament-details">
-                <img src="${data.logo || 'placeholder.png'}" alt="Логотип турнира" onerror="this.src='https://picsum.photos/200'">
-                <strong>${data.name}</strong>
-                <p>Дата: ${data.date}</p>
-                <p>Город: ${city}</p>
-                <p>Описание: ${data.desc || 'Описание отсутствует'}</p>
-                <p>Адрес: <a href="${data.address}" target="_blank">${data.address}</a></p>
-                <p>Дедлайн: ${data.deadline}</p>
-                <button class="close-btn" onclick="document.getElementById('tournament-modal').style.display='none'">Закрыть</button>
-            </div>
+        const header = document.getElementById('tournament-header');
+        const description = document.getElementById('tournament-description');
+        const toggleBtn = document.getElementById('toggle-description-btn');
+
+        header.innerHTML = `
+            <img src="${data.logo || 'placeholder.png'}" alt="Логотип турнира" onerror="this.src='placeholder.png'">
+            <strong>${data.name}</strong>
+            <p>Дата: ${data.date}</p>
+            <p>Город: ${city}</p>
+            <p>Адрес: <a href="${data.address}" target="_blank">${data.address}</a></p>
+            <p>Дедлайн: ${data.deadline}</p>
         `;
-        modal.style.display = 'flex';
+        description.innerHTML = `
+            <p>Описание: ${data.desc || 'Описание отсутствует'}</p>
+        `;
+
+        // Переключаем видимость секции
+        sections.forEach(section => section.classList.remove('active'));
+        document.getElementById('tournament-details').classList.add('active');
+        buttons.forEach(btn => btn.classList.remove('active')); // Убираем активность с кнопок навигации
+
+        // Обработчик кнопки разворачивания
+        toggleBtn.onclick = () => {
+            if (description.classList.contains('description-hidden')) {
+                description.classList.remove('description-hidden');
+                toggleBtn.textContent = 'Свернуть описание';
+            } else {
+                description.classList.add('description-hidden');
+                toggleBtn.textContent = 'Развернуть описание';
+            }
+        };
     } catch (error) {
         console.error('Error loading tournament details:', error);
         alert('Ошибка: ' + error.message);
