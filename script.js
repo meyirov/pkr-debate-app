@@ -29,6 +29,7 @@ async function supabaseFetch(endpoint, method, body = null) {
 }
 
 async function checkProfile() {
+    console.log('Checking profile...');
     const telegramUsername = tg.initDataUnsafe.user ? tg.initDataUnsafe.user.username : null;
     if (!telegramUsername) {
         alert('Telegram username недоступен! Укажите username в настройках Telegram.');
@@ -70,6 +71,7 @@ submitProfileRegBtn.addEventListener('click', async () => {
 });
 
 function showApp() {
+    console.log('Showing app...');
     appContainer.style.display = 'block';
     document.getElementById('username').textContent = userData.telegramUsername;
     document.getElementById('fullname').value = userData.fullname;
@@ -89,6 +91,7 @@ buttons.forEach(button => {
         targetSection.classList.add('active');
         if (button.id === 'feed-btn') loadPosts();
         if (button.id === 'tournaments-btn') loadTournaments();
+        if (button.id === 'rating-btn') loadRating();
     });
 });
 
@@ -296,7 +299,7 @@ async function updatePost(postId) {
     const cleanUsername = username ? username.replace(')', '') : '';
     const content = contentParts.join(':\n');
 
-    const timeAgo = getTimeAgo(new Date(post[0].timestamp ..
+    const timeAgo = getTimeAgo(new Date(post[0].timestamp));
 
     postDiv.innerHTML = `
         <div class="post-header">
@@ -352,7 +355,7 @@ async function loadReactions(postId) {
 async function toggleReaction(postId, type) {
     postId = parseInt(postId);
     try {
-        const userExists = await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'GET');
+        const userExists = await supabaseFetch(`profiles?telegram_username=eq.${userData telegramUsername}`, 'GET');
         if (!userExists || userExists.length === 0) {
             throw new Error('Пользователь не найден в базе данных. Пожалуйста, зарегистрируйтесь.');
         }
@@ -529,6 +532,10 @@ async function loadRegistrations(tournamentId) {
 async function renderRegistrations(tournamentId) {
     const registrations = await loadRegistrations(tournamentId);
     const content = document.getElementById('tournament-content');
+    if (!content) {
+        console.error('Tournament content element not found!');
+        return;
+    }
     content.innerHTML = '';
 
     const userRegistration = registrations.find(r => r.user_id === userData.telegramUsername);
@@ -575,20 +582,38 @@ async function renderRegistrations(tournamentId) {
 }
 
 function showTournamentPage(tournament) {
-    console.log('Showing tournament page with data:', tournament);
+    console.log('Tournament data:', tournament);
 
-    // Скрываем все секции и показываем страницу турнира
+    // Проверяем, что данные турнира существуют
+    if (!tournament || !tournament.id) {
+        console.error('Tournament data is missing or invalid:', tournament);
+        const tournamentPage = document.getElementById('tournament-page');
+        if (tournamentPage) {
+            tournamentPage.classList.add('active');
+            const header = document.getElementById('tournament-header');
+            if (header) {
+                header.innerHTML = '<p>Ошибка: данные турнира не найдены.</p>';
+            }
+        }
+        return;
+    }
+
+    // Переключаем видимость секций
     const sections = document.querySelectorAll('.content');
-    sections.forEach(section => {
-        section.classList.remove('active');
-        section.style.display = 'none'; // Дополнительно скрываем через стиль
-    });
+    sections.forEach(section => section.classList.remove('active'));
     const tournamentPage = document.getElementById('tournament-page');
+    if (!tournamentPage) {
+        console.error('Tournament page element not found!');
+        return;
+    }
     tournamentPage.classList.add('active');
-    tournamentPage.style.display = 'block'; // Убеждаемся, что страница видна
 
     // Заполняем заголовок турнира
     const header = document.getElementById('tournament-header');
+    if (!header) {
+        console.error('Tournament header element not found!');
+        return;
+    }
     const logoSrc = tournament.logo && tournament.logo.startsWith('http') ? tournament.logo : 'https://picsum.photos/100';
     const name = tournament.name || 'Без названия';
     const date = tournament.date || 'Дата не указана';
@@ -611,35 +636,39 @@ function showTournamentPage(tournament) {
 
     // Добавляем обработчик для кнопки "Показать дальше"/"Скрыть"
     const toggleDescButton = document.getElementById(`toggle-desc-${tournamentId}`);
-    toggleDescButton.addEventListener('click', () => {
-        const desc = document.getElementById(`desc-${tournamentId}`);
-        if (desc.classList.contains('desc-hidden')) {
-            desc.classList.remove('desc-hidden');
-            toggleDescButton.textContent = 'Скрыть';
-        } else {
-            desc.classList.add('desc-hidden');
-            toggleDescButton.textContent = 'Показать дальше';
-        }
-    });
+    if (toggleDescButton) {
+        toggleDescButton.addEventListener('click', () => {
+            const desc = document.getElementById(`desc-${tournamentId}`);
+            if (desc.classList.contains('desc-hidden')) {
+                desc.classList.remove('desc-hidden');
+                toggleDescButton.textContent = 'Скрыть';
+            } else {
+                desc.classList.add('desc-hidden');
+                toggleDescButton.textContent = 'Показать дальше';
+            }
+        });
+    } else {
+        console.error(`Toggle description button for tournament ${tournamentId} not found!`);
+    }
 
-    // Настраиваем вкладки
+    // Инициализируем вкладки
     const tabs = document.querySelectorAll('#tournament-tabs .tab-btn');
     const content = document.getElementById('tournament-content');
+    if (!content) {
+        console.error('Tournament content element not found!');
+        return;
+    }
     tabs.forEach(tab => tab.classList.remove('active'));
-    document.getElementById('tournament-posts-btn').classList.add('active');
+    const postsTab = document.getElementById('tournament-posts-btn');
+    if (postsTab) {
+        postsTab.classList.add('active');
+    }
     content.innerHTML = '<p>Посты турнира скоро появятся!</p>';
 
-    // Удаляем старые обработчики событий для вкладок, чтобы избежать дублирования
+    // Добавляем обработчики для вкладок
     tabs.forEach(tab => {
-        const newTab = tab.cloneNode(true);
-        tab.parentNode.replaceChild(newTab, tab);
-    });
-
-    // Добавляем новые обработчики для вкладок
-    const newTabs = document.querySelectorAll('#tournament-tabs .tab-btn');
-    newTabs.forEach(tab => {
         tab.addEventListener('click', () => {
-            newTabs.forEach(t => t.classList.remove('active'));
+            tabs.forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
             if (tab.id === 'tournament-posts-btn') {
                 content.innerHTML = '<p>Посты турнира скоро появятся!</p>';
@@ -649,32 +678,39 @@ function showTournamentPage(tournament) {
         });
     });
 
-    // Удаляем старый обработчик для кнопки "Назад"
+    // Добавляем обработчик для кнопки "Назад"
     const backButton = document.getElementById('back-to-tournaments');
-    const newBackButton = backButton.cloneNode(true);
-    backButton.parentNode.replaceChild(newBackButton, backButton);
+    if (backButton) {
+        backButton.addEventListener('click', () => {
+            tournamentPage.classList.remove('active');
+            document.getElementById('tournaments').classList.add('active');
+        });
+    } else {
+        console.error('Back to tournaments button not found!');
+    }
+}
 
-    // Добавляем новый обработчик для кнопки "Назад"
-    newBackButton.addEventListener('click', () => {
-        tournamentPage.classList.remove('active');
-        tournamentPage.style.display = 'none';
-        const tournamentsSection = document.getElementById('tournaments');
-        tournamentsSection.classList.add('active');
-        tournamentsSection.style.display = 'block';
+async function loadRating() {
+    const ratingList = document.getElementById('rating-list');
+    if (!ratingList) {
+        console.error('Rating list element not found!');
+        return;
+    }
+    ratingList.innerHTML = '';
+
+    // Пример статического рейтинга (можно заменить на данные из Supabase)
+    const rating = [
+        { name: 'Иван Иванов', points: 150 },
+        { name: 'Анна Петрова', points: 120 }
+    ];
+
+    rating.forEach(player => {
+        const div = document.createElement('div');
+        div.classList.add('post');
+        div.innerHTML = `<strong>${player.name}</strong> - ${player.points} очков`;
+        ratingList.appendChild(div);
     });
 }
 
-const ratingList = document.getElementById('rating-list');
-const rating = [
-    { name: 'Иван Иванов', points: 150 },
-    { name: 'Анна Петрова', points: 120 }
-];
-
-rating.forEach(player => {
-    const div = document.createElement('div');
-    div.classList.add('post');
-    div.innerHTML = `<strong>${player.name}</strong> - ${player.points} очков`;
-    ratingList.appendChild(div);
-});
-
+// Инициализация приложения
 checkProfile();
