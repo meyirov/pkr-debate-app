@@ -296,7 +296,7 @@ async function updatePost(postId) {
     const cleanUsername = username ? username.replace(')', '') : '';
     const content = contentParts.join(':\n');
 
-    const timeAgo = getTimeAgo(new Date(post[0].timestamp));
+    const timeAgo = getTimeAgo(new Date(post[0].timestamp ..
 
     postDiv.innerHTML = `
         <div class="post-header">
@@ -575,13 +575,19 @@ async function renderRegistrations(tournamentId) {
 }
 
 function showTournamentPage(tournament) {
-    console.log('Tournament data:', tournament);
+    console.log('Showing tournament page with data:', tournament);
 
+    // Скрываем все секции и показываем страницу турнира
     const sections = document.querySelectorAll('.content');
-    sections.forEach(section => section.classList.remove('active'));
+    sections.forEach(section => {
+        section.classList.remove('active');
+        section.style.display = 'none'; // Дополнительно скрываем через стиль
+    });
     const tournamentPage = document.getElementById('tournament-page');
     tournamentPage.classList.add('active');
+    tournamentPage.style.display = 'block'; // Убеждаемся, что страница видна
 
+    // Заполняем заголовок турнира
     const header = document.getElementById('tournament-header');
     const logoSrc = tournament.logo && tournament.logo.startsWith('http') ? tournament.logo : 'https://picsum.photos/100';
     const name = tournament.name || 'Без названия';
@@ -603,27 +609,37 @@ function showTournamentPage(tournament) {
         </div>
     `;
 
-    document.getElementById(`toggle-desc-${tournamentId}`).addEventListener('click', () => {
+    // Добавляем обработчик для кнопки "Показать дальше"/"Скрыть"
+    const toggleDescButton = document.getElementById(`toggle-desc-${tournamentId}`);
+    toggleDescButton.addEventListener('click', () => {
         const desc = document.getElementById(`desc-${tournamentId}`);
-        const toggleButton = document.getElementById(`toggle-desc-${tournamentId}`);
         if (desc.classList.contains('desc-hidden')) {
             desc.classList.remove('desc-hidden');
-            toggleButton.textContent = 'Скрыть';
+            toggleDescButton.textContent = 'Скрыть';
         } else {
             desc.classList.add('desc-hidden');
-            toggleButton.textContent = 'Показать дальше';
+            toggleDescButton.textContent = 'Показать дальше';
         }
     });
 
+    // Настраиваем вкладки
     const tabs = document.querySelectorAll('#tournament-tabs .tab-btn');
     const content = document.getElementById('tournament-content');
     tabs.forEach(tab => tab.classList.remove('active'));
     document.getElementById('tournament-posts-btn').classList.add('active');
     content.innerHTML = '<p>Посты турнира скоро появятся!</p>';
 
+    // Удаляем старые обработчики событий для вкладок, чтобы избежать дублирования
     tabs.forEach(tab => {
+        const newTab = tab.cloneNode(true);
+        tab.parentNode.replaceChild(newTab, tab);
+    });
+
+    // Добавляем новые обработчики для вкладок
+    const newTabs = document.querySelectorAll('#tournament-tabs .tab-btn');
+    newTabs.forEach(tab => {
         tab.addEventListener('click', () => {
-            tabs.forEach(t => t.classList.remove('active'));
+            newTabs.forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
             if (tab.id === 'tournament-posts-btn') {
                 content.innerHTML = '<p>Посты турнира скоро появятся!</p>';
@@ -633,9 +649,18 @@ function showTournamentPage(tournament) {
         });
     });
 
-    document.getElementById('back-to-tournaments').addEventListener('click', () => {
+    // Удаляем старый обработчик для кнопки "Назад"
+    const backButton = document.getElementById('back-to-tournaments');
+    const newBackButton = backButton.cloneNode(true);
+    backButton.parentNode.replaceChild(newBackButton, backButton);
+
+    // Добавляем новый обработчик для кнопки "Назад"
+    newBackButton.addEventListener('click', () => {
         tournamentPage.classList.remove('active');
-        document.getElementById('tournaments').classList.add('active');
+        tournamentPage.style.display = 'none';
+        const tournamentsSection = document.getElementById('tournaments');
+        tournamentsSection.classList.add('active');
+        tournamentsSection.style.display = 'block';
     });
 }
 
