@@ -291,16 +291,6 @@ body {
     display: none;
 }
 
-#create-tournament-form select {
-    width: 100%;
-    padding: 8px;
-    margin: 10px 0;
-    border: 1px solid #444;
-    border-radius: 4px;
-    background: #3a3a3a;
-    color: #e0e0e0;
-}
-
 #tournament-modal .modal-content {
     max-width: 400px;
     padding: 20px;
