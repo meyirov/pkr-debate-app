@@ -113,7 +113,7 @@ updateProfileBtn.addEventListener('click', async () => {
 });
 
 const postText = document.getElementById('post-text');
-const submitPost = document.getElementById('submit-posts');
+const submitPost = document.getElementById('submit-post');
 const postsDiv = document.getElementById('posts');
 const newPostsBtn = document.createElement('button');
 newPostsBtn.id = 'new-posts-btn';
@@ -694,7 +694,6 @@ function initRegistration() {
     submitRegistrationBtn.onclick = async () => {
         const registration = {
             tournament_id: currentTournamentId,
-            faction_name: document.getElementById('reg-faction-name').value,
             speaker1: document.getElementById('reg-speaker1').value,
             speaker2: document.getElementById('reg-speaker2').value,
             club: document.getElementById('reg-club').value,
@@ -704,10 +703,6 @@ function initRegistration() {
             timestamp: new Date().toISOString()
         };
 
-        if (!registration.faction_name) {
-            alert('Пожалуйста, укажите название фракции!');
-            return;
-        }
         if (!registration.club) {
             alert('Пожалуйста, укажите название клуба!');
             return;
@@ -717,7 +712,6 @@ function initRegistration() {
             await supabaseFetch('registrations', 'POST', registration);
             alert('Регистрация отправлена!');
             registrationForm.classList.add('form-hidden');
-            document.getElementById('reg-faction-name').value = '';
             document.getElementById('reg-speaker1').value = '';
             document.getElementById('reg-speaker2').value = '';
             document.getElementById('reg-club').value = '';
@@ -743,7 +737,7 @@ async function loadRegistrations(tournamentId) {
                 const regCard = document.createElement('div');
                 regCard.classList.add('registration-card');
                 regCard.innerHTML = `
-                    <strong>${reg.faction_name} (${reg.club})</strong>
+                    <strong>${reg.club}</strong>
                     <p>Спикер 1: ${reg.speaker1 || 'Не указано'}</p>
                     <p>Спикер 2: ${reg.speaker2 || 'Не указано'}</p>
                     <p>Город: ${reg.city || 'Не указано'}</p>
@@ -811,10 +805,7 @@ async function generateBracket() {
         return;
     }
 
-    const teams = registrations.slice(0, factionCount).map(reg => ({
-        faction_name: reg.faction_name,
-        club: reg.club
-    }));
+    const teams = registrations.slice(0, factionCount).map(reg => reg.club);
     const positions = format === 'АПФ' ? ['Правительство', 'Оппозиция'] : ['Открывающая Правительство', 'Открывающая Оппозиция', 'Закрывающая Правительство', 'Закрывающая Оппозиция'];
     const teamsPerMatch = format === 'АПФ' ? 2 : 4;
 
@@ -831,7 +822,7 @@ async function generateBracket() {
                 matchTeams.push(availableTeams.splice(randomIndex, 1)[0]);
             }
 
-            const matchKey = matchTeams.map(team => team.faction_name).sort().join('|');
+            const matchKey = matchTeams.sort().join('|');
             if (usedPairs.has(matchKey)) {
                 availableTeams.push(...matchTeams);
                 continue;
@@ -840,8 +831,7 @@ async function generateBracket() {
 
             const match = {
                 teams: matchTeams.map((team, idx) => ({
-                    faction_name: team.faction_name,
-                    club: team.club,
+                    name: team,
                     position: positions[idx],
                     room: '',
                     judge: ''
@@ -899,19 +889,19 @@ async function loadBracket(tournamentId) {
                     matchDiv.classList.add('bracket-match');
                     let matchHTML = '';
                     match.teams.forEach(team => {
-                        matchHTML += `<p class="team-info">${team.position}: ${team.faction_name || 'Не указано'} <span class="club">(${team.club})</span></p>`;
+                        matchHTML += `<p>${team.position}: ${team.name}</p>`;
+                        if (isCreator && !data.published) {
+                            matchHTML += `
+                                <input type="text" placeholder="Кабинет" value="${team.room || ''}" data-round="${round.round}" data-match="${matchIdx}" data-team="${team.name}" class="room-input">
+                                <input type="text" placeholder="Судья" value="${team.judge || ''}" data-round="${round.round}" data-match="${matchIdx}" data-team="${team.name}" class="judge-input">
+                            `;
+                        } else if (data.published) {
+                            matchHTML += `
+                                <p>Кабинет: ${team.room || 'Не указан'}</p>
+                                <p>Судья: ${team.judge || 'Не указан'}</p>
+                            `;
+                        }
                     });
-                    if (isCreator && !data.published) {
-                        matchHTML += `
-                            <input type="text" placeholder="Кабинет" value="${match.room || ''}" data-round="${round.round}" data-match="${matchIdx}" class="room-input">
-                            <input type="text" placeholder="Судья" value="${match.judge || ''}" data-round="${round.round}" data-match="${matchIdx}" class="judge-input">
-                        `;
-                    } else if (data.published) {
-                        matchHTML += `
-                            <p>Кабинет: ${match.room || 'Не указан'}</p>
-                            <p>Судья: ${match.judge || 'Не указан'}</p>
-                        `;
-                    }
                     matchDiv.innerHTML = matchHTML;
                     roundDiv.appendChild(matchDiv);
                 });
@@ -925,10 +915,13 @@ async function loadBracket(tournamentId) {
                 publishBtn.onclick = async () => {
                     const updatedMatches = data.matches.map(round => ({
                         round: round.round,
-                        matches: round.matches.map((match, mIdx) => ({
-                            teams: match.teams,
-                            room: document.querySelector(`.room-input[data-round="${round.round}"][data-match="${mIdx}"]`).value,
-                            judge: document.querySelector(`.judge-input[data-round="${round.round}"][data-match="${mIdx}"]`).value
+                        matches: round.matches.map(match => ({
+                            teams: match.teams.map(team => ({
+                                name: team.name,
+                                position: team.position,
+                                room: document.querySelector(`.room-input[data-round="${round.round}"][data-match="${matchIdx}"][data-team="${team.name}"]`).value,
+                                judge: document.querySelector(`.judge-input[data-round="${round.round}"][data-match="${matchIdx}"][data-team="${team.name}"]`).value
+                            }))
                         }))
                     }));
                     await supabaseFetch(`brackets?id=eq.${data.id}`, 'PATCH', { matches: updatedMatches, published: true });
