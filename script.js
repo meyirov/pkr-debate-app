@@ -9,6 +9,12 @@ let userData = {};
 let postsCache = [];
 let lastPostTimestamp = null;
 
+// Функция для экранирования HTML
+const escapeHTML = (str) => {
+    if (typeof str !== 'string') return '';
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+};
+
 async function supabaseFetch(endpoint, method, body = null) {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, {
         method: method,
@@ -217,7 +223,7 @@ async function renderPosts() {
     }
 }
 
-async function renderPost(post) {
+async 🙂function renderPost(post) {
     const postDiv = document.createElement('div');
     postDiv.classList.add('post');
     postDiv.setAttribute('data-post-id', post.id);
@@ -242,12 +248,12 @@ async function renderPost(post) {
     postDiv.innerHTML = `
         <div class="post-header">
             <div class="post-user">
-                <strong>${fullname}</strong>
-                <span>@${cleanUsername}</span>
+                <strong>${escapeHTML(fullname)}</strong>
+                <span>@${escapeHTML(cleanUsername)}</span>
             </div>
             <div class="post-time">${timeAgo}</div>
         </div>
-        <div class="post-content">${content}</div>
+        <div class="post-content">${escapeHTML(content)}</div>
         <div class="post-actions">
             <button class="reaction-btn like-btn ${likeClass}" onclick="toggleReaction(${post.id}, 'like')">👍 ${likes}</button>
             <button class="reaction-btn dislike-btn ${dislikeClass}" onclick="toggleReaction(${post.id}, 'dislike')">👎 ${dislikes}</button>
@@ -304,12 +310,12 @@ async function updatePost(postId) {
     postDiv.innerHTML = `
         <div class="post-header">
             <div class="post-user">
-                <strong>${fullname}</strong>
-                <span>@${cleanUsername}</span>
+                <strong>${escapeHTML(fullname)}</strong>
+                <span>@${escapeHTML(cleanUsername)}</span>
             </div>
             <div class="post-time">${timeAgo}</div>
         </div>
-        <div class="post-content">${content}</div>
+        <div class="post-content">${escapeHTML(content)}</div>
         <div class="post-actions">
             <button class="reaction-btn like-btn ${likeClass}" onclick="toggleReaction(${postId}, 'like')">👍 ${likes}</button>
             <button class="reaction-btn dislike-btn ${dislikeClass}" onclick="toggleReaction(${postId}, 'dislike')">👎 ${dislikes}</button>
@@ -355,7 +361,7 @@ async function loadReactions(postId) {
 async function toggleReaction(postId, type) {
     postId = parseInt(postId);
     try {
-        const userExists = await supabaseFetch(`profiles?telegram_username=eq.${userData telegramUsername}`, 'GET');
+        const userExists = await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'GET');
         if (!userExists || userExists.length === 0) {
             throw new Error('Пользователь не найден в базе данных. Пожалуйста, зарегистрируйтесь.');
         }
@@ -407,9 +413,9 @@ async function renderComments(postId, comments) {
         const content = contentParts.join(':\n');
         commentDiv.innerHTML = `
             <div class="comment-user">
-                <strong>${fullname}</strong> <span>@${cleanUsername}</span>
+                <strong>${escapeHTML(fullname)}</strong> <span>@${escapeHTML(cleanUsername)}</span>
             </div>
-            <div class="comment-content">${content}</div>
+            <div class="comment-content">${escapeHTML(content)}</div>
         `;
         commentList.appendChild(commentDiv);
     });
@@ -499,12 +505,12 @@ async function loadTournaments() {
             tournaments.forEach(tournament => {
                 const tournamentDiv = document.createElement('div');
                 tournamentDiv.classList.add('tournament');
-                const logoSrc = tournament.logo && tournament.logo.startsWith('http') ? tournament.logo : 'https://picsum.photos/80';
+                const logoSrc = tournament.logo && tournament.logo.startsWith('http') ? escapeHTML(tournament.logo) : 'https://picsum.photos/80';
                 tournamentDiv.innerHTML = `
                     <img src="${logoSrc}" alt="Логотип" onerror="this.onerror=null; this.src='https://picsum.photos/80';">
                     <div class="tournament-info">
-                        <h3>${tournament.name || 'Без названия'}</h3>
-                        <p>${tournament.date || 'Дата не указана'}</p>
+                        <h3>${escapeHTML(tournament.name || 'Без названия')}</h3>
+                        <p>${escapeHTML(tournament.date || 'Дата не указана')}</p>
                     </div>
                 `;
                 tournamentDiv.addEventListener('click', () => showTournamentPage(tournament));
@@ -570,7 +576,7 @@ async function renderRegistrations(tournamentId) {
             const userName = userProfile && userProfile.length > 0 ? userProfile[0].fullname : reg.user_id;
             const item = document.createElement('div');
             item.className = 'registration-item';
-            item.innerHTML = `<strong>${userName}</strong> (@${reg.user_id})`;
+            item.innerHTML = `<strong>${escapeHTML(userName)}</strong> (@${escapeHTML(reg.user_id)})`;
             list.appendChild(item);
         }
         content.appendChild(list);
@@ -614,13 +620,13 @@ function showTournamentPage(tournament) {
         console.error('Tournament header element not found!');
         return;
     }
-    const logoSrc = tournament.logo && tournament.logo.startsWith('http') ? tournament.logo : 'https://picsum.photos/100';
-    const name = tournament.name || 'Без названия';
-    const date = tournament.date || 'Дата не указана';
-    const deadline = tournament.deadline || 'Дедлайн не указан';
-    const address = tournament.address || '#';
-    const desc = tournament.desc || 'Описание отсутствует';
-    const tournamentId = tournament.id || 'unknown';
+    const logoSrc = (tournament.logo && tournament.logo.startsWith('http')) ? escapeHTML(tournament.logo) : 'https://picsum.photos/100';
+    const name = escapeHTML(tournament.name || 'Без названия');
+    const date = escapeHTML(tournament.date || 'Дата не указана');
+    const deadline = escapeHTML(tournament.deadline || 'Дедлайн не указан');
+    const address = escapeHTML(tournament.address || '#');
+    const desc = escapeHTML(tournament.desc || 'Описание отсутствует');
+    const tournamentId = escapeHTML(tournament.id || 'unknown');
 
     header.innerHTML = `
         <img src="${logoSrc}" alt="Логотип" onerror="this.onerror=null; this.src='https://picsum.photos/100';">
@@ -707,7 +713,7 @@ async function loadRating() {
     rating.forEach(player => {
         const div = document.createElement('div');
         div.classList.add('post');
-        div.innerHTML = `<strong>${player.name}</strong> - ${player.points} очков`;
+        div.innerHTML = `<strong>${escapeHTML(player.name)}</strong> - ${player.points} очков`;
         ratingList.appendChild(div);
     });
 }
