@@ -568,7 +568,7 @@ async function showTournamentDetails(tournamentId) {
         initTournamentPosts(isCreator, data.name);
         loadTournamentPosts(tournamentId);
         initRegistration();
-        loadRegistrations(tournamentId);
+        loadRegistrations(tournamentId, isCreator);
         initBracket(isCreator);
         loadBracket(tournamentId);
     } catch (error) {
@@ -732,7 +732,7 @@ function initRegistration() {
     };
 }
 
-async function loadRegistrations(tournamentId) {
+async function loadRegistrations(tournamentId, isCreator) {
     try {
         const registrations = await supabaseFetch(`registrations?tournament_id=eq.${tournamentId}&order=timestamp.asc`, 'GET');
         const registrationList = document.getElementById('registration-list');
@@ -750,15 +750,43 @@ async function loadRegistrations(tournamentId) {
                     <p>Город: ${reg.city || 'Не указано'}</p>
                     <p>Контакты: ${reg.contacts || 'Не указано'}</p>
                     <p>Дополнительно: ${reg.extra || 'Нет'}</p>
+                    ${isCreator ? `<button class="delete-registration-btn" data-registration-id="${reg.id}">Удалить</button>` : ''}
                 `;
                 registrationList.appendChild(regCard);
             });
+
+            // Привязываем обработчики к кнопкам "Удалить"
+            if (isCreator) {
+                const deleteButtons = document.querySelectorAll('.delete-registration-btn');
+                deleteButtons.forEach(button => {
+                    button.onclick = async () => {
+                        const registrationId = button.getAttribute('data-registration-id');
+                        if (confirm('Вы уверены, что хотите удалить эту команду?')) {
+                            await deleteRegistration(registrationId, tournamentId);
+                        }
+                    };
+                });
+            }
         } else {
             registrationList.innerHTML = '<p>Пока нет зарегистрированных команд.</p>';
         }
     } catch (error) {
         console.error('Error loading registrations:', error);
         alert('Ошибка загрузки регистраций: ' + error.message);
+    }
+}
+
+async function deleteRegistration(registrationId, tournamentId) {
+    try {
+        // Удаляем запись из таблицы registrations по id
+        await supabaseFetch(`registrations?id=eq.${registrationId}`, 'DELETE');
+        alert('Команда успешно удалена!');
+        // Перезагружаем список регистраций
+        const isCreator = (await supabaseFetch(`tournaments?id=eq.${tournamentId}`, 'GET'))[0].creator_id === userData.telegramUsername;
+        await loadRegistrations(tournamentId, isCreator);
+    } catch (error) {
+        console.error('Error deleting registration:', error);
+        alert('Ошибка при удалении команды: ' + error.message);
     }
 }
 
