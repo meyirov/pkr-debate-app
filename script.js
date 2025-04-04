@@ -483,7 +483,7 @@ submitTournament.addEventListener('click', async () => {
         document.getElementById('tournament-name').value = '';
         document.getElementById('tournament-date').value = '';
         document.getElementById('tournament-logo').value = '';
-        document.getElementBy 🙂
+        document.getElementById('tournament-desc').value = '';
         document.getElementById('tournament-address').value = '';
         document.getElementById('tournament-deadline').value = '';
         loadTournaments();
