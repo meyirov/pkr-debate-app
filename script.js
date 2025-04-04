@@ -586,7 +586,7 @@ function initTabs() {
     const registrationTab = document.getElementById('registration-tab');
     const bracketTab = document.getElementById('bracket-tab');
     const postsContent = document.getElementById('tournament-posts');
-    const registrationContent = document.getElement紛
+    const registrationContent = document.getElementById('tournament-registration');
     const bracketContent = document.getElementById('tournament-bracket');
 
     postsTab.onclick = () => {
@@ -906,8 +906,8 @@ async function loadBracket(tournamentId) {
                     });
                     if (isCreator && !data.published) {
                         matchHTML += `
-                            <input type="text" placeholder="Кабинет" value="${match.room || ''}" data-round="${round.round}" data-match="${matchIdx}" class="room-input">
-                            <input type="text" placeholder="Судья" value="${match.judge || ''}" data-round="${round.round}" data-match="${matchIdx}" class="judge-input">
+                            <input type="text" id="room-input-${round.round}-${matchIdx}" name="room-${round.round}-${matchIdx}" placeholder="Кабинет" value="${match.room || ''}" data-round="${round.round}" data-match="${matchIdx}" class="room-input">
+                            <input type="text" id="judge-input-${round.round}-${matchIdx}" name="judge-${round.round}-${matchIdx}" placeholder="Судья" value="${match.judge || ''}" data-round="${round.round}" data-match="${matchIdx}" class="judge-input">
                         `;
                     } else if (data.published) {
                         matchHTML += `
