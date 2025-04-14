@@ -1103,6 +1103,9 @@ function initRegistration() {
     };
 
     submitRegistrationBtn.addEventListener('click', async () => {
+        // Отключаем кнопку, чтобы предотвратить повторные клики
+        submitRegistrationBtn.disabled = true;
+
         const registration = {
             tournament_id: currentTournamentId,
             faction_name: document.getElementById('reg-faction-name').value,
@@ -1117,10 +1120,12 @@ function initRegistration() {
 
         if (!registration.faction_name) {
             alert('Пожалуйста, укажите название фракции!');
+            submitRegistrationBtn.disabled = false;
             return;
         }
         if (!registration.club) {
             alert('Пожалуйста, укажите название клуба!');
+            submitRegistrationBtn.disabled = false;
             return;
         }
 
@@ -1139,6 +1144,8 @@ function initRegistration() {
         } catch (error) {
             console.error('Error saving registration:', error);
             alert('Ошибка: ' + error.message);
+        } finally {
+            submitRegistrationBtn.disabled = false;
         }
     });
 }
@@ -1149,10 +1156,20 @@ async function loadRegistrations(tournamentId, isCreator) {
         const registrationList = document.getElementById('registration-list');
         registrationList.innerHTML = '';
 
-        if (registrations && registrations.length > 0) {
-            registrations.forEach(reg => {
+        // Удаляем возможные дубли на клиентской стороне
+        const seen = new Set();
+        const uniqueRegistrations = registrations.filter(reg => {
+            const key = `${reg.tournament_id}|${reg.faction_name}|${reg.club}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+
+        if (uniqueRegistrations.length > 0) {
+            uniqueRegistrations.forEach(reg => {
                 const regCard = document.createElement('div');
                 regCard.classList.add('registration-card');
+                regCard.setAttribute('data-registration-id', reg.id);
                 regCard.innerHTML = `
                     <strong>${reg.faction_name || 'Не указано'}</strong>
                     <p>Клуб: ${reg.club || 'Не указано'}</p>
