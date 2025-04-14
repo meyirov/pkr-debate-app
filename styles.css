@@ -245,6 +245,31 @@ body {
     background: #7c3aed;
 }
 
+/* Стили для кнопки "Новые посты" */
+.new-posts-btn {
+    display: none;
+    position: sticky;
+    top: 10px;
+    z-index: 10;
+    background-color: #8b5cf6; /* Фиолетовый цвет, как у Telegram */
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 20px;
+    cursor: pointer;
+    margin: 10px auto;
+    width: fit-content;
+    font-weight: bold;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    opacity: 0;
+    transform: translateY(-10px);
+}
+
+.new-posts-btn.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
 .tournament-card {
     display: flex;
     align-items: center;
