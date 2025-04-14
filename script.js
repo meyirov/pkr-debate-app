@@ -1,3 +1,7 @@
+// Подключаем Supabase клиент
+const { createClient } = supabase;
+const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+
 const tg = window.Telegram.WebApp;
 tg.ready();
 
@@ -7,26 +11,42 @@ const regFullname = document.getElementById('reg-fullname');
 const submitProfileRegBtn = document.getElementById('submit-profile-reg-btn');
 let userData = {};
 let postsCache = [];
-let lastPostTimestamp = null;
+let lastPostId = null; // Для пагинации и отслеживания новых постов
 let currentTournamentId = null;
+let isPostsLoaded = false;
+let isLoadingMore = false; // Флаг для предотвращения множественных загрузок
+let newPostsCount = 0; // Счётчик новых постов для кнопки "Новые посты"
+let channel = null; // Для управления Realtime-подпиской на посты
+let commentChannels = new Map(); // Для управления Realtime-подписками на комментарии
+let commentsCache = new Map(); // Кэш комментариев по postId
+let lastCommentIds = new Map(); // Последний ID комментария для каждого поста
+let newCommentsCount = new Map(); // Счётчик новых комментариев для каждого поста
 
-async function supabaseFetch(endpoint, method, body = null) {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, {
-        method: method,
-        headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': method === 'POST' || method === 'PATCH' ? 'return=representation' : undefined
-        },
-        body: body ? JSON.stringify(body) : null
-    });
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Supabase error: ${response.status} - ${errorText}`);
+async function supabaseFetch(endpoint, method, body = null, retries = 3) {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, {
+                method: method,
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_KEY}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': method === 'POST' || method === 'PATCH' ? 'return=representation' : undefined
+                },
+                body: body ? JSON.stringify(body) : null
+            });
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Supabase error: ${response.status} - ${errorText}`);
+            }
+            const text = await response.text();
+            return text ? JSON.parse(text) : null;
+        } catch (error) {
+            if (attempt === retries) throw error;
+            console.warn(`Retrying request (${attempt}/${retries})...`, error);
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Экспоненциальная задержка
+        }
     }
-    const text = await response.text();
-    return text ? JSON.parse(text) : null;
 }
 
 async function checkProfile() {
@@ -75,11 +95,19 @@ function showApp() {
     document.getElementById('username').textContent = userData.telegramUsername;
     document.getElementById('fullname').value = userData.fullname;
     loadPosts();
-    startNewPostCheck();
+    subscribeToNewPosts();
 }
 
 const sections = document.querySelectorAll('.content');
 const buttons = document.querySelectorAll('.nav-btn');
+
+function debounce(func, wait) {
+    let timeout;
+    return function (...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
 
 buttons.forEach(button => {
     button.addEventListener('click', () => {
@@ -88,10 +116,14 @@ buttons.forEach(button => {
         sections.forEach(section => section.classList.remove('active'));
         const targetSection = document.getElementById(button.id.replace('-btn', ''));
         targetSection.classList.add('active');
-        if (button.id === 'feed-btn') loadPosts();
+        if (button.id === 'feed-btn') {
+            debouncedLoadPosts();
+        }
         if (button.id === 'tournaments-btn') loadTournaments();
     });
 });
+
+const debouncedLoadPosts = debounce(loadPosts, 300);
 
 const updateProfileBtn = document.getElementById('update-profile');
 updateProfileBtn.addEventListener('click', async () => {
@@ -123,6 +155,7 @@ newPostsBtn.innerHTML = 'Новые посты';
 newPostsBtn.addEventListener('click', () => {
     loadNewPosts();
     newPostsBtn.style.display = 'none';
+    newPostsCount = 0;
 });
 document.getElementById('feed').prepend(newPostsBtn);
 
@@ -135,15 +168,24 @@ submitPost.addEventListener('click', async () => {
     const text = `${userData.fullname} (@${userData.telegramUsername}):\n${postContent}`;
     const post = {
         text: text,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        user_id: userData.telegramUsername
     };
     try {
         const newPost = await supabaseFetch('posts', 'POST', post);
         postText.value = '';
-        postsCache.unshift(newPost[0]);
-        sortPostsCache();
-        renderPosts();
-        lastPostTimestamp = postsCache[0].timestamp;
+        if (!postsCache.some(p => p.id === newPost[0].id)) {
+            postsCache.unshift(newPost[0]);
+            sortPostsCache();
+            if (isUserAtTop()) {
+                renderNewPost(newPost[0], true);
+            } else {
+                newPostsCount++;
+                newPostsBtn.style.display = 'block';
+                newPostsBtn.classList.add('visible');
+            }
+            lastPostId = postsCache[0].id;
+        }
     } catch (error) {
         console.error('Error saving post:', error);
         alert('Ошибка: ' + error.message);
@@ -151,70 +193,143 @@ submitPost.addEventListener('click', async () => {
 });
 
 async function loadPosts() {
+    if (isPostsLoaded) {
+        renderPosts();
+        return;
+    }
+
+    const loadingIndicator = document.getElementById('posts-loading');
+    loadingIndicator.style.display = 'block';
+
     try {
         postsCache = [];
-        const posts = await supabaseFetch('posts?order=timestamp.desc&limit=20', 'GET');
+        const posts = await supabaseFetch('posts?order=id.desc&limit=20', 'GET');
         if (posts) {
             postsCache = posts;
             sortPostsCache();
             renderPosts();
             if (postsCache.length > 0) {
-                lastPostTimestamp = postsCache[0].timestamp;
+                lastPostId = postsCache[0].id;
             }
+            isPostsLoaded = true;
         }
     } catch (error) {
         console.error('Error loading posts:', error);
         alert('Ошибка загрузки постов: ' + error.message);
+    } finally {
+        loadingIndicator.style.display = 'none';
+    }
+
+    setupInfiniteScroll();
+}
+
+async function loadMorePosts() {
+    if (isLoadingMore || postsCache.length === 0) return;
+
+    isLoadingMore = true;
+    const oldestPostId = postsCache[postsCache.length - 1].id;
+
+    try {
+        const morePosts = await supabaseFetch(`posts?id=lt.${oldestPostId}&order=id.desc&limit=20`, 'GET');
+        if (morePosts && morePosts.length > 0) {
+            const newPosts = morePosts.filter(post => !postsCache.some(p => p.id === post.id));
+            if (newPosts.length > 0) {
+                postsCache.push(...newPosts);
+                sortPostsCache();
+                renderMorePosts(newPosts);
+            }
+        }
+    } catch (error) {
+        console.error('Error loading more posts:', error);
+    } finally {
+        isLoadingMore = false;
     }
 }
 
 async function loadNewPosts() {
     try {
-        const newPosts = await supabaseFetch(`posts?timestamp=gt.${lastPostTimestamp}&order=timestamp.desc`, 'GET');
+        const newPosts = await supabaseFetch(`posts?id=gt.${lastPostId}&order=id.desc`, 'GET');
         if (newPosts && newPosts.length > 0) {
-            postsCache.unshift(...newPosts);
-            sortPostsCache();
-            renderPosts();
-            lastPostTimestamp = postsCache[0].timestamp;
+            const uniqueNewPosts = newPosts.filter(post => !postsCache.some(p => p.id === post.id));
+            if (uniqueNewPosts.length > 0) {
+                postsCache.unshift(...uniqueNewPosts);
+                sortPostsCache();
+                renderNewPosts(uniqueNewPosts, true);
+                lastPostId = postsCache[0].id;
+            }
         }
     } catch (error) {
         console.error('Error loading new posts:', error);
     }
 }
 
-function startNewPostCheck() {
-    setInterval(async () => {
-        if (!lastPostTimestamp) return;
-        try {
-            const newPosts = await supabaseFetch(`posts?timestamp=gt.${lastPostTimestamp}&order=timestamp.desc&limit=1`, 'GET');
-            if (newPosts && newPosts.length > 0) {
-                newPostsBtn.style.display = 'block';
+function subscribeToNewPosts() {
+    if (channel) {
+        supabaseClient.removeChannel(channel);
+    }
+
+    channel = supabaseClient
+        .channel('posts-channel')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, (payload) => {
+            const newPost = payload.new;
+            if (!postsCache.some(post => post.id === newPost.id)) {
+                postsCache.unshift(newPost);
+                sortPostsCache();
+                if (isUserAtTop()) {
+                    renderNewPost(newPost, true);
+                    lastPostId = postsCache[0].id;
+                } else {
+                    newPostsCount++;
+                    newPostsBtn.style.display = 'block';
+                    newPostsBtn.classList.add('visible');
+                }
             }
-        } catch (error) {
-            console.error('Error checking for new posts:', error);
-        }
-    }, 10000);
+        })
+        .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+                console.log('Subscribed to posts channel');
+            } else {
+                console.error('Failed to subscribe to posts channel:', status);
+            }
+        });
 }
+
+function isUserAtTop() {
+    const feedSection = document.getElementById('feed');
+    return feedSection.scrollTop <= 50;
+}
+
+function setupInfiniteScroll() {
+    const feedSection = document.getElementById('feed');
+    feedSection.removeEventListener('scroll', debouncedLoadMorePosts);
+    feedSection.addEventListener('scroll', debouncedLoadMorePosts);
+}
+
+const debouncedLoadMorePosts = debounce(() => {
+    const feedSection = document.getElementById('feed');
+    if (feedSection.scrollHeight - feedSection.scrollTop <= feedSection.clientHeight + 100) {
+        loadMorePosts();
+    }
+}, 300);
 
 function sortPostsCache() {
-    postsCache.sort((a, b) => {
-        const timeA = new Date(a.timestamp).getTime();
-        const timeB = new Date(b.timestamp).getTime();
-        if (timeA === timeB) {
-            return b.id - a.id;
-        }
-        return timeB - timeA;
-    });
+    postsCache.sort((a, b) => b.id - a.id);
 }
 
-async function renderPosts() {
+function renderPosts() {
     postsDiv.innerHTML = '';
     for (const post of postsCache) {
-        await renderPost(post);
+        renderNewPost(post, false);
     }
 }
 
-async function renderPost(post) {
+function renderNewPosts(newPosts, prepend = false) {
+    for (const post of newPosts) {
+        renderNewPost(post, prepend);
+    }
+}
+
+function renderNewPost(post, prepend = false) {
     const postDiv = document.createElement('div');
     postDiv.classList.add('post');
     postDiv.setAttribute('data-post-id', post.id);
@@ -226,16 +341,6 @@ async function renderPost(post) {
 
     const timeAgo = getTimeAgo(new Date(post.timestamp));
 
-    const reactions = await loadReactions(post.id);
-    const likes = reactions.filter(r => r.type === 'like').length;
-    const dislikes = reactions.filter(r => r.type === 'dislike').length;
-    const userReaction = reactions.find(r => r.user_id === userData.telegramUsername);
-    const likeClass = userReaction && userReaction.type === 'like' ? 'active' : '';
-    const dislikeClass = userReaction && userReaction.type === 'dislike' ? 'active' : '';
-
-    const comments = await loadComments(post.id);
-    const commentCount = comments ? comments.length : 0;
-
     postDiv.innerHTML = `
         <div class="post-header">
             <div class="post-user">
@@ -246,12 +351,13 @@ async function renderPost(post) {
         </div>
         <div class="post-content">${content}</div>
         <div class="post-actions">
-            <button class="reaction-btn like-btn ${likeClass}" onclick="toggleReaction(${post.id}, 'like')">👍 ${likes}</button>
-            <button class="reaction-btn dislike-btn ${dislikeClass}" onclick="toggleReaction(${post.id}, 'dislike')">👎 ${dislikes}</button>
-            <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (${commentCount})</button>
+            <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">👍 0</button>
+            <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">👎 0</button>
+            <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (0)</button>
         </div>
         <div class="comment-section" id="comments-${post.id}" style="display: none;">
-            <div class="comment-list" id="comment-list-${post.id}"></div>
+            <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
+            <div class="comment-list" id="comment-list-${post.id}" style="max-height: 200px; overflow-y: auto;"></div>
             <div class="comment-form">
                 <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
                 <button onclick="addComment(${post.id})">Отправить</button>
@@ -259,10 +365,89 @@ async function renderPost(post) {
         </div>
     `;
 
-    postsDiv.appendChild(postDiv);
+    if (prepend) {
+        postsDiv.prepend(postDiv);
+    } else {
+        postsDiv.appendChild(postDiv);
+    }
 
-    if (comments) {
-        await renderComments(post.id, comments);
+    loadReactionsAndComments(post.id);
+}
+
+async function renderMorePosts(newPosts) {
+    for (const post of newPosts) {
+        const postDiv = document.createElement('div');
+        postDiv.classList.add('post');
+        postDiv.setAttribute('data-post-id', post.id);
+
+        const [userInfo, ...contentParts] = post.text.split(':\n');
+        const [fullname, username] = userInfo.split(' (@');
+        const cleanUsername = username ? username.replace(')', '') : '';
+        const content = contentParts.join(':\n');
+
+        const timeAgo = getTimeAgo(new Date(post.timestamp));
+
+        postDiv.innerHTML = `
+            <div class="post-header">
+                <div class="post-user">
+                    <strong>${fullname}</strong>
+                    <span>@${cleanUsername}</span>
+                </div>
+                <div class="post-time">${timeAgo}</div>
+            </div>
+            <div class="post-content">${content}</div>
+            <div class="post-actions">
+                <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">👍 0</button>
+                <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">👎 0</button>
+                <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (0)</button>
+            </div>
+            <div class="comment-section" id="comments-${post.id}" style="display: none;">
+                <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
+                <div class="comment-list" id="comment-list-${post.id}" style="max-height: 200px; overflow-y: auto;"></div>
+                <div class="comment-form">
+                    <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
+                    <button onclick="addComment(${post.id})">Отправить</button>
+                </div>
+            </div>
+        `;
+
+        postsDiv.appendChild(postDiv);
+
+        loadReactionsAndComments(post.id);
+    }
+}
+
+async function loadReactionsAndComments(postId) {
+    try {
+        const reactions = await loadReactions(postId);
+        const likes = reactions.filter(r => r.type === 'like').length;
+        const dislikes = reactions.filter(r => r.type === 'dislike').length;
+        const userReaction = reactions.find(r => r.user_id === userData.telegramUsername);
+        const likeClass = userReaction && userReaction.type === 'like' ? 'active' : '';
+        const dislikeClass = userReaction && userReaction.type === 'dislike' ? 'active' : '';
+
+        const comments = await loadComments(postId);
+        const commentCount = comments ? comments.length : 0;
+
+        const postDiv = postsDiv.querySelector(`[data-post-id="${postId}"]`);
+        if (postDiv) {
+            const likeBtn = postDiv.querySelector('.like-btn');
+            const dislikeBtn = postDiv.querySelector('.dislike-btn');
+            const commentBtn = postDiv.querySelector('.comment-toggle-btn');
+            likeBtn.className = `reaction-btn like-btn ${likeClass}`;
+            likeBtn.innerHTML = `👍 ${likes}`;
+            dislikeBtn.className = `reaction-btn dislike-btn ${dislikeClass}`;
+            dislikeBtn.innerHTML = `👎 ${dislikes}`;
+            commentBtn.innerHTML = `💬 Комментарии (${commentCount})`;
+
+            if (comments) {
+                await renderComments(postId, comments);
+            }
+
+            setupCommentInfiniteScroll(postId);
+        }
+    } catch (error) {
+        console.error('Error loading reactions and comments:', error);
     }
 }
 
@@ -284,10 +469,6 @@ async function updatePost(postId) {
     const commentCount = comments ? comments.length : 0;
 
     postsCache[postIndex] = post[0];
-    postsCache[postIndex].likes = likes;
-    postsCache[postIndex].dislikes = dislikes;
-    postsCache[postIndex].comment_count = commentCount;
-
     const postDiv = postsDiv.querySelector(`[data-post-id="${postId}"]`);
     if (!postDiv) return;
 
@@ -313,7 +494,8 @@ async function updatePost(postId) {
             <button class="comment-toggle-btn" onclick="toggleComments(${postId})">💬 Комментарии (${commentCount})</button>
         </div>
         <div class="comment-section" id="comments-${postId}" style="display: none;">
-            <div class="comment-list" id="comment-list-${postId}"></div>
+            <button id="new-comments-btn-${postId}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
+            <div class="comment-list" id="comment-list-${postId}" style="max-height: 200px; overflow-y: auto;"></div>
             <div class="comment-form">
                 <textarea class="comment-input" id="comment-input-${postId}" placeholder="Написать комментарий..."></textarea>
                 <button onclick="addComment(${postId})">Отправить</button>
@@ -324,6 +506,8 @@ async function updatePost(postId) {
     if (comments) {
         await renderComments(postId, comments);
     }
+
+    setupCommentInfiniteScroll(postId);
 }
 
 function getTimeAgo(date) {
@@ -381,13 +565,163 @@ async function toggleReaction(postId, type) {
     }
 }
 
+// Новые функции для комментариев
 async function loadComments(postId) {
     try {
-        const comments = await supabaseFetch(`comments?post_id=eq.${postId}&order=timestamp.asc`, 'GET');
-        return comments || [];
+        // Инициализируем кэш для этого поста, если его нет
+        if (!commentsCache.has(postId)) {
+            commentsCache.set(postId, []);
+            lastCommentIds.set(postId, null);
+            newCommentsCount.set(postId, 0);
+        }
+
+        // Загружаем первые 10 комментариев
+        const comments = await supabaseFetch(`comments?post_id=eq.${postId}&order=id.asc&limit=10`, 'GET');
+        if (comments && comments.length > 0) {
+            const currentComments = commentsCache.get(postId);
+            const newComments = comments.filter(comment => !currentComments.some(c => c.id === comment.id));
+            commentsCache.set(postId, [...newComments, ...currentComments]);
+            sortCommentsCache(postId);
+            if (newComments.length > 0) {
+                lastCommentIds.set(postId, commentsCache.get(postId)[commentsCache.get(postId).length - 1].id);
+            }
+        }
+        return commentsCache.get(postId);
     } catch (error) {
         console.error('Error loading comments:', error);
         return [];
+    }
+}
+
+async function loadMoreComments(postId) {
+    const commentList = document.getElementById(`comment-list-${postId}`);
+    if (!commentList || commentList.dataset.isLoadingMore === 'true') return;
+
+    commentList.dataset.isLoadingMore = 'true';
+    const oldestCommentId = commentsCache.get(postId).length > 0 ? commentsCache.get(postId)[0].id : null;
+
+    try {
+        const moreComments = await supabaseFetch(`comments?post_id=eq.${postId}&id=lt.${oldestCommentId}&order=id.asc&limit=10`, 'GET');
+        if (moreComments && moreComments.length > 0) {
+            const currentComments = commentsCache.get(postId);
+            const newComments = moreComments.filter(comment => !currentComments.some(c => c.id === comment.id));
+            if (newComments.length > 0) {
+                commentsCache.set(postId, [...newComments, ...currentComments]);
+                sortCommentsCache(postId);
+                renderMoreComments(postId, newComments);
+            }
+        }
+    } catch (error) {
+        console.error('Error loading more comments:', error);
+    } finally {
+        commentList.dataset.isLoadingMore = 'false';
+    }
+}
+
+async function loadNewComments(postId) {
+    const lastCommentId = lastCommentIds.get(postId);
+    if (!lastCommentId) return;
+
+    try {
+        const newComments = await supabaseFetch(`comments?post_id=eq.${postId}&id=gt.${lastCommentId}&order=id.asc`, 'GET');
+        if (newComments && newComments.length > 0) {
+            const currentComments = commentsCache.get(postId);
+            const uniqueNewComments = newComments.filter(comment => !currentComments.some(c => c.id === comment.id));
+            if (uniqueNewComments.length > 0) {
+                commentsCache.set(postId, [...currentComments, ...uniqueNewComments]);
+                sortCommentsCache(postId);
+                renderNewComments(postId, uniqueNewComments, true);
+                lastCommentIds.set(postId, commentsCache.get(postId)[commentsCache.get(postId).length - 1].id);
+            }
+        }
+    } catch (error) {
+        console.error('Error loading new comments:', error);
+    }
+}
+
+function subscribeToNewComments(postId) {
+    // Удаляем старую подписку, если она существует
+    if (commentChannels.has(postId)) {
+        supabaseClient.removeChannel(commentChannels.get(postId));
+    }
+
+    const channel = supabaseClient
+        .channel(`comments-channel-${postId}`)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments', filter: `post_id=eq.${postId}` }, (payload) => {
+            const newComment = payload.new;
+            const currentComments = commentsCache.get(postId) || [];
+            if (!currentComments.some(comment => comment.id === newComment.id)) {
+                commentsCache.set(postId, [...currentComments, newComment]);
+                sortCommentsCache(postId);
+                if (isUserAtBottom(postId)) {
+                    renderNewComment(postId, newComment, true);
+                    lastCommentIds.set(postId, commentsCache.get(postId)[commentsCache.get(postId).length - 1].id);
+                } else {
+                    const currentCount = newCommentsCount.get(postId) || 0;
+                    newCommentsCount.set(postId, currentCount + 1);
+                    const newCommentsBtn = document.getElementById(`new-comments-btn-${postId}`);
+                    if (newCommentsBtn) {
+                        newCommentsBtn.style.display = 'block';
+                        newCommentsBtn.classList.add('visible');
+                    }
+                }
+            }
+        })
+        .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+                console.log(`Subscribed to comments channel for post ${postId}`);
+            } else {
+                console.error(`Failed to subscribe to comments channel for post ${postId}:`, status);
+            }
+        });
+
+    commentChannels.set(postId, channel);
+}
+
+function isUserAtBottom(postId) {
+    const commentList = document.getElementById(`comment-list-${postId}`);
+    if (!commentList) return false;
+    return commentList.scrollHeight - commentList.scrollTop <= commentList.clientHeight + 50;
+}
+
+function setupCommentInfiniteScroll(postId) {
+    const commentList = document.getElementById(`comment-list-${postId}`);
+    if (!commentList) return;
+
+    // Удаляем старую подписку на комментарии
+    if (commentChannels.has(postId)) {
+        supabaseClient.removeChannel(commentChannels.get(postId));
+        commentChannels.delete(postId);
+    }
+
+    const debouncedLoadMoreComments = debounce(() => {
+        if (commentList.scrollTop <= 50) {
+            loadMoreComments(postId);
+        }
+    }, 300);
+
+    commentList.removeEventListener('scroll', debouncedLoadMoreComments);
+    commentList.addEventListener('scroll', debouncedLoadMoreComments);
+
+    // Подписываемся на новые комментарии
+    subscribeToNewComments(postId);
+
+    // Добавляем обработчик для кнопки "Новые комментарии"
+    const newCommentsBtn = document.getElementById(`new-comments-btn-${postId}`);
+    if (newCommentsBtn) {
+        newCommentsBtn.onclick = () => {
+            loadNewComments(postId);
+            newCommentsBtn.style.display = 'none';
+            newCommentsCount.set(postId, 0);
+        };
+    }
+}
+
+function sortCommentsCache(postId) {
+    const comments = commentsCache.get(postId);
+    if (comments) {
+        comments.sort((a, b) => a.id - b.id); // Сортировка по id (старые комментарии вверху)
+        commentsCache.set(postId, comments);
     }
 }
 
@@ -396,6 +730,49 @@ async function renderComments(postId, comments) {
     if (!commentList) return;
     commentList.innerHTML = '';
     comments.forEach(comment => {
+        renderNewComment(postId, comment, false);
+    });
+}
+
+async function renderNewComments(postId, newComments, append = false) {
+    for (const comment of newComments) {
+        renderNewComment(postId, comment, append);
+    }
+}
+
+function renderNewComment(postId, comment, append = false) {
+    const commentList = document.getElementById(`comment-list-${postId}`);
+    if (!commentList) return;
+
+    const commentDiv = document.createElement('div');
+    commentDiv.classList.add('comment');
+    const [userInfo, ...contentParts] = comment.text.split(':\n');
+    const [fullname, username] = userInfo.split(' (@');
+    const cleanUsername = username ? username.replace(')', '') : '';
+    const content = contentParts.join(':\n');
+    commentDiv.innerHTML = `
+        <div class="comment-user">
+            <strong>${fullname}</strong> <span>@${cleanUsername}</span>
+        </div>
+        <div class="comment-content">${content}</div>
+    `;
+
+    if (append) {
+        commentList.appendChild(commentDiv);
+        // Прокручиваем вниз, если пользователь внизу
+        if (isUserAtBottom(postId)) {
+            commentList.scrollTop = commentList.scrollHeight;
+        }
+    } else {
+        commentList.prepend(commentDiv);
+    }
+}
+
+async function renderMoreComments(postId, newComments) {
+    for (const comment of newComments) {
+        const commentList = document.getElementById(`comment-list-${postId}`);
+        if (!commentList) return;
+
         const commentDiv = document.createElement('div');
         commentDiv.classList.add('comment');
         const [userInfo, ...contentParts] = comment.text.split(':\n');
@@ -408,8 +785,8 @@ async function renderComments(postId, comments) {
             </div>
             <div class="comment-content">${content}</div>
         `;
-        commentList.appendChild(commentDiv);
-    });
+        commentList.prepend(commentDiv);
+    }
 }
 
 async function addComment(postId) {
@@ -440,8 +817,29 @@ async function addComment(postId) {
             timestamp: new Date().toISOString()
         };
 
-        await supabaseFetch('comments', 'POST', comment);
+        const newComment = await supabaseFetch('comments', 'POST', comment);
         commentInput.value = '';
+
+        // Добавляем комментарий в кэш
+        const currentComments = commentsCache.get(postId) || [];
+        if (!currentComments.some(c => c.id === newComment[0].id)) {
+            commentsCache.set(postId, [...currentComments, newComment[0]]);
+            sortCommentsCache(postId);
+            if (isUserAtBottom(postId)) {
+                renderNewComment(postId, newComment[0], true);
+                lastCommentIds.set(postId, commentsCache.get(postId)[commentsCache.get(postId).length - 1].id);
+            } else {
+                const currentCount = newCommentsCount.get(postId) || 0;
+                newCommentsCount.set(postId, currentCount + 1);
+                const newCommentsBtn = document.getElementById(`new-comments-btn-${postId}`);
+                if (newCommentsBtn) {
+                    newCommentsBtn.style.display = 'block';
+                    newCommentsBtn.classList.add('visible');
+                }
+            }
+        }
+
+        // Обновляем счётчик комментариев
         await updatePost(postId);
     } catch (error) {
         console.error('Error adding comment:', error);
@@ -452,7 +850,20 @@ async function addComment(postId) {
 function toggleComments(postId) {
     const commentSection = document.getElementById(`comments-${postId}`);
     if (commentSection) {
-        commentSection.style.display = commentSection.style.display === 'none' ? 'block' : 'none';
+        const isVisible = commentSection.style.display === 'block';
+        commentSection.style.display = isVisible ? 'none' : 'block';
+
+        if (!isVisible) {
+            // Загружаем комментарии и подписываемся на обновления
+            loadComments(postId).then(comments => renderComments(postId, comments));
+            setupCommentInfiniteScroll(postId);
+        } else {
+            // Отписываемся от обновлений
+            if (commentChannels.has(postId)) {
+                supabaseClient.removeChannel(commentChannels.get(postId));
+                commentChannels.delete(postId);
+            }
+        }
     }
 }
 
@@ -691,7 +1102,7 @@ function initRegistration() {
         registrationForm.classList.toggle('form-hidden');
     };
 
-    submitRegistrationBtn.onclick = async () => {
+    submitRegistrationBtn.addEventListener('click', async () => {
         const registration = {
             tournament_id: currentTournamentId,
             faction_name: document.getElementById('reg-faction-name').value,
@@ -729,7 +1140,7 @@ function initRegistration() {
             console.error('Error saving registration:', error);
             alert('Ошибка: ' + error.message);
         }
-    };
+    });
 }
 
 async function loadRegistrations(tournamentId, isCreator) {
@@ -755,7 +1166,6 @@ async function loadRegistrations(tournamentId, isCreator) {
                 registrationList.appendChild(regCard);
             });
 
-            // Привязываем обработчики к кнопкам "Удалить"
             if (isCreator) {
                 const deleteButtons = document.querySelectorAll('.delete-registration-btn');
                 deleteButtons.forEach(button => {
@@ -778,10 +1188,8 @@ async function loadRegistrations(tournamentId, isCreator) {
 
 async function deleteRegistration(registrationId, tournamentId) {
     try {
-        // Удаляем запись из таблицы registrations по id
         await supabaseFetch(`registrations?id=eq.${registrationId}`, 'DELETE');
         alert('Команда успешно удалена!');
-        // Перезагружаем список регистраций
         const isCreator = (await supabaseFetch(`tournaments?id=eq.${tournamentId}`, 'GET'))[0].creator_id === userData.telegramUsername;
         await loadRegistrations(tournamentId, isCreator);
     } catch (error) {
