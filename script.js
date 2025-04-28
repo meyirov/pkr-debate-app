@@ -159,6 +159,15 @@ newPostsBtn.addEventListener('click', () => {
 });
 document.getElementById('feed').prepend(newPostsBtn);
 
+// Добавляем кнопку "Загрузить ещё"
+const loadMoreBtn = document.createElement('button');
+loadMoreBtn.id = 'load-more-btn';
+loadMoreBtn.className = 'load-more-btn';
+loadMoreBtn.innerHTML = 'Загрузить ещё';
+loadMoreBtn.style.display = 'none';
+loadMoreBtn.addEventListener('click', loadMorePosts);
+postsDiv.appendChild(loadMoreBtn);
+
 submitPost.addEventListener('click', async () => {
     const postContent = postText.value.trim();
     if (!postContent) {
@@ -204,6 +213,7 @@ async function loadPosts() {
     try {
         postsCache = [];
         const posts = await supabaseFetch('posts?order=id.desc&limit=20', 'GET');
+        console.log('Initial posts loaded:', posts); // Отладка
         if (posts) {
             postsCache = posts;
             sortPostsCache();
@@ -212,6 +222,7 @@ async function loadPosts() {
                 lastPostId = postsCache[0].id;
             }
             isPostsLoaded = true;
+            loadMoreBtn.style.display = posts.length === 20 ? 'block' : 'none'; // Показываем кнопку, если есть посты
         }
     } catch (error) {
         console.error('Error loading posts:', error);
@@ -224,24 +235,30 @@ async function loadPosts() {
 }
 
 async function loadMorePosts() {
-    if (isLoadingMore || postsCache.length === 0) return;
+    if (isLoadingMore || postsCache.length === 0) {
+        console.log('Skipping loadMorePosts: isLoadingMore or no posts');
+        return;
+    }
 
     isLoadingMore = true;
     const oldestPostId = postsCache[postsCache.length - 1].id;
+    console.log('Loading more posts, oldestPostId:', oldestPostId); // Отладка
 
     try {
         const morePosts = await supabaseFetch(`posts?id=lt.${oldestPostId}&order=id.desc&limit=20`, 'GET');
+        console.log('More posts loaded:', morePosts); // Отладка
         if (morePosts && morePosts.length > 0) {
             const newPosts = morePosts.filter(post => !postsCache.some(p => p.id === post.id));
             if (newPosts.length > 0) {
                 postsCache.push(...newPosts);
                 sortPostsCache();
                 renderMorePosts(newPosts);
-                // Обновляем lastPostId только если это необходимо
-                if (postsCache[0].id > lastPostId) {
-                    lastPostId = postsCache[0].id;
-                }
+                loadMoreBtn.style.display = newPosts.length === 20 ? 'block' : 'none'; // Обновляем видимость кнопки
+            } else {
+                loadMoreBtn.style.display = 'none'; // Скрываем, если больше нет постов
             }
+        } else {
+            loadMoreBtn.style.display = 'none'; // Скрываем, если нет новых постов
         }
     } catch (error) {
         console.error('Error loading more posts:', error);
@@ -253,6 +270,7 @@ async function loadMorePosts() {
 async function loadNewPosts() {
     try {
         const newPosts = await supabaseFetch(`posts?id=gt.${lastPostId}&order=id.desc`, 'GET');
+        console.log('New posts loaded:', newPosts); // Отладка
         if (newPosts && newPosts.length > 0) {
             const uniqueNewPosts = newPosts.filter(post => !postsCache.some(p => p.id === post.id));
             if (uniqueNewPosts.length > 0) {
@@ -305,13 +323,24 @@ function isUserAtTop() {
 
 function setupInfiniteScroll() {
     const feedSection = document.getElementById('feed');
+    if (!feedSection) {
+        console.error('Feed section not found!');
+        return;
+    }
+    console.log('Setting up infinite scroll'); // Отладка
     feedSection.removeEventListener('scroll', debouncedLoadMorePosts);
     feedSection.addEventListener('scroll', debouncedLoadMorePosts);
 }
 
 const debouncedLoadMorePosts = debounce(() => {
     const feedSection = document.getElementById('feed');
+    if (!feedSection) {
+        console.error('Feed section not found in debouncedLoadMorePosts');
+        return;
+    }
+    console.log('Scroll detected, scrollTop:', feedSection.scrollTop, 'scrollHeight:', feedSection.scrollHeight, 'clientHeight:', feedSection.clientHeight); // Отладка
     if (feedSection.scrollHeight - feedSection.scrollTop <= feedSection.clientHeight + 100) {
+        console.log('Triggering loadMorePosts');
         loadMorePosts();
     }
 }, 300);
@@ -325,6 +354,7 @@ function renderPosts() {
     for (const post of postsCache) {
         renderNewPost(post, false);
     }
+    console.log('Rendered posts, count:', postsCache.length); // Отладка
 }
 
 function renderNewPosts(newPosts, prepend = false) {
@@ -419,6 +449,7 @@ async function renderMorePosts(newPosts) {
 
         loadReactionsAndComments(post.id);
     }
+    console.log('Rendered more posts, count:', newPosts.length); // Отладка
 }
 
 async function loadReactionsAndComments(postId) {
@@ -494,7 +525,7 @@ async function updatePost(postId) {
         <div class="post-content">${content}</div>
         <div class="post-actions">
             <button class="reaction-btn like-btn ${likeClass}" onclick="toggleReaction(${postId}, 'like')">👍 ${likes}</button>
-            <button class="reaction-btn dislike-btn ${likeClass}" onclick="toggleReaction(${postId}, 'dislike')">👎 ${dislikes}</button>
+            <button class="reaction-btn dislike-btn ${dislikeClass}" onclick="toggleReaction(${postId}, 'dislike')">👎 ${dislikes}</button>
             <button class="comment-toggle-btn" onclick="toggleComments(${postId})">💬 Комментарии (${commentCount})</button>
         </div>
         <div class="comment-section" id="comments-${postId}" style="display: none;">
@@ -606,7 +637,7 @@ async function loadMoreComments(postId) {
 
     try {
         const moreComments = await supabaseFetch(`comments?post_id=eq.${postId}&id=lt.${oldestCommentId}&order=id.asc&limit=10`, 'GET');
-        if (moreComments && moreComments.length > 0) {
+        if (moreComments && morePosts.length > 0) {
             const currentComments = commentsCache.get(postId);
             const newComments = moreComments.filter(comment => !currentComments.some(c => c.id === comment.id));
             if (newComments.length > 0) {
