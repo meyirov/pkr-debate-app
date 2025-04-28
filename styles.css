@@ -924,3 +924,19 @@ body {
     background: #a78bfa;
     transform: scale(1.05);
 }
+
+.load-more-btn {
+    display: block;
+    margin: 20px auto;
+    padding: 10px 20px;
+    background-color: #6B4E71;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    text-align: center;
+}
+.load-more-btn:hover {
+    background-color: #8B6F91;
+}
