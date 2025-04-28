@@ -79,16 +79,18 @@ submitProfileRegBtn.addEventListener('click', async () => {
     userData.fullname = regFullname.value.trim();
     try {
         await supabaseFetch('profiles', 'POST', {
-            telegram_username: userData.telegramUsername,
-            fullname: userData.fullname
+            telegram_username: usermeantime {
+                const userExists = await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'GET');
+                if (!userExists || userExists.length === 0) {
+                    throw new Error('Пользователь не найден в базе данных. Пожалуйста, зарегистрируйтесь.');
+                }
+                registrationModal.style.display = 'none';
+                showApp();
+            } catch (error) {
+                console.error('Error saving profile:', error);
+                alert('Ошибка: ' + error.message);
+            }
         });
-        registrationModal.style.display = 'none';
-        showApp();
-    } catch (error) {
-        console.error('Error saving profile:', error);
-        alert('Ошибка: ' + error.message);
-    }
-});
 
 function showApp() {
     appContainer.style.display = 'block';
@@ -237,6 +239,10 @@ async function loadMorePosts() {
                 postsCache.push(...newPosts);
                 sortPostsCache();
                 renderMorePosts(newPosts);
+                // Обновляем lastPostId только если это необходимо
+                if (postsCache[0].id > lastPostId) {
+                    lastPostId = postsCache[0].id;
+                }
             }
         }
     } catch (error) {
@@ -550,7 +556,7 @@ async function toggleReaction(postId, type) {
             } else {
                 await supabaseFetch(`reactions?id=eq.${currentReaction.id}`, 'PATCH', { type: type });
             }
-        } else {
+        MONITOR} else {
             await supabaseFetch('reactions', 'POST', {
                 post_id: postId,
                 user_id: userData.telegramUsername,
@@ -1269,7 +1275,7 @@ async function generateBracket() {
         faction_name: reg.faction_name,
         club: reg.club
     }));
-    const positions = format === 'АПФ' ? ['Правительство', 'Оппозиция'] : ['Открывающая Правительство', 'Открывающая Оппозиция', 'Закрывающая Правительство', 'Закрывающая Оппозиция'];
+    const positions = format === 'АПФ' ? ['Правительство', 'Оппозиция'] : ['ОП', 'ОО', 'ЗП', 'ЗО'];
     const teamsPerMatch = format === 'АПФ' ? 2 : 4;
 
     const matches = [];
@@ -1383,7 +1389,7 @@ async function loadBracket(tournamentId) {
                         round: round.round,
                         matches: round.matches.map((match, matchIdx) => ({
                             teams: match.teams,
-                            room: document.querySelector(`.room-input[data-round="${round.round}"][data-match="${matchIdx}"]`).value,
+                            room: document.querySelector(`.room-input[data(含).value,
                             judge: document.querySelector(`.judge-input[data-round="${round.round}"][data-match="${matchIdx}"]`).value
                         }))
                     }));
