@@ -79,18 +79,16 @@ submitProfileRegBtn.addEventListener('click', async () => {
     userData.fullname = regFullname.value.trim();
     try {
         await supabaseFetch('profiles', 'POST', {
-            telegram_username: usermeantime {
-                const userExists = await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'GET');
-                if (!userExists || userExists.length === 0) {
-                    throw new Error('Пользователь не найден в базе данных. Пожалуйста, зарегистрируйтесь.');
-                }
-                registrationModal.style.display = 'none';
-                showApp();
-            } catch (error) {
-                console.error('Error saving profile:', error);
-                alert('Ошибка: ' + error.message);
-            }
+            telegram_username: userData.telegramUsername,
+            fullname: userData.fullname
         });
+        registrationModal.style.display = 'none';
+        showApp();
+    } catch (error) {
+        console.error('Error saving profile:', error);
+        alert('Ошибка: ' + error.message);
+    }
+});
 
 function showApp() {
     appContainer.style.display = 'block';
@@ -496,7 +494,7 @@ async function updatePost(postId) {
         <div class="post-content">${content}</div>
         <div class="post-actions">
             <button class="reaction-btn like-btn ${likeClass}" onclick="toggleReaction(${postId}, 'like')">👍 ${likes}</button>
-            <button class="reaction-btn dislike-btn ${dislikeClass}" onclick="toggleReaction(${postId}, 'dislike')">👎 ${dislikes}</button>
+            <button class="reaction-btn dislike-btn ${likeClass}" onclick="toggleReaction(${postId}, 'dislike')">👎 ${dislikes}</button>
             <button class="comment-toggle-btn" onclick="toggleComments(${postId})">💬 Комментарии (${commentCount})</button>
         </div>
         <div class="comment-section" id="comments-${postId}" style="display: none;">
@@ -556,7 +554,7 @@ async function toggleReaction(postId, type) {
             } else {
                 await supabaseFetch(`reactions?id=eq.${currentReaction.id}`, 'PATCH', { type: type });
             }
-        MONITOR} else {
+        } else {
             await supabaseFetch('reactions', 'POST', {
                 post_id: postId,
                 user_id: userData.telegramUsername,
@@ -1389,7 +1387,7 @@ async function loadBracket(tournamentId) {
                         round: round.round,
                         matches: round.matches.map((match, matchIdx) => ({
                             teams: match.teams,
-                            room: document.querySelector(`.room-input[data(含).value,
+                            room: document.querySelector(`.room-input[data-round="${round.round}"][data-match="${matchIdx}"]`).value,
                             judge: document.querySelector(`.judge-input[data-round="${round.round}"][data-match="${matchIdx}"]`).value
                         }))
                     }));
