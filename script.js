@@ -429,6 +429,20 @@ function renderNewPosts(newPosts, prepend = false) {
     }
 }
 
+// Новая функция для форматирования текста поста
+function formatPostContent(content) {
+    // Заменяем переносы строк на <br>
+    let formattedContent = content.replace(/\n/g, '<br>');
+    
+    // Преобразуем URL в кликабельные ссылки
+    const urlRegex = /(https?:\/\/[^\s<]+[^\s<.,:;"')\]\}])/g;
+    formattedContent = formattedContent.replace(urlRegex, (url) => {
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+    });
+    
+    return formattedContent;
+}
+
 function renderNewPost(post, prepend = false) {
     const postDiv = document.createElement('div');
     postDiv.classList.add('post');
@@ -438,6 +452,7 @@ function renderNewPost(post, prepend = false) {
     const [fullname, username] = userInfo.split(' (@');
     const cleanUsername = username ? username.replace(')', '') : '';
     const content = contentParts.join(':\n');
+    const formattedContent = formatPostContent(content); // Форматируем текст
 
     const timeAgo = getTimeAgo(new Date(post.timestamp));
 
@@ -449,7 +464,7 @@ function renderNewPost(post, prepend = false) {
             </div>
             <div class="post-time">${timeAgo}</div>
         </div>
-        <div class="post-content">${content}</div>
+        <div class="post-content">${formattedContent}</div>
         ${post.image_url ? `<img src="${post.image_url}" class="post-image" alt="Post image">` : ''}
         <div class="post-actions">
             <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">👍 0</button>
@@ -486,6 +501,7 @@ async function renderMorePosts(newPosts) {
         const [fullname, username] = userInfo.split(' (@');
         const cleanUsername = username ? username.replace(')', '') : '';
         const content = contentParts.join(':\n');
+        const formattedContent = formatPostContent(content); // Форматируем текст
 
         const timeAgo = getTimeAgo(new Date(post.timestamp));
 
@@ -497,7 +513,7 @@ async function renderMorePosts(newPosts) {
                 </div>
                 <div class="post-time">${timeAgo}</div>
             </div>
-            <div class="post-content">${content}</div>
+            <div class="post-content">${formattedContent}</div>
             ${post.image_url ? `<img src="${post.image_url}" class="post-image" alt="Post image">` : ''}
             <div class="post-actions">
                 <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">👍 0</button>
@@ -582,6 +598,7 @@ async function updatePost(postId) {
     const [fullname, username] = userInfo.split(' (@');
     const cleanUsername = username ? username.replace(')', '') : '';
     const content = contentParts.join(':\n');
+    const formattedContent = formatPostContent(content); // Форматируем текст
 
     const timeAgo = getTimeAgo(new Date(post[0].timestamp));
 
@@ -593,7 +610,7 @@ async function updatePost(postId) {
             </div>
             <div class="post-time">${timeAgo}</div>
         </div>
-        <div class="post-content">${content}</div>
+        <div class="post-content">${formattedContent}</div>
         ${post[0].image_url ? `<img src="${post[0].image_url}" class="post-image" alt="Post image">` : ''}
         <div class="post-actions">
             <button class="reaction-btn like-btn ${likeClass}" onclick="toggleReaction(${postId}, 'like')">👍 ${likes}</button>
@@ -728,7 +745,7 @@ async function loadMoreComments(postId) {
 
     try {
         const moreComments = await supabaseFetch(`comments?post_id=eq.${postId}&id=lt.${oldestCommentId}&order=id.asc&limit=10`, 'GET');
-        if (moreComments && morePosts.length > 0) {
+        if (moreComments && moreComments.length > 0) {
             const currentComments = commentsCache.get(postId);
             const newComments = moreComments.filter(comment => !currentComments.some(c => c.id === comment.id));
             if (newComments.length > 0) {
