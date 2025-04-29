@@ -19,10 +19,15 @@ let isLoadingMore = false;
 let newPostsCount = 0;
 let channel = null;
 let commentChannels = new Map();
-let reactionChannels = new Map(); // Добавляем для реакций
+let reactionChannels = new Map();
 let commentsCache = new Map();
 let lastCommentIds = new Map();
 let newCommentsCount = new Map();
+
+// Функция-заглушка для получения URL аватара (пока используем placeholder)
+function getUserAvatarUrl(username) {
+    return 'https://via.placeholder.com/48'; // Заменить на реальный аватар, если он есть в базе
+}
 
 async function supabaseFetch(endpoint, method, body = null, retries = 3) {
     for (let attempt = 1; attempt <= retries; attempt++) {
@@ -413,27 +418,44 @@ function renderNewPost(post, prepend = false) {
     const content = contentParts.join(':\n');
 
     const timeAgo = getTimeAgo(new Date(post.timestamp));
+    const avatarUrl = getUserAvatarUrl(cleanUsername);
 
     postDiv.innerHTML = `
-        <div class="post-header">
-            <div class="post-user">
-                <strong>${fullname}</strong>
-                <span>@${cleanUsername}</span>
+        <div class="post-wrapper">
+            <div class="post-avatar">
+                <img src="${avatarUrl}" alt="Avatar" class="avatar-img">
             </div>
-            <div class="post-time">${timeAgo}</div>
-        </div>
-        <div class="post-content">${content}</div>
-        <div class="post-actions">
-            <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">👍 0</button>
-            <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">👎 0</button>
-            <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (0)</button>
-        </div>
-        <div class="comment-section" id="comments-${post.id}" style="display: none;">
-            <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
-            <div class="comment-list" id="comment-list-${post.id}" style="max-height: 200px; overflow-y: auto;"></div>
-            <div class="comment-form">
-                <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
-                <button onclick="addComment(${post.id})">Отправить</button>
+            <div class="post-body">
+                <div class="post-header">
+                    <div class="post-user-info">
+                        <span class="post-fullname">${fullname}</span>
+                        <span class="post-username">@${cleanUsername}</span>
+                    </div>
+                    <div class="post-time">${timeAgo}</div>
+                </div>
+                <div class="post-content">${content}</div>
+                <div class="post-actions">
+                    <span class="action-btn comment-btn" onclick="toggleComments(${post.id})">
+                        <svg class="action-icon"><use href="#comment-icon"></use></svg>
+                        <span class="action-count">0</span>
+                    </span>
+                    <span class="action-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">
+                        <svg class="action-icon"><use href="#like-icon"></use></svg>
+                        <span class="action-count">0</span>
+                    </span>
+                    <span class="action-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">
+                        <svg class="action-icon"><use href="#dislike-icon"></use></svg>
+                        <span class="action-count">0</span>
+                    </span>
+                </div>
+                <div class="comment-section" id="comments-${post.id}" style="display: none;">
+                    <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
+                    <div class="comment-list" id="comment-list-${post.id}" style="max-height: 200px; overflow-y: auto;"></div>
+                    <div class="comment-form">
+                        <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
+                        <button onclick="addComment(${post.id})">Отправить</button>
+                    </div>
+                </div>
             </div>
         </div>
     `;
@@ -441,11 +463,11 @@ function renderNewPost(post, prepend = false) {
     if (prepend) {
         postsDiv.prepend(postDiv);
     } else {
-        postsDiv.appendChild(postDiv);
+        postsDiv.insertBefore(postDiv, loadMoreBtn);
     }
 
     loadReactionsAndComments(post.id);
-    subscribeToReactions(post.id); // Подписываемся на изменения реакций
+    subscribeToReactions(post.id);
 }
 
 async function renderMorePosts(newPosts) {
@@ -460,38 +482,54 @@ async function renderMorePosts(newPosts) {
         const content = contentParts.join(':\n');
 
         const timeAgo = getTimeAgo(new Date(post.timestamp));
+        const avatarUrl = getUserAvatarUrl(cleanUsername);
 
         postDiv.innerHTML = `
-            <div class="post-header">
-                <div class="post-user">
-                    <strong>${fullname}</strong>
-                    <span>@${cleanUsername}</span>
+            <div class="post-wrapper">
+                <div class="post-avatar">
+                    <img src="${avatarUrl}" alt="Avatar" class="avatar-img">
                 </div>
-                <div class="post-time">${timeAgo}</div>
-            </div>
-            <div class="post-content">${content}</div>
-            <div class="post-actions">
-                <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">👍 0</button>
-                <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">👎 0</button>
-                <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (0)</button>
-            </div>
-            <div class="comment-section" id="comments-${post.id}" style="display: none;">
-                <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
-                <div class="comment-list" id="comment-list-${post.id}" style="max-height: 200px; overflow-y: auto;"></div>
-                <div class="comment-form">
-                    <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
-                    <button onclick="addComment(${post.id})">Отправить</button>
+                <div class="post-body">
+                    <div class="post-header">
+                        <div class="post-user-info">
+                            <span class="post-fullname">${fullname}</span>
+                            <span class="post-username">@${cleanUsername}</span>
+                        </div>
+                        <div class="post-time">${timeAgo}</div>
+                    </div>
+                    <div class="post-content">${content}</div>
+                    <div class="post-actions">
+                        <span class="action-btn comment-btn" onclick="toggleComments(${post.id})">
+                            <svg class="action-icon"><use href="#comment-icon"></use></svg>
+                            <span class="action-count">0</span>
+                        </span>
+                        <span class="action-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">
+                            <svg class="action-icon"><use href="#like-icon"></use></svg>
+                            <span class="action-count">0</span>
+                        </span>
+                        <span class="action-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">
+                            <svg class="action-icon"><use href="#dislike-icon"></use></svg>
+                            <span class="action-count">0</span>
+                        </span>
+                    </div>
+                    <div class="comment-section" id="comments-${post.id}" style="display: none;">
+                        <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
+                        <div class="comment-list" id="comment-list-${post.id}" style="max-height: 200px; overflow-y: auto;"></div>
+                        <div class="comment-form">
+                            <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
+                            <button onclick="addComment(${post.id})">Отправить</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
 
-        postsDiv.appendChild(postDiv);
+        postsDiv.insertBefore(postDiv, loadMoreBtn);
 
         loadReactionsAndComments(post.id);
-        subscribeToReactions(post.id); // Подписываемся на изменения реакций
+        subscribeToReactions(post.id);
     }
     console.log('Rendered more posts, count:', newPosts.length);
-    postsDiv.appendChild(loadMoreBtn);
 }
 
 async function loadReactionsAndComments(postId) {
@@ -510,12 +548,12 @@ async function loadReactionsAndComments(postId) {
         if (postDiv) {
             const likeBtn = postDiv.querySelector('.like-btn');
             const dislikeBtn = postDiv.querySelector('.dislike-btn');
-            const commentBtn = postDiv.querySelector('.comment-toggle-btn');
-            likeBtn.className = `reaction-btn like-btn ${likeClass}`;
-            likeBtn.innerHTML = `👍 ${likes}`;
-            dislikeBtn.className = `reaction-btn dislike-btn ${dislikeClass}`;
-            dislikeBtn.innerHTML = `👎 ${dislikes}`;
-            commentBtn.innerHTML = `💬 Комментарии (${commentCount})`;
+            const commentBtn = postDiv.querySelector('.comment-btn');
+            likeBtn.className = `action-btn like-btn ${likeClass}`;
+            likeBtn.querySelector('.action-count').textContent = likes;
+            dislikeBtn.className = `action-btn dislike-btn ${dislikeClass}`;
+            dislikeBtn.querySelector('.action-count').textContent = dislikes;
+            commentBtn.querySelector('.action-count').textContent = commentCount;
 
             if (comments) {
                 await renderComments(postId, comments);
@@ -555,27 +593,44 @@ async function updatePost(postId) {
     const content = contentParts.join(':\n');
 
     const timeAgo = getTimeAgo(new Date(post[0].timestamp));
+    const avatarUrl = getUserAvatarUrl(cleanUsername);
 
     postDiv.innerHTML = `
-        <div class="post-header">
-            <div class="post-user">
-                <strong>${fullname}</strong>
-                <span>@${cleanUsername}</span>
+        <div class="post-wrapper">
+            <div class="post-avatar">
+                <img src="${avatarUrl}" alt="Avatar" class="avatar-img">
             </div>
-            <div class="post-time">${timeAgo}</div>
-        </div>
-        <div class="post-content">${content}</div>
-        <div class="post-actions">
-            <button class="reaction-btn like-btn ${likeClass}" onclick="toggleReaction(${postId}, 'like')">👍 ${likes}</button>
-            <button class="reaction-btn dislike-btn ${dislikeClass}" onclick="toggleReaction(${postId}, 'dislike')">👎 ${dislikes}</button>
-            <button class="comment-toggle-btn" onclick="toggleComments(${postId})">💬 Комментарии (${commentCount})</button>
-        </div>
-        <div class="comment-section" id="comments-${postId}" style="display: none;">
-            <button id="new-comments-btn-${postId}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
-            <div class="comment-list" id="comment-list-${postId}" style="max-height: 200px; overflow-y: auto;"></div>
-            <div class="comment-form">
-                <textarea class="comment-input" id="comment-input-${postId}" placeholder="Написать комментарий..."></textarea>
-                <button onclick="addComment(${postId})">Отправить</button>
+            <div class="post-body">
+                <div class="post-header">
+                    <div class="post-user-info">
+                        <span class="post-fullname">${fullname}</span>
+                        <span class="post-username">@${cleanUsername}</span>
+                    </div>
+                    <div class="post-time">${timeAgo}</div>
+                </div>
+                <div class="post-content">${content}</div>
+                <div class="post-actions">
+                    <span class="action-btn comment-btn" onclick="toggleComments(${postId})">
+                        <svg class="action-icon"><use href="#comment-icon"></use></svg>
+                        <span class="action-count">${commentCount}</span>
+                    </span>
+                    <span class="action-btn like-btn ${likeClass}" onclick="toggleReaction(${postId}, 'like')">
+                        <svg class="action-icon"><use href="#like-icon"></use></svg>
+                        <span class="action-count">${likes}</span>
+                    </span>
+                    <span class="action-btn dislike-btn ${dislikeClass}" onclick="toggleReaction(${postId}, 'dislike')">
+                        <svg class="action-icon"><use href="#dislike-icon"></use></svg>
+                        <span class="action-count">${dislikes}</span>
+                    </span>
+                </div>
+                <div class="comment-section" id="comments-${postId}" style="display: none;">
+                    <button id="new-comments-btn-${postId}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
+                    <div class="comment-list" id="comment-list-${postId}" style="max-height: 200px; overflow-y: auto;"></div>
+                    <div class="comment-form">
+                        <textarea class="comment-input" id="comment-input-${postId}" placeholder="Написать комментарий..."></textarea>
+                        <button onclick="addComment(${postId})">Отправить</button>
+                    </div>
+                </div>
             </div>
         </div>
     `;
@@ -619,7 +674,7 @@ function subscribeToReactions(postId) {
         .channel(`reactions-channel-${postId}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'reactions', filter: `post_id=eq.${postId}` }, (payload) => {
             console.log(`Reaction change detected for post ${postId}:`, payload);
-            updatePost(postId); // Обновляем пост при изменении реакций
+            updatePost(postId);
         })
         .subscribe((status) => {
             if (status === 'SUBSCRIBED') {
@@ -823,7 +878,7 @@ async function renderComments(postId, comments) {
     if (!commentList) return;
     commentList.innerHTML = '';
     comments.forEach(comment => {
-        renderNewComment(postId, comment, true); // Используем append для хронологического порядка
+        renderNewComment(postId, comment, true);
     });
 }
 
@@ -843,11 +898,21 @@ function renderNewComment(postId, comment, append = true) {
     const [fullname, username] = userInfo.split(' (@');
     const cleanUsername = username ? username.replace(')', '') : '';
     const content = contentParts.join(':\n');
+    const avatarUrl = getUserAvatarUrl(cleanUsername);
+
     commentDiv.innerHTML = `
-        <div class="comment-user">
-            <strong>${fullname}</strong> <span>@${cleanUsername}</span>
+        <div class="comment-wrapper">
+            <div class="comment-avatar">
+                <img src="${avatarUrl}" alt="Avatar" class="avatar-img">
+            </div>
+            <div class="comment-body">
+                <div class="comment-header">
+                    <span class="comment-fullname">${fullname}</span>
+                    <span class="comment-username">@${cleanUsername}</span>
+                </div>
+                <div class="comment-content">${content}</div>
+            </div>
         </div>
-        <div class="comment-content">${content}</div>
     `;
 
     if (append) {
@@ -871,13 +936,23 @@ async function renderMoreComments(postId, newComments) {
         const [fullname, username] = userInfo.split(' (@');
         const cleanUsername = username ? username.replace(')', '') : '';
         const content = contentParts.join(':\n');
+        const avatarUrl = getUserAvatarUrl(cleanUsername);
+
         commentDiv.innerHTML = `
-            <div class="comment-user">
-                <strong>${fullname}</strong> <span>@${cleanUsername}</span>
+            <div class="comment-wrapper">
+                <div class="comment-avatar">
+                    <img src="${avatarUrl}" alt="Avatar" class="avatar-img">
+                </div>
+                <div class="comment-body">
+                    <div class="comment-header">
+                        <span class="comment-fullname">${fullname}</span>
+                        <span class="comment-username">@${cleanUsername}</span>
+                    </div>
+                    <div class="comment-content">${content}</div>
+                </div>
             </div>
-            <div class="comment-content">${content}</div>
         `;
-        commentList.appendChild(commentDiv); // Используем append вместо prepend
+        commentList.appendChild(commentDiv);
     }
 }
 
@@ -1188,7 +1263,7 @@ function initRegistration() {
     const submitRegistrationBtn = document.getElementById('submit-registration-btn');
 
     registerBtn.onclick = () => {
-        registrationForm.classList.toggle('-hidden');
+        registrationForm.classList.toggle('form-hidden');
     };
 
     submitRegistrationBtn.addEventListener('click', async () => {
