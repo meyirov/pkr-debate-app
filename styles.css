@@ -183,6 +183,18 @@ body {
     margin-top: 5px;
     font-size: 15px;
     color: #d1d5db;
+    white-space: pre-wrap; /* Добавлено: сохраняет переносы строк и пробелы */
+}
+
+.post-content a {
+    color: #8b5cf6; /* Цвет ссылок соответствует теме приложения */
+    text-decoration: none; /* Убираем подчеркивание по умолчанию */
+    transition: color 0.2s ease; /* Плавный переход цвета */
+}
+
+.post-content a:hover {
+    color: #a78bfa; /* Цвет при наведении */
+    text-decoration: underline; /* Подчеркивание при наведении */
 }
 
 .post-image {
