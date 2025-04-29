@@ -31,11 +31,13 @@
                 <div id="new-post">
                     <textarea id="post-text" placeholder="Что нового?"></textarea>
                     <div class="new-post-actions">
-                        <div class="new-post-icons"></div>
+                        <div class="new-post-icons">
+                            <input type="file" id="post-image" accept="image/*" style="display: none;">
+                            <button id="attach-image-btn" class="icon-btn" title="Прикрепить фото">📷</button>
+                        </div>
                         <button id="submit-post">Твитнуть</button>
                     </div>
                 </div>
-                <button id="new-posts-btn" class="new-posts-btn" style="display: none;">Новые посты</button>
                 <div id="posts-loading" style="display: none; text-align: center; padding: 10px;">Загрузка...</div>
                 <div id="posts"></div>
             </section>
@@ -92,7 +94,7 @@
             </section>
             <section id="edu" class="content">
                 <h2>PKR EDU</h2>
-                <p>Обучающий контент скоро появится!</p>
+                <p>Обучающий контент скоро появ oявится!</p>
             </section>
         </div>
         <nav class="navbar">
@@ -103,52 +105,6 @@
             <button id="edu-btn" class="nav-btn"><span>📚</span> EDU</button>
         </nav>
     </div>
-
-    <!-- SVG-спрайт для иконок -->
-    <svg style="display: none;">
-        <symbol id="comment-icon" viewBox="0 0 24 24">
-            <path d="M21.99 4c0-1.1-.89-2-1.99-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4-.01-18zM18 14H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
-        </symbol>
-        <symbol id="like-icon" viewBox="0 0 24 24">
-            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-        </symbol>
-        <symbol id="dislike-icon" viewBox="0 0 24 24">
-            <path d="M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v1.91l5.84 5.84L15 12h6V3z"/>
-        </symbol>
-    </svg>
-
     <script src="script.js"></script>
-    <script>
-        (function(){
-            function c(){
-                var b = a.contentDocument || a.contentWindow.document;
-                if(b){
-                    var d = b.createElement('script');
-                    d.innerHTML = "window.__CF$cv$params={r:'937eaddc1894674f',t:'MTc0NTkyODQ0Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";
-                    b.getElementsByTagName('head')[0].appendChild(d);
-                }
-            }
-            if(document.body){
-                var a = document.createElement('iframe');
-                a.height = 1;
-                a.width = 1;
-                a.style.position = 'absolute';
-                a.style.top = 0;
-                a.style.left = 0;
-                a.style.border = 'none';
-                a.style.visibility = 'hidden';
-                document.body.appendChild(a);
-                if('loading' !== document.readyState) c();
-                else if(window.addEventListener) document.addEventListener('DOMContentLoaded', c);
-                else {
-                    var e = document.onreadystatechange || function(){};
-                    document.onreadystatechange = function(b){
-                        e(b);
-                        'loading' !== document.readyState && (document.onreadystatechange = e, c());
-                    }
-                }
-            }
-        })();
-    </script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'937eeb79fcc71357',t:'MTc0NTkzMDk3MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
