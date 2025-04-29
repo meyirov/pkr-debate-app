@@ -53,20 +53,23 @@ async function supabaseFetch(endpoint, method, body = null, retries = 3) {
 
 async function uploadImage(file) {
     const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-    try {
-        const { data, error } = await supabaseClient.storage
-            .from('post-images')
-            .upload(fileName, file);
-        if (error) throw error;
-        const { data: urlData } = supabaseClient.storage
-            .from('post-images')
-            .getPublicUrl(fileName);
-        return urlData.publicUrl;
-    } catch (error) {
-        console.error('Error uploading image:', error);
-        throw error;
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const { data, error } = await supabaseClient.storage
+        .from('post-images')
+        .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: false
+        });
+    
+    if (error) {
+        throw new Error(`Ошибка загрузки изображения: ${error.message}`);
     }
+    
+    const { data: urlData } = supabaseClient.storage
+        .from('post-images')
+        .getPublicUrl(fileName);
+    
+    return urlData.publicUrl;
 }
 
 async function checkProfile() {
@@ -171,7 +174,6 @@ updateProfileBtn.addEventListener('click', async () => {
 
 const postText = document.getElementById('post-text');
 const postImage = document.getElementById('post-image');
-const attachImageBtn = document.getElementById('attach-image-btn');
 const submitPost = document.getElementById('submit-post');
 const postsDiv = document.getElementById('posts');
 const newPostsBtn = document.createElement('button');
@@ -197,33 +199,25 @@ loadMoreBtn.addEventListener('click', () => {
 });
 postsDiv.appendChild(loadMoreBtn);
 
-attachImageBtn.addEventListener('click', () => {
-    postImage.click();
-});
-
 submitPost.addEventListener('click', async () => {
     const postContent = postText.value.trim();
-    if (!postContent && !postImage.files[0]) {
-        alert('Пожалуйста, введите текст или прикрепите изображение!');
+    if (!postContent) {
+        alert('Пожалуйста, введите текст поста! Пустые посты не допускаются.');
         return;
-    }
-    let imageUrl = null;
-    if (postImage.files[0]) {
-        try {
-            imageUrl = await uploadImage(postImage.files[0]);
-        } catch (error) {
-            alert('Ошибка загрузки изображения: ' + error.message);
-            return;
-        }
     }
     const text = `${userData.fullname} (@${userData.telegramUsername}):\n${postContent}`;
     const post = {
         text: text,
-        image_url: imageUrl,
         timestamp: new Date().toISOString(),
         user_id: userData.telegramUsername
     };
+
     try {
+        if (postImage.files.length > 0) {
+            const imageUrl = await uploadImage(postImage.files[0]);
+            post.image_url = imageUrl;
+        }
+
         const newPost = await supabaseFetch('posts', 'POST', post);
         postText.value = '';
         postImage.value = '';
@@ -329,7 +323,7 @@ async function loadMorePosts() {
             console.log('No more posts returned from Supabase');
         }
     } catch (error) {
-        console.error('Error in loadMorePosts:', error);
+        console.error('Error in loadMorePosts:', error0;
     } finally {
         isLoadingMore = false;
         console.log('Finished loadMorePosts, isLoadingMore:', isLoadingMore);
@@ -727,53 +721,124 @@ async function loadComments(postId) {
     }
 }
 
-async function addComment(postId) {
-    const commentInput = document.getElementById(`comment-input-${postId}`);
-    const commentText = commentInput.value.trim();
-    if (!commentText) {
-        alert('Пожалуйста, введите комментарий!');
-        return;
-    }
+async function loadMoreComments(postId) {
+    const commentList = document.getElementById(`comment-list-${postId}`);
+    if (!commentList || commentList.dataset.isLoadingMore === 'true') return;
 
-    const comment = {
-        post_id: postId,
-        user_id: userData.telegramUsername,
-        text: `${userData.fullname} (@${userData.telegramUsername}): ${commentText}`,
-        timestamp: new Date().toISOString()
-    };
+    commentList.dataset.isLoadingMore = 'true';
+    const oldestCommentId = commentsCache.get(postId).length > 0 ? commentsCache.get(postId)[0].id : null;
 
     try {
-        const newComment = await supabaseFetch('comments', 'POST', comment);
-        commentInput.value = '';
-        updatePost(postId);
+        const moreComments = await supabaseFetch(`comments?post_id=eq.${postId}&id=lt.${oldestCommentId}&order=id.asc&limit=10`, 'GET');
+        if (moreComments && moreComments.length > 0) {
+            const currentComments = commentsCache.get(postId);
+            const newComments = moreComments.filter(comment => !currentComments.some(c => c.id === comment.id));
+            if (newComments.length > 0) {
+                commentsCache.set(postId, [...newComments, ...currentComments]);
+                sortCommentsCache(postId);
+                renderMoreComments(postId, newComments);
+            }
+        }
     } catch (error) {
-        console.error('Error adding comment:', error);
-        alert('Ошибка: ' + error.message);
+        console.error('Error loading more comments:', error);
+    } finally {
+        commentList.dataset.isLoadingMore = 'false';
     }
 }
 
-async function renderComments(postId, comments) {
+async function loadNewComments(postId) {
+    const lastCommentId = lastCommentIds.get(postId);
+    if (!lastCommentId) return;
+
+    try {
+        const newComments = await supabaseFetch(`comments?post_id=eq.${postId}&id=gt.${lastCommentId}&order=id.asc`, 'GET');
+        if (newComments && newComments.length > 0) {
+            const currentComments = commentsCache.get(postId);
+            const uniqueNewComments = newComments.filter(comment => !currentComments.some(c => c.id === comment.id));
+            if (uniqueNewComments.length > 0) {
+                commentsCache.set(postId, [...currentComments, ...uniqueNewComments]);
+                sortCommentsCache(postId);
+                renderNewComments(postId, uniqueNewComments, true);
+                lastCommentIds.set(postId, commentsCache.get(postId)[commentsCache.get(postId).length - 1].id);
+            }
+        }
+    } catch (error) {
+        console.error('Error loading new comments:', error);
+    }
+}
+
+function subscribeToNewComments(postId) {
+    if (commentChannels.has(postId)) {
+        supabaseClient.removeChannel(commentChannels.get(postId));
+    }
+
+    const channel = supabaseClient
+        .channel(`comments-channel-${postId}`)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments', filter: `post_id=eq.${postId}` }, (payload) => {
+            const newComment = payload.new;
+            const currentComments = commentsCache.get(postId) || [];
+            if (!currentComments.some(comment => comment.id === newComment.id)) {
+                commentsCache.set(postId, [...currentComments, newComment]);
+                sortCommentsCache(postId);
+                if (isUserAtBottom(postId)) {
+                    renderNewComment(postId, newComment, true);
+                    lastCommentIds.set(postId, commentsCache.get(postId)[commentsCache.get(postId).length - 1].id);
+                } else {
+                    const currentCount = newCommentsCount.get(postId) || 0;
+                    newCommentsCount.set(postId, currentCount + 1);
+                    const newCommentsBtn = document.getElementById(`new-comments-btn-${postId}`);
+                    if (newCommentsBtn) {
+                        newCommentsBtn.style.display = 'block';
+                        newCommentsBtn.classList.add('visible');
+                        newCommentsBtn.textContent = `Новые комментарии (${newCommentsCount.get(postId)})`;
+                    }
+                }
+            }
+        })
+        .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+                console.log(`Subscribed to comments channel for post ${postId}`);
+            } else {
+                console.error(`Failed to subscribe to comments channel for post ${postId}:`, status);
+            }
+        });
+
+    commentChannels.set(postId, channel);
+}
+
+function isUserAtBottom(postId) {
     const commentList = document.getElementById(`comment-list-${postId}`);
-    commentList.innerHTML = '';
+    if (!commentList) return false;
+    return commentList.scrollHeight - commentList.scrollTop <= commentList.clientHeight + 50;
+}
 
-    for (const comment of comments) {
-        const commentDiv = document.createElement('div');
-        commentDiv.classList.add('comment');
+function setupCommentInfiniteScroll(postId) {
+    const commentList = document.getElementById(`comment-list-${postId}`);
+    if (!commentList) return;
 
-        const [userInfo, ...contentParts] = comment.text.split(': ');
-        const [fullname, username] = userInfo.split(' (@');
-        const cleanUsername = username ? username.replace(')', '') : '';
-        const content = contentParts.join(': ');
+    if (commentChannels.has(postId)) {
+        supabaseClient.removeChannel(commentChannels.get(postId));
+        commentChannels.delete(postId);
+    }
 
-        commentDiv.innerHTML = `
-            <div class="comment-user">
-                <strong>${fullname}</strong>
-                <span>@${cleanUsername}</span>
-            </div>
-            <div class="comment-content">${content}</div>
-        `;
+    const debouncedLoadMoreComments = debounce(() => {
+        if (commentList.scrollTop <= 50) {
+            loadMoreComments(postId);
+        }
+    }, 300);
 
-        commentList.appendChild(commentDiv);
+    commentList.removeEventListener('scroll', debouncedLoadMoreComments);
+    commentList.addEventListener('scroll', debouncedLoadMoreComments);
+
+    subscribeToNewComments(postId);
+
+    const newCommentsBtn = document.getElementById(`new-comments-btn-${postId}`);
+    if (newCommentsBtn) {
+        newCommentsBtn.onclick = () => {
+            loadNewComments(postId);
+            newCommentsBtn.style.display = 'none';
+            newCommentsCount.set(postId, 0);
+        };
     }
 }
 
@@ -785,496 +850,104 @@ function sortCommentsCache(postId) {
     }
 }
 
-function setupCommentInfiniteScroll(postId) {
+async function renderComments(postId, comments) {
+    const commentList = document.getElementById(`comment-list-${postId}`);
+    if (!commentList) return;
+    commentList.innerHTML = '';
+    comments.forEach(comment => {
+        renderNewComment(postId, comment, true);
+    });
+}
+
+async function renderNewComments(postId, newComments, append = true) {
+    for (const comment of newComments) {
+        renderNewComment(postId, comment, append);
+    }
+}
+
+function renderNewComment(postId, comment, append = true) {
     const commentList = document.getElementById(`comment-list-${postId}`);
     if (!commentList) return;
 
-    commentList.addEventListener('scroll', debounce(async () => {
-        const scrollBottom = commentList.scrollHeight - commentList.scrollTop - commentList.clientHeight;
-        if (scrollBottom <= 200 && !isLoadingMore) {
-            await loadMoreComments(postId);
+    const commentDiv = document.createElement('div');
+    commentDiv.classList.add('comment');
+    const [userInfo, ...contentParts] = comment.text.split(':\n');
+    const [fullname, username] = userInfo.split(' (@');
+    const cleanUsername = username ? username.replace(')', '') : '';
+    const content = contentParts.join(':\n');
+    commentDiv.innerHTML = `
+        <div class="comment-user">
+            <strong>${fullname}</strong> <span>@${cleanUsername}</span>
+        </div>
+        <div class="comment-content">${content}</div>
+    `;
+
+    if (append) {
+        commentList.appendChild(commentDiv);
+        if (isUserAtBottom(postId)) {
+            commentList.scrollTop = commentList.scrollHeight;
         }
-    }, 300));
-}
-
-async function loadMoreComments(postId) {
-    if (isLoadingMore) return;
-
-    isLoadingMore = true;
-    const lastCommentId = lastCommentIds.get(postId);
-
-    try {
-        const query = lastCommentId
-            ? `comments?post_id=eq.${postId}&id=gt.${lastCommentId}&order=id.asc&limit=10`
-            : `comments?post_id=eq.${postId}&order=id.asc&limit=10`;
-        const moreComments = await supabaseFetch(query, 'GET');
-
-        if (moreComments && moreComments.length > 0) {
-            const currentComments = commentsCache.get(postId);
-            const newComments = moreComments.filter(comment => !currentComments.some(c => c.id === comment.id));
-            if (newComments.length > 0) {
-                commentsCache.set(postId, [...currentComments, ...newComments]);
-                sortCommentsCache(postId);
-                await renderComments(postId, commentsCache.get(postId));
-                lastCommentIds.set(postId, commentsCache.get(postId)[commentsCache.get(postId).length - 1].id);
-            }
-        }
-    } catch (error) {
-        console.error('Error loading more comments:', error);
-    } finally {
-        isLoadingMore = false;
+    } else {
+        commentList.prepend(commentDiv);
     }
 }
 
-function toggleComments(postId) {
-    const commentSection = document.getElementById(`comments-${postId}`);
-    commentSection.style.display = commentSection.style.display === 'none' ? 'block' : 'none';
-}
+async function renderMoreComments(postId, newComments) {
+    for (const comment of newComments) {
+        const commentList = document.getElementById(`comment-list-${postId}`);
+        if (!commentList) return;
 
-async function loadTournaments() {
-    const tournamentList = document.getElementById('tournament-list');
-    tournamentList.innerHTML = '';
-
-    try {
-        const tournaments = await supabaseFetch('tournaments?order=timestamp.desc', 'GET');
-        if (tournaments) {
-            for (const tournament of tournaments) {
-                const card = document.createElement('div');
-                card.classList.add('tournament-card');
-                card.innerHTML = `
-                    <img src="${tournament.logo || 'https://via.placeholder.com/64'}" class="tournament-logo" alt="Tournament Logo">
-                    <div class="tournament-info">
-                        <strong>${tournament.name}</strong>
-                        <span>${tournament.date}</span>
-                        <span>${tournament.address.split('/').pop()}</span>
-                    </div>
-                `;
-                card.addEventListener('click', () => loadTournamentDetails(tournament.id));
-                tournamentList.appendChild(card);
-            }
-        }
-    } catch (error) {
-        console.error('Error loading tournaments:', error);
-        alert('Ошибка загрузки турниров: ' + error.message);
-    }
-}
-
-const createTournamentBtn = document.getElementById('create-tournament-btn');
-const createTournamentForm = document.getElementById('create-tournament-form');
-createTournamentBtn.addEventListener('click', () => {
-    createTournamentForm.classList.toggle('form-hidden');
-});
-
-const submitTournament = document.getElementById('submit-tournament');
-submitTournament.addEventListener('click', async () => {
-    const tournamentData = {
-        name: document.getElementById('tournament-name').value.trim(),
-        date: document.getElementById('tournament-date').value.trim(),
-        logo: document.getElementById('tournament-logo').value.trim(),
-        desc: document.getElementById('tournament-desc').value.trim(),
-        address: document.getElementById('tournament-address').value.trim(),
-        deadline: document.getElementById('tournament-deadline').value.trim(),
-        creator_id: userData.telegramUsername,
-        timestamp: new Date().toISOString()
-    };
-
-    if (!tournamentData.name || !tournamentData.date || !tournamentData.address) {
-        alert('Пожалуйста, заполните обязательные поля: название, дата, адрес!');
-        return;
-    }
-
-    try {
-        await supabaseFetch('tournaments', 'POST', tournamentData);
-        createTournamentForm.classList.add('form-hidden');
-        document.getElementById('tournament-name').value = '';
-        document.getElementById('tournament-date').value = '';
-        document.getElementById('tournament-logo').value = '';
-        document.getElementById('tournament-desc').value = '';
-        document.getElementById('tournament-address').value = '';
-        document.getElementById('tournament-deadline').value = '';
-        loadTournaments();
-    } catch (error) {
-        console.error('Error creating tournament:', error);
-        alert('Ошибка: ' + error.message);
-    }
-});
-
-async function loadTournamentDetails(tournamentId) {
-    currentTournamentId = tournamentId;
-    sections.forEach(section => section.classList.remove('active'));
-    document.getElementById('tournament-details').classList.add('active');
-
-    try {
-        const tournament = await supabaseFetch(`tournaments?id=eq.${tournamentId}`, 'GET');
-        if (tournament && tournament.length > 0) {
-            const t = tournament[0];
-            document.getElementById('tournament-header').innerHTML = `
-                <img src="${t.logo || 'https://via.placeholder.com/150'}" alt="Tournament Logo">
-                <strong>${t.name}</strong>
-                <p>📅 ${t.date}</p>
-                <p>📍 ${t.address}</p>
-                <p>⏰ Дедлайн: ${t.deadline}</p>
-            `;
-            document.getElementById('tournament-description').innerHTML = `<p>${t.desc}</p>`;
-            document.getElementById('tournament-description').classList.add('description-hidden');
-
-            const toggleDescriptionBtn = document.getElementById('toggle-description-btn');
-            toggleDescriptionBtn.innerHTML = 'Развернуть описание';
-            toggleDescriptionBtn.onclick = () => {
-                const descDiv = document.getElementById('tournament-description');
-                descDiv.classList.toggle('description-hidden');
-                toggleDescriptionBtn.innerHTML = descDiv.classList.contains('description-hidden')
-                    ? 'Развернуть описание'
-                    : 'Свернуть описание';
-            };
-
-            const isCreator = t.creator_id === userData.telegramUsername;
-            setupTournamentTabs(tournamentId, isCreator);
-            loadTournamentPosts(tournamentId, isCreator);
-        }
-    } catch (error) {
-        console.error('Error loading tournament details:', error);
-        alert('Ошибка: ' + error.message);
-    }
-}
-
-function setupTournamentTabs(tournamentId, isCreator) {
-    const postsTab = document.getElementById('posts-tab');
-    const registrationTab = document.getElementById('registration-tab');
-    const bracketTab = document.getElementById('bracket-tab');
-    const tournamentPosts = document.getElementById('tournament-posts');
-    const tournamentRegistration = document.getElementById('tournament-registration');
-    const tournamentBracket = document.getElementById('tournament-bracket');
-
-    postsTab.classList.add('active');
-    tournamentPosts.classList.add('active');
-    registrationTab.classList.remove('active');
-    tournamentRegistration.classList.remove('active');
-    bracketTab.classList.remove('active');
-    tournamentBracket.classList.remove('active');
-
-    postsTab.onclick = () => {
-        postsTab.classList.add('active');
-        tournamentPosts.classList.add('active');
-        registrationTab.classList.remove('active');
-        tournamentRegistration.classList.remove('active');
-        bracketTab.classList.remove('active');
-        tournamentBracket.classList.remove('active');
-        loadTournamentPosts(tournamentId, isCreator);
-    };
-
-    registrationTab.onclick = () => {
-        postsTab.classList.remove('active');
-        tournamentPosts.classList.remove('active');
-        registrationTab.classList.add('active');
-        tournamentRegistration.classList.add('active');
-        bracketTab.classList.remove('active');
-        tournamentBracket.classList.remove('active');
-        loadRegistrations(tournamentId, isCreator);
-    };
-
-    bracketTab.onclick = () => {
-        postsTab.classList.remove('active');
-        tournamentPosts.classList.remove('active');
-        registrationTab.classList.remove('active');
-        tournamentRegistration.classList.remove('active');
-        bracketTab.classList.add('active');
-        tournamentBracket.classList.add('active');
-        loadBracket(tournamentId, isCreator);
-    };
-}
-
-async function loadTournamentPosts(tournamentId, isCreator) {
-    const tournamentPostsList = document.getElementById('tournament-posts');
-    tournamentPostsList.innerHTML = '';
-
-    if (isCreator) {
-        const newPostDiv = document.createElement('div');
-        newPostDiv.id = 'new-tournament-post';
-        newPostDiv.innerHTML = `
-            <textarea id="tournament-post-text" placeholder="Напишите объявление от имени турнира..."></textarea>
-            <button id="submit-tournament-post">Опубликовать</button>
+        const commentDiv = document.createElement('div');
+        commentDiv.classList.add('comment');
+        const [userInfo, ...contentParts] = comment.text.split(':\n');
+        const [fullname, username] = userInfo.split(' (@');
+        const cleanUsername = username ? username.replace(')', '') : '';
+        const content = contentParts.join(':\n');
+        commentDiv.innerHTML = `
+            <div class="comment-user">
+                <strong>${fullname}</strong> <span>@${cleanUsername}</span>
+            </div>
+            <div class="comment-content">${content}</div>
         `;
-        tournamentPostsList.appendChild(newPostDiv);
-
-        document.getElementById('submit-tournament-post').addEventListener('click', async () => {
-            const postText = document.getElementById('tournament-post-text').value.trim();
-            if (!postText) {
-                alert('Пожалуйста, введите текст поста!');
-                return;
-            }
-            const post = {
-                tournament_id: tournamentId,
-                creator_id: userData.telegramUsername,
-                text: postText,
-                timestamp: new Date().toISOString()
-            };
-            try {
-                await supabaseFetch('tournament_posts', 'POST', post);
-                document.getElementById('tournament-post-text').value = '';
-                loadTournamentPosts(tournamentId, isCreator);
-            } catch (error) {
-                console.error('Error posting tournament post:', error);
-                alert('Ошибка: ' + error.message);
-            }
-        });
-    }
-
-    try {
-        const posts = await supabaseFetch(`tournament_posts?tournament_id=eq.${tournamentId}&order=timestamp.desc`, 'GET');
-        if (posts) {
-            for (const post of posts) {
-                const postDiv = document.createElement('div');
-                postDiv.classList.add('post');
-                const tournament = await supabaseFetch(`tournaments?id=eq.${tournamentId}`, 'GET');
-                const timeAgo = getTimeAgo(new Date(post.timestamp));
-                postDiv.innerHTML = `
-                    <div class="post-header">
-                        <div class="post-user">
-                            <strong>${tournament[0].name}</strong>
-                            <span>@${post.creator_id}</span>
-                        </div>
-                        <div class="post-time">${timeAgo}</div>
-                    </div>
-                    <div class="post-content">${post.text}</div>
-                `;
-                tournamentPostsList.appendChild(postDiv);
-            }
-        }
-    } catch (error) {
-        console.error('Error loading tournament posts:', error);
+        commentList.appendChild(commentDiv);
     }
 }
 
-const registerTournamentBtn = document.getElementById('register-tournament-btn');
-const registrationForm = document.getElementById('registration-form');
-registerTournamentBtn.addEventListener('click', () => {
-    registrationForm.classList.toggle('form-hidden');
-});
-
-const submitRegistrationBtn = document.getElementById('submit-registration-btn');
-submitRegistrationBtn.addEventListener('click', async () => {
-    const registrationData = {
-        tournament_id: currentTournamentId,
-        faction_name: document.getElementById('reg-faction-name').value.trim(),
-        speaker1: document.getElementById('reg-speaker1').value.trim(),
-        speaker2: document.getElementById('reg-speaker2').value.trim(),
-        club: document.getElementById('reg-club').value.trim(),
-        city: document.getElementById('reg-city').value.trim(),
-        contacts: document.getElementById('reg-contacts').value.trim(),
-        extra: document.getElementById('reg-extra').value.trim(),
-        timestamp: new Date().toISOString()
-    };
-
-    if (!registrationData.faction_name || !registrationData.speaker1 || !registrationData.speaker2) {
-        alert('Пожалуйста, заполните обязательные поля: название фракции, спикеры!');
+async function addComment(postId) {
+    postId = parseInt(postId);
+    const commentInput = document.getElementById(`comment-input-${postId}`);
+    if (!commentInput) return;
+    const text = commentInput.value.trim();
+    if (!text) {
+        alert('Пожалуйста, введите текст комментария!');
         return;
     }
 
     try {
-        await supabaseFetch('registrations', 'POST', registrationData);
-        registrationForm.classList.add('form-hidden');
-        document.getElementById('reg-faction-name').value = '';
-        document.getElementById('reg-speaker1').value = '';
-        document.getElementById('reg-speaker2').value = '';
-        document.getElementById('reg-club').value = '';
-        document.getElementById('reg-city').value = '';
-        document.getElementById('reg-contacts').value = '';
-        document.getElementById('reg-extra').value = '';
-        loadRegistrations(currentTournamentId);
-    } catch (error) {
-        console.error('Error submitting registration:', error);
-        alert('Ошибка: ' + error.message);
-    }
-});
-
-async function loadRegistrations(tournamentId, isCreator = false) {
-    const registrationList = document.getElementById('registration-list');
-    registrationList.innerHTML = '';
-
-    try {
-        const registrations = await supabaseFetch(`registrations?tournament_id=eq.${tournamentId}&order=timestamp.asc`, 'GET');
-        if (registrations) {
-            for (const reg of registrations) {
-                const card = document.createElement('div');
-                card.classList.add('registration-card');
-                card.innerHTML = `
-                    <strong>${reg.faction_name}</strong>
-                    <p>Спикер 1: ${reg.speaker1}</p>
-                    <p>Спикер 2: ${reg.speaker2}</p>
-                    <p>Клуб: ${reg.club || 'Не указан'}</p>
-                    <p>Город: ${reg.city || 'Не указан'}</p>
-                    <p>Контакты: ${reg.contacts || 'Не указаны'}</p>
-                    <p>Достижения: ${reg.extra || 'Не указаны'}</p>
-                `;
-                if (isCreator) {
-                    const deleteBtn = document.createElement('button');
-                    deleteBtn.classList.add('delete-registration-btn');
-                    deleteBtn.innerText = 'Удалить';
-                    deleteBtn.onclick = async () => {
-                        try {
-                            await supabaseFetch(`registrations?id=eq.${reg.id}`, 'DELETE');
-                            loadRegistrations(tournamentId, isCreator);
-                        } catch (error) {
-                            console.error('Error deleting registration:', error);
-                            alert('Ошибка: ' + error.message);
-                        }
-                    };
-                    card.appendChild(deleteBtn);
-                }
-                registrationList.appendChild(card);
-            }
-        }
-    } catch (error) {
-        console.error('Error loading registrations:', error);
-    }
-}
-
-async function loadBracket(tournamentId, isCreator) {
-    const tournamentBracket = document.getElementById('tournament-bracket');
-    tournamentBracket.innerHTML = '';
-
-    try {
-        const bracket = await supabaseFetch(`brackets?tournament_id=eq.${tournamentId}`, 'GET');
-        const registrations = await supabaseFetch(`registrations?tournament_id=eq.${tournamentId}`, 'GET');
-
-        if (isCreator && (!bracket || bracket.length === 0)) {
-            const bracketForm = document.createElement('div');
-            bracketForm.id = 'bracket-form';
-            bracketForm.innerHTML = `
-                <select id="bracket-format">
-                    <option value="АПФ">АПФ</option>
-                    <option value="БПФ">БПФ</option>
-                </select>
-                <input id="faction-count" type="number" placeholder="Количество фракций">
-                <input id="round-count" type="number" placeholder="Количество раундов">
-                <button id="generate-bracket">Сгенерировать сетку</button>
-            `;
-            tournamentBracket.appendChild(bracketForm);
-
-            document.getElementById('generate-bracket').addEventListener('click', async () => {
-                const format = document.getElementById('bracket-format').value;
-                const factionCount = parseInt(document.getElementById('faction-count').value);
-                const roundCount = parseInt(document.getElementById('round-count').value);
-
-                if (!factionCount || !roundCount || factionCount < 2 || roundCount < 1) {
-                    alert('Пожалуйста, укажите корректные значения для фракций и раундов!');
-                    return;
-                }
-
-                if (registrations.length < factionCount) {
-                    alert('Недостаточно зарегистрированных команд для указанного количества фракций!');
-                    return;
-                }
-
-                const shuffledFactions = registrations.sort(() => 0.5 - Math.random()).slice(0, factionCount);
-                const matches = [];
-                for (let round = 1; round <= roundCount; round++) {
-                    const roundMatches = [];
-                    for (let i = 0; i < factionCount / 2; i++) {
-                        roundMatches.push({
-                            faction1: shuffledFactions[i * 2].faction_name,
-                            faction2: shuffledFactions[i * 2 + 1].faction_name,
-                            room: '',
-                            judge: ''
-                        });
-                    }
-                    matches.push(roundMatches);
-                    shuffledFactions.sort(() => 0.5 - Math.random());
-                }
-
-                const bracketData = {
-                    tournament_id: tournamentId,
-                    format: format,
-                    faction_count: factionCount,
-                    round_count: roundCount,
-                    matches: matches,
-                    published: false,
-                    timestamp: new Date().toISOString()
-                };
-
-                try {
-                    await supabaseFetch('brackets', 'POST', bracketData);
-                    loadBracket(tournamentId, isCreator);
-                } catch (error) {
-                    console.error('Error generating bracket:', error);
-                    alert('Ошибка: ' + error.message);
-                }
-            });
+        const postExists = await supabaseFetch(`posts?id=eq.${postId}`, 'GET');
+        if (!postExists || postExists.length === 0) {
+            throw new Error('Пост не найден. Возможно, он был удалён.');
         }
 
-        if (bracket && bracket.length > 0) {
-            const b = bracket[0];
-            tournamentBracket.innerHTML = `<h2>Сетка (${b.format})</h2>`;
-            if (isCreator && !b.published) {
-                const publishBtn = document.createElement('button');
-                publishBtn.id = 'publish-bracket-btn';
-                publishBtn.innerText = 'Опубликовать сетку';
-                publishBtn.onclick = async () => {
-                    try {
-                        await supabaseFetch(`brackets?id=eq.${b.id}`, 'PATCH', { published: true });
-                        loadBracket(tournamentId, isCreator);
-                    } catch (error) {
-                        console.error('Error publishing bracket:', error);
-                        alert('Ошибка: ' + error.message);
-                    }
-                };
-                tournamentBracket.appendChild(publishBtn);
-            }
-
-            b.matches.forEach((round, index))37 {
-                const roundDiv = document.createElement('div');
-                roundDiv.classList.add('bracket-round');
-                roundDiv.innerHTML = `<h3>Раунд ${index + 1}</h3>`;
-                round.forEach((match, matchIndex) => {
-                    const matchDiv = document.createElement('div');
-                    matchDiv.classList.add('bracket-match');
-                    matchDiv.innerHTML = `
-                        <p>${match.faction1} vs ${match.faction2}</p>
-                        <p>Кабинет: ${match.room || 'Не указан'}</p>
-                        <p>Судья: ${match.judge || 'Не указан'}</p>
-                    `;
-                    if (isCreator && !b.published) {
-                        matchDiv.innerHTML += `
-                            <input id="room-${index}-${matchIndex}" type="text" placeholder="Кабинет">
-                            <input id="judge-${index}-${matchIndex}" type="text" placeholder="Судья">
-                            <button onclick="updateMatch(${b.id}, ${index}, ${matchIndex})">Сохранить</button>
-                        `;
-                    }
-                    roundDiv.appendChild(matchDiv);
-                });
-                tournamentBracket.appendChild(roundDiv);
-            });
+        const userExists = await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'GET');
+        if (!userExists || userExists.length === 0) {
+            throw new Error('Пользователь не найден в базе данных. Пожалуйста, зарегистрируйтесь.');
         }
-    } catch (error) {
-        console.error('Error loading bracket:', error);
-    }
-}
 
-async function updateMatch(bracketId, roundIndex, matchIndex) {
-    const room = document.getElementById(`room-${roundIndex}-${matchIndex}`).value.trim();
-    const judge = document.getElementById(`judge-${roundIndex}-${matchIndex}`).value.trim();
+        const comment = {
+            post_id: postId,
+            user_id: userData.telegramUsername,
+            text: `${userData.fullname} (@${userData.telegramUsername}):\n${text}`,
+            timestamp: new Date().toISOString()
+        };
 
-    try {
-        const bracket = await supabaseFetch(`brackets?id=eq.${bracketId}`, 'GET');
-        if (bracket && bracket.length > 0) {
-            const matches = bracket[0].matches;
-            matches[roundIndex][matchIndex].room = room;
-            matches[roundIndex][matchIndex].judge = judge;
-            await supabaseFetch(`brackets?id=eq.${bracketId}`, 'PATCH', { matches: matches });
-            loadBracket(currentTournamentId, true);
-        }
-    } catch (error) {
-        console.error('Error updating match:', error);
-        alert('Ошибка: ' + error.message);
-    }
-}
+        const newComment = await supabaseFetch('comments', 'POST', comment);
+        commentInput.value = '';
 
-const ratingList = document.getElementById('rating-list');
-ratingList.innerHTML = `
-    <div><strong>Иван Иванов</strong> <span>1200 очков</span></div>
-    <div><strong>Мария Петрова</strong> <span>1150 очков</span></div>
-    <div><strong>Алексей Сидоров</strong> <span>1100 очков</span></div>
-`;
-
-checkProfile();
+        const currentComments = commentsCache.get(postId) || [];
+        if (!currentComments.some(c => c.id === newComment[0].id)) {
+            commentsCache.set(postId, [...currentComments, newComment[0]]);
+            sortCommentsCache(postId);
+            if (isUserAtBottom(postId)) {
+                renderNewComment(postId, newComment[0], true);
+                lastCommentIds.set(post
