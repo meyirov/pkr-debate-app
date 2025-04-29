@@ -95,21 +95,23 @@ body {
 
 .new-post-icons {
     display: flex;
-    gap: 10px;
+    align-items: center;
 }
 
-.icon-btn {
-    background: #262626;
-    color: #e6e6e6;
-    border: none;
-    border-radius: 8px;
-    padding: 8px;
+.image-upload-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #8b5cf6;
     cursor: pointer;
-    font-size: 16px;
+    font-size: 14px;
+    padding: 5px 10px;
+    border-radius: 8px;
+    background: #262626;
     transition: background 0.2s ease;
 }
 
-.icon-btn:hover {
+.image-upload-label:hover {
     background: #404040;
 }
 
@@ -128,15 +130,6 @@ body {
 #new-post button:hover {
     background: #a78bfa;
     transform: scale(1.05);
-}
-
-/* Изображение в посте */
-.post-image {
-    max-width: 100%;
-    height: auto;
-    border-radius: 8px;
-    margin-top: 10px;
-    display: block;
 }
 
 /* Посты */
@@ -190,6 +183,14 @@ body {
     margin-top: 5px;
     font-size: 15px;
     color: #d1d5db;
+}
+
+.post-image {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin-top: 10px;
+    display: block;
 }
 
 .post-actions {
