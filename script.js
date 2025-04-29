@@ -1222,7 +1222,7 @@ async function loadBracket(tournamentId, isCreator) {
                 tournamentBracket.appendChild(publishBtn);
             }
 
-            b.matches.forEach((round, index)37 {
+            b.matches.forEach((round, index))37 {
                 const roundDiv = document.createElement('div');
                 roundDiv.classList.add('bracket-round');
                 roundDiv.innerHTML = `<h3>Раунд ${index + 1}</h3>`;
