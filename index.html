@@ -11,6 +11,7 @@
     <script>
       const SUPABASE_URL = 'https://dwkbptqrblyiqymnqjiv.supabase.co';
       const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3a2JwdHFyYmx5aXF5bW5xaml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0MzA3NTcsImV4cCI6MjA1OTAwNjc1N30.QIHms9_kllO7SMxxUlu2U_ugICz1q_cr2-fO61092N4';
+      const TELEGRAM_BOT_TOKEN = '8096269381:AAHIlPVCS3UbHzW9_F51Bj6gOyI4gazMJAc';
     </script>
 </head>
 <body>
@@ -18,8 +19,9 @@
     <div id="registration-modal" class="modal" style="display: none;">
         <div class="modal-content">
             <h2>Добро пожаловать!</h2>
-            <p>Пожалуйста, введите ваше имя для регистрации:</p>
+            <p>Пожалуйста, введите ваше имя и Telegram ID для регистрации:</p>
             <input id="reg-fullname" type="text" placeholder="Имя и фамилия">
+            <input id="reg-telegram-id" type="text" placeholder="Telegram ID (например, 123456789)">
             <button id="submit-profile-reg-btn">Зарегистрироваться</button>
         </div>
     </div>
@@ -29,7 +31,7 @@
         <div class="main-content">
             <section id="feed" class="content active">
                 <div id="new-post">
-                    <textarea id="post-text" placeholder="Что нового?"></textarea>
+                    <textarea id="post-text" placeholder="Что нового? Используйте @username для тега"></textarea>
                     <div class="new-post-actions">
                         <div class="new-post-icons">
                             <label for="post-image" class="image-upload-label">
@@ -92,7 +94,8 @@
                 <h2>Профиль</h2>
                 <p>Username: <span id="username"></span></p>
                 <input id="fullname" type="text" placeholder="Имя и фамилия">
-                <button id="update-profile">Изменить имя</button>
+                <input id="telegram-id" type="text" placeholder="Telegram ID">
+                <button id="update-profile">Изменить профиль</button>
             </section>
             <section id="edu" class="content">
                 <h2>PKR EDU</h2>
@@ -108,5 +111,5 @@
         </nav>
     </div>
     <script src="script.js"></script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'937f34e8dc411363',t:'MTc0NTkzMzk3OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'93856d3e4fd6b010',t:'MTc0NTk5OTIwMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
