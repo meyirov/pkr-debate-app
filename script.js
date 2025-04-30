@@ -1536,16 +1536,4 @@ async function loadBracket(tournamentId) {
 }
 
 const ratingList = document.getElementById('rating-list');
-const rating = [
-    { name: 'Иван Иванов', points: 150 },
-    { name: 'Анна Петрова', points: 120 }
-];
-
-rating.forEach(player => {
-    const div = document.createElement('div');
-    div.classList.add('post');
-    div.innerHTML = `<strong>${player.name}</strong> - ${player.points} очков`;
-    ratingList.appendChild(div);
-});
-
-checkProfile();
+const rating =
