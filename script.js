@@ -6,7 +6,7 @@ const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
 const tg = window.Telegram.WebApp;
 tg.ready();
 
-const TELEGRAM_BOT_TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'; // Замени на свой токен
+const TELEGRAM_BOT_TOKEN = '8096269381:AAHIlPVCS3UbHzW9_F51Bj6gOyI4gazMJAc'; // Замени на свой токен
 
 const registrationModal = document.getElementById('registration-modal');
 const appContainer = document.getElementById('app-container');
