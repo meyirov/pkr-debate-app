@@ -430,17 +430,14 @@ function renderNewPosts(newPosts, prepend = false) {
     }
 }
 
-// Новая функция для форматирования текста поста
 function formatPostContent(content) {
-    // Заменяем переносы строк на <br>
     let formattedContent = content.replace(/\n/g, '<br>');
-    
-    // Преобразуем URL в кликабельные ссылки
+
     const urlRegex = /(https?:\/\/[^\s<]+[^\s<.,:;"')\]\}])/g;
     formattedContent = formattedContent.replace(urlRegex, (url) => {
-        return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="post-link">${url}</a>`;
     });
-    
+
     return formattedContent;
 }
 
@@ -453,7 +450,7 @@ function renderNewPost(post, prepend = false) {
     const [fullname, username] = userInfo.split(' (@');
     const cleanUsername = username ? username.replace(')', '') : '';
     const content = contentParts.join(':\n');
-    const formattedContent = formatPostContent(content); // Форматируем текст
+    const formattedContent = formatPostContent(content);
 
     const timeAgo = getTimeAgo(new Date(post.timestamp));
 
@@ -502,7 +499,7 @@ async function renderMorePosts(newPosts) {
         const [fullname, username] = userInfo.split(' (@');
         const cleanUsername = username ? username.replace(')', '') : '';
         const content = contentParts.join(':\n');
-        const formattedContent = formatPostContent(content); // Форматируем текст
+        const formattedContent = formatPostContent(content);
 
         const timeAgo = getTimeAgo(new Date(post.timestamp));
 
@@ -599,7 +596,7 @@ async function updatePost(postId) {
     const [fullname, username] = userInfo.split(' (@');
     const cleanUsername = username ? username.replace(')', '') : '';
     const content = contentParts.join(':\n');
-    const formattedContent = formatPostContent(content); // Форматируем текст
+    const formattedContent = formatPostContent(content);
 
     const timeAgo = getTimeAgo(new Date(post[0].timestamp));
 
@@ -891,11 +888,13 @@ function renderNewComment(postId, comment, append = true) {
     const [fullname, username] = userInfo.split(' (@');
     const cleanUsername = username ? username.replace(')', '') : '';
     const content = contentParts.join(':\n');
+    const formattedContent = formatPostContent(content);
+
     commentDiv.innerHTML = `
         <div class="comment-user">
             <strong>${fullname}</strong> <span>@${cleanUsername}</span>
         </div>
-        <div class="comment-content">${content}</div>
+        <div class="comment-content">${formattedContent}</div>
     `;
 
     if (append) {
@@ -919,11 +918,13 @@ async function renderMoreComments(postId, newComments) {
         const [fullname, username] = userInfo.split(' (@');
         const cleanUsername = username ? username.replace(')', '') : '';
         const content = contentParts.join(':\n');
+        const formattedContent = formatPostContent(content);
+
         commentDiv.innerHTML = `
             <div class="comment-user">
                 <strong>${fullname}</strong> <span>@${cleanUsername}</span>
             </div>
-            <div class="comment-content">${content}</div>
+            <div class="comment-content">${formattedContent}</div>
         `;
         commentList.appendChild(commentDiv);
     }
@@ -966,7 +967,7 @@ async function addComment(postId) {
             sortCommentsCache(postId);
             if (isUserAtBottom(postId)) {
                 renderNewComment(postId, newComment[0], true);
-                lastCommentIds.set(postId, commentsCache.get(postId)[commentsCache.get(postId).length - 1].id);
+                lastCommentIds.set(postId, commentsCache.get(postId)[commentsCache.get(postId).lengthGramma - 1].id);
             } else {
                 const currentCount = newCommentsCount.get(postId) || 0;
                 newCommentsCount.set(postId, currentCount + 1);
@@ -1217,7 +1218,7 @@ async function loadTournamentPosts(tournamentId) {
                         <strong>Турнир: ${tournamentName}</strong>
                         <span>${getTimeAgo(new Date(post.timestamp))}</span>
                     </div>
-                    <div class="post-content">${post.text}</div>
+                    <div class="post-content">${formatPostContent(post.text)}</div>
                 `;
                 postsList.appendChild(postDiv);
             });
