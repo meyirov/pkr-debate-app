@@ -6,11 +6,8 @@ const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
 const tg = window.Telegram.WebApp;
 tg.ready();
 
-const TELEGRAM_BOT_TOKEN = '8096269381:AAHIlPVCS3UbHzW9_F51Bj6gOyI4gazMJAc'; // Замени на свой токен
-
 const registrationModal = document.getElementById('registration-modal');
 const appContainer = document.getElementById('app-container');
-const notificationContainer = document.getElementById('notification-container');
 const regFullname = document.getElementById('reg-fullname');
 const submitProfileRegBtn = document.getElementById('submit-profile-reg-btn');
 let userData = {};
@@ -54,92 +51,6 @@ async function supabaseFetch(endpoint, method, body = null, retries = 3) {
     }
 }
 
-async function getChatId(telegramUsername) {
-    try {
-        const profiles = await supabaseFetch(`profiles?telegram_username=eq.${telegramUsername}`, 'GET');
-        console.log('getChatId profiles:', profiles);
-        if (profiles && profiles.length > 0 && profiles[0].chat_id) {
-            return profiles[0].chat_id;
-        }
-        return null;
-    } catch (error) {
-        console.error('Error fetching chat ID:', error);
-        return null;
-    }
-}
-
-async function updateChatId(telegramUsername, chatId) {
-    try {
-        const response = await supabaseFetch(`profiles?telegram_username=eq.${telegramUsername}`, 'PATCH', {
-            chat_id: chatId
-        });
-        console.log('updateChatId response:', response);
-    } catch (error) {
-        console.error('Error updating chat ID:', error);
-    }
-}
-
-async function sendTelegramNotification(chatId, message) {
-    try {
-        console.log('Sending Telegram message to:', chatId);
-        const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                chat_id: chatId,
-                text: message,
-                parse_mode: 'Markdown'
-            })
-        });
-        const data = await response.json();
-        if (!data.ok) {
-            throw new Error(`Telegram API error: ${data.description}`);
-        }
-        console.log('Telegram notification sent:', data);
-        return data;
-    } catch (error) {
-        console.error('Error sending Telegram notification:', error);
-        return null;
-    }
-}
-
-async function notifyUser(telegramUsername, message) {
-    console.log('Attempting to notify:', telegramUsername);
-    let chatId = await getChatId(telegramUsername);
-    if (!chatId) {
-        console.log('No chat ID found, sending temp message to:', '@' + telegramUsername);
-        const tempMessage = await sendTelegramNotification('@' + telegramUsername, 'Please start the bot to receive notifications.');
-        if (tempMessage && tempMessage.chat && tempMessage.chat.id) {
-            chatId = tempMessage.chat.id;
-            console.log('Received chat ID:', chatId);
-            await updateChatId(telegramUsername, chatId);
-        } else {
-            console.warn('Failed to get chat ID from temp message:', tempMessage);
-            return;
-        }
-    }
-    console.log('Sending notification to chat ID:', chatId);
-    const result = await sendTelegramNotification(chatId, message);
-    console.log('Notification result:', result);
-}
-
-function showNotification(message) {
-    console.log('Showing notification:', message);
-    const notification = document.createElement('div');
-    notification.classList.add('notification');
-    notification.textContent = message;
-    notificationContainer.appendChild(notification);
-    setTimeout(() => {
-        notification.classList.add('visible');
-    }, 100);
-    setTimeout(() => {
-        notification.classList.remove('visible');
-        setTimeout(() => notification.remove(), 300);
-    }, 5000);
-}
-
 async function uploadImage(file) {
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
@@ -149,13 +60,29 @@ async function uploadImage(file) {
             cacheControl: '3600',
             upsert: false
         });
+    
     if (error) {
         throw new Error(`Ошибка загрузки изображения: ${error.message}`);
     }
+    
     const { data: urlData } = supabaseClient.storage
         .from('post-images')
         .getPublicUrl(fileName);
+    
     return urlData.publicUrl;
+}
+
+async function saveChatId() {
+    if (tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
+        try {
+            await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'PATCH', {
+                chat_id: tg.initDataUnsafe.user.id.toString()
+            });
+            console.log('Chat ID saved:', tg.initDataUnsafe.user.id);
+        } catch (error) {
+            console.error('Error saving chat_id:', error);
+        }
+    }
 }
 
 async function checkProfile() {
@@ -166,13 +93,14 @@ async function checkProfile() {
         return;
     }
     userData.telegramUsername = telegramUsername;
+
     try {
         const profiles = await supabaseFetch(`profiles?telegram_username=eq.${telegramUsername}`, 'GET');
         console.log('Profiles fetched:', profiles);
         if (profiles && profiles.length > 0) {
             userData.fullname = profiles[0].fullname;
-            userData.chat_id = profiles[0].chat_id;
             showApp();
+            await saveChatId();
         } else {
             registrationModal.style.display = 'block';
         }
@@ -191,7 +119,8 @@ submitProfileRegBtn.addEventListener('click', async () => {
     try {
         await supabaseFetch('profiles', 'POST', {
             telegram_username: userData.telegramUsername,
-            fullname: userData.fullname
+            fullname: userData.fullname,
+            chat_id: tg.initDataUnsafe.user?.id?.toString() || null
         });
         registrationModal.style.display = 'none';
         showApp();
@@ -204,7 +133,6 @@ submitProfileRegBtn.addEventListener('click', async () => {
 function showApp() {
     console.log('showApp called, userData:', userData);
     appContainer.style.display = 'block';
-    notificationContainer.style.display = 'block';
     document.getElementById('username').textContent = userData.telegramUsername;
     document.getElementById('fullname').value = userData.fullname;
     console.log('Calling loadPosts');
@@ -286,17 +214,23 @@ loadMoreBtn.addEventListener('click', () => {
 });
 postsDiv.appendChild(loadMoreBtn);
 
-async function extractMentions(text) {
-    const mentionRegex = /@(\w+)(?=\s|$|[.,!?])/g;
-    const mentions = [];
-    let match;
-    while ((match = mentionRegex.exec(text)) !== null) {
-        const username = match[1];
-        if (username !== userData.telegramUsername) {
-            mentions.push(username);
+async function processTags(text, postId) {
+    const tagRegex = /@([a-zA-Z0-9_]+)/g;
+    const tags = text.match(tagRegex) || [];
+    for (const tag of tags) {
+        const username = tag.slice(1);
+        try {
+            await supabaseFetch('tag_notifications', 'POST', {
+                tagged_username: username,
+                post_id: postId,
+                user_id: userData.telegramUsername,
+                text: text,
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error('Error sending tag notification:', error);
         }
     }
-    return mentions;
 }
 
 submitPost.addEventListener('click', async () => {
@@ -306,9 +240,6 @@ submitPost.addEventListener('click', async () => {
         return;
     }
     const text = `${userData.fullname} (@${userData.telegramUsername}):\n${postContent}`;
-    console.log('Post content:', text);
-    const mentions = await extractMentions(postContent);
-    console.log('Extracted mentions:', mentions);
     const post = {
         text: text,
         timestamp: new Date().toISOString(),
@@ -333,16 +264,7 @@ submitPost.addEventListener('click', async () => {
                 newPostsBtn.classList.add('visible');
             }
             lastPostId = postsCache[0].id;
-        }
-        if (mentions.length > 0) {
-            console.log('Sending notifications for mentions:', mentions);
-            for (const username of mentions) {
-                const message = `[@${userData.telegramUsername}](tg://user?id=${userData.chat_id || ''}) упомянул вас в посте:\n${postContent.substring(0, 100)}${postContent.length > 100 ? '...' : ''}`;
-                await notifyUser(username, message);
-                showNotification(`Уведомлен @${username}`);
-            }
-        } else {
-            console.log('No mentions found in post');
+            await processTags(postContent, newPost[0].id);
         }
     } catch (error) {
         console.error('Error saving post:', error);
@@ -357,9 +279,11 @@ async function loadPosts() {
         renderPosts();
         return;
     }
+
     const loadingIndicator = document.getElementById('posts-loading');
     console.log('Loading indicator:', loadingIndicator);
     loadingIndicator.style.display = 'block';
+
     try {
         postsCache = [];
         console.log('Fetching initial posts from Supabase');
@@ -393,6 +317,7 @@ async function loadPosts() {
         loadingIndicator.style.display = 'none';
         console.log('loadPosts finished');
     }
+
     console.log('Setting up infinite scroll');
     setupInfiniteScroll();
 }
@@ -402,14 +327,17 @@ async function loadMorePosts() {
         console.log('Skipping loadMorePosts: isLoadingMore=', isLoadingMore, 'postsCache.length=', postsCache.length);
         return;
     }
+
     isLoadingMore = true;
     const oldestPostId = postsCache[postsCache.length - 1].id;
     console.log('Attempting to load more posts, oldestPostId:', oldestPostId);
+
     try {
         const query = `posts?id=lt.${oldestPostId}&order=id.desc&limit=20`;
         console.log('Supabase query:', query);
         const morePosts = await supabaseFetch(query, 'GET');
         console.log('Raw response from Supabase:', morePosts);
+
         if (morePosts && morePosts.length > 0) {
             const newPosts = morePosts.filter(post => !postsCache.some(p => p.id === post.id));
             console.log('Filtered new posts:', newPosts);
@@ -457,9 +385,10 @@ function subscribeToNewPosts() {
     if (channel) {
         supabaseClient.removeChannel(channel);
     }
+
     channel = supabaseClient
         .channel('posts-channel')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, async (payload) => {
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, (payload) => {
             const newPost = payload.new;
             if (!postsCache.some(post => post.id === newPost.id)) {
                 postsCache.unshift(newPost);
@@ -471,13 +400,6 @@ function subscribeToNewPosts() {
                     newPostsCount++;
                     newPostsBtn.style.display = 'block';
                     newPostsBtn.classList.add('visible');
-                }
-                const mentions = await extractMentions(newPost.text);
-                console.log('New post mentions:', mentions);
-                for (const username of mentions) {
-                    const message = `[@${newPost.user_id}](tg://user?id=${newPost.chat_id || ''}) упомянул вас в посте:\n${newPost.text.substring(0, 100)}${newPost.text.length > 100 ? '...' : ''}`;
-                    await notifyUser(username, message);
-                    showNotification(`Уведомлен @${username}`);
                 }
             }
         })
@@ -548,6 +470,10 @@ function formatPostContent(content) {
     formattedContent = formattedContent.replace(urlRegex, (url) => {
         return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
     });
+    const tagRegex = /@([a-zA-Z0-9_]+)/g;
+    formattedContent = formattedContent.replace(tagRegex, (tag) => {
+        return `<span class="tag">${tag}</span>`;
+    });
     return formattedContent;
 }
 
@@ -555,12 +481,15 @@ function renderNewPost(post, prepend = false) {
     const postDiv = document.createElement('div');
     postDiv.classList.add('post');
     postDiv.setAttribute('data-post-id', post.id);
+
     const [userInfo, ...contentParts] = post.text.split(':\n');
     const [fullname, username] = userInfo.split(' (@');
     const cleanUsername = username ? username.replace(')', '') : '';
     const content = contentParts.join(':\n');
     const formattedContent = formatPostContent(content);
+
     const timeAgo = getTimeAgo(new Date(post.timestamp));
+
     postDiv.innerHTML = `
         <div class="post-header">
             <div class="post-user">
@@ -574,7 +503,7 @@ function renderNewPost(post, prepend = false) {
         <div class="post-actions">
             <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">👍 0</button>
             <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">👎 0</button>
-            <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">\uD83D\uDCAC Комментарии (0)</button>
+            <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (0)</button>
         </div>
         <div class="comment-section" id="comments-${post.id}" style="display: none;">
             <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
@@ -585,11 +514,13 @@ function renderNewPost(post, prepend = false) {
             </div>
         </div>
     `;
+
     if (prepend) {
         postsDiv.prepend(postDiv);
     } else {
         postsDiv.appendChild(postDiv);
     }
+
     loadReactionsAndComments(post.id);
     subscribeToReactions(post.id);
 }
@@ -599,12 +530,15 @@ async function renderMorePosts(newPosts) {
         const postDiv = document.createElement('div');
         postDiv.classList.add('post');
         postDiv.setAttribute('data-post-id', post.id);
+
         const [userInfo, ...contentParts] = post.text.split(':\n');
         const [fullname, username] = userInfo.split(' (@');
         const cleanUsername = username ? username.replace(')', '') : '';
         const content = contentParts.join(':\n');
         const formattedContent = formatPostContent(content);
+
         const timeAgo = getTimeAgo(new Date(post.timestamp));
+
         postDiv.innerHTML = `
             <div class="post-header">
                 <div class="post-user">
@@ -618,7 +552,7 @@ async function renderMorePosts(newPosts) {
             <div class="post-actions">
                 <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">👍 0</button>
                 <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">👎 0</button>
-            <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">\uD83D\uDCAC Комментарии (0)</button>
+                <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (0)</button>
             </div>
             <div class="comment-section" id="comments-${post.id}" style="display: none;">
                 <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
@@ -629,7 +563,9 @@ async function renderMorePosts(newPosts) {
                 </div>
             </div>
         `;
+
         postsDiv.appendChild(postDiv);
+
         loadReactionsAndComments(post.id);
         subscribeToReactions(post.id);
     }
@@ -645,8 +581,10 @@ async function loadReactionsAndComments(postId) {
         const userReaction = reactions.find(r => r.user_id === userData.telegramUsername);
         const likeClass = userReaction && userReaction.type === 'like' ? 'active' : '';
         const dislikeClass = userReaction && userReaction.type === 'dislike' ? 'active' : '';
+
         const comments = await loadComments(postId);
         const commentCount = comments ? comments.length : 0;
+
         const postDiv = postsDiv.querySelector(`[data-post-id="${postId}"]`);
         if (postDiv) {
             const likeBtn = postDiv.querySelector('.like-btn');
@@ -656,10 +594,12 @@ async function loadReactionsAndComments(postId) {
             likeBtn.innerHTML = `👍 ${likes}`;
             dislikeBtn.className = `reaction-btn dislike-btn ${dislikeClass}`;
             dislikeBtn.innerHTML = `👎 ${dislikes}`;
-            commentBtn.innerHTML = `\uD83D\uDCAC Комментарии (${commentCount})`;
+            commentBtn.innerHTML = `💬 Комментарии (${commentCount})`;
+
             if (comments) {
                 await renderComments(postId, comments);
             }
+
             setupCommentInfiniteScroll(postId);
         }
     } catch (error) {
@@ -670,25 +610,32 @@ async function loadReactionsAndComments(postId) {
 async function updatePost(postId) {
     const postIndex = postsCache.findIndex(post => post.id === postId);
     if (postIndex === -1) return;
+
     const post = await supabaseFetch(`posts?id=eq.${postId}`, 'GET');
     if (!post || post.length === 0) return;
+
     const reactions = await loadReactions(postId);
     const likes = reactions.filter(r => r.type === 'like').length;
     const dislikes = reactions.filter(r => r.type === 'dislike').length;
     const userReaction = reactions.find(r => r.user_id === userData.telegramUsername);
     const likeClass = userReaction && userReaction.type === 'like' ? 'active' : '';
     const dislikeClass = userReaction && userReaction.type === 'dislike' ? 'active' : '';
+
     const comments = await loadComments(postId);
     const commentCount = comments ? comments.length : 0;
+
     postsCache[postIndex] = post[0];
     const postDiv = postsDiv.querySelector(`[data-post-id="${postId}"]`);
     if (!postDiv) return;
+
     const [userInfo, ...contentParts] = post[0].text.split(':\n');
     const [fullname, username] = userInfo.split(' (@');
     const cleanUsername = username ? username.replace(')', '') : '';
     const content = contentParts.join(':\n');
     const formattedContent = formatPostContent(content);
+
     const timeAgo = getTimeAgo(new Date(post[0].timestamp));
+
     postDiv.innerHTML = `
         <div class="post-header">
             <div class="post-user">
@@ -702,7 +649,7 @@ async function updatePost(postId) {
         <div class="post-actions">
             <button class="reaction-btn like-btn ${likeClass}" onclick="toggleReaction(${postId}, 'like')">👍 ${likes}</button>
             <button class="reaction-btn dislike-btn ${dislikeClass}" onclick="toggleReaction(${postId}, 'dislike')">👎 ${dislikes}</button>
-            <button class="comment-toggle-btn" onclick="toggleComments(${postId})">\uD83D\uDCAC Комментарии (${commentCount})</button>
+            <button class="comment-toggle-btn" onclick="toggleComments(${postId})">💬 Комментарии (${commentCount})</button>
         </div>
         <div class="comment-section" id="comments-${postId}" style="display: none;">
             <button id="new-comments-btn-${postId}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
@@ -713,15 +660,18 @@ async function updatePost(postId) {
             </div>
         </div>
     `;
+
     if (comments) {
         await renderComments(postId, comments);
     }
+
     setupCommentInfiniteScroll(postId);
 }
 
 function getTimeAgo(date) {
     const now = new Date();
     const diffInSeconds = Math.floor((now - date) / 1000);
+
     if (diffInSeconds < 60) return `${diffInSeconds}s`;
     const diffInMinutes = Math.floor(diffInSeconds / 60);
     if (diffInMinutes < 60) return `${diffInMinutes}m`;
@@ -745,18 +695,11 @@ function subscribeToReactions(postId) {
     if (reactionChannels.has(postId)) {
         supabaseClient.removeChannel(reactionChannels.get(postId));
     }
+
     const channel = supabaseClient
         .channel(`reactions-channel-${postId}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'reactions', filter: `post_id=eq.${postId}` }, async (payload) => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'reactions', filter: `post_id=eq.${postId}` }, (payload) => {
             console.log(`Reaction change detected for post ${postId}:`, payload);
-            if (payload.eventType === 'INSERT' && payload.new.user_id !== userData.telegramUsername) {
-                const post = await supabaseFetch(`posts?id=eq.${postId}`, 'GET');
-                if (post && post.length > 0) {
-                    const message = `[@${payload.new.user_id}](tg://user?id=${payload.new.chat_id || ''}) ${payload.new.type === 'like' ? 'поставил лайк' : 'поставил дизлайк'} вашему посту:\n${post[0].text.substring(0, 100)}${post[0].text.length > 100 ? '...' : ''}`;
-                    await notifyUser(post[0].user_id, message);
-                    showNotification(`Уведомлен @${post[0].user_id} о ${payload.new.type}`);
-                }
-            }
             updatePost(postId);
         })
         .subscribe((status) => {
@@ -766,6 +709,7 @@ function subscribeToReactions(postId) {
                 console.error(`Failed to subscribe to reactions channel for post ${postId}:`, status);
             }
         });
+
     reactionChannels.set(postId, channel);
 }
 
@@ -776,7 +720,9 @@ async function toggleReaction(postId, type) {
         if (!userExists || userExists.length === 0) {
             throw new Error('Пользователь не найден в базе данных. Пожалуйста, зарегистрируйтесь.');
         }
+
         const userReaction = await supabaseFetch(`reactions?post_id=eq.${postId}&user_id=eq.${userData.telegramUsername}`, 'GET');
+        
         if (userReaction && userReaction.length > 0) {
             const currentReaction = userReaction[0];
             if (currentReaction.type === type) {
@@ -789,8 +735,7 @@ async function toggleReaction(postId, type) {
                 post_id: postId,
                 user_id: userData.telegramUsername,
                 type: type,
-                timestamp: new Date().toISOString(),
-                chat_id: userData.chat_id
+                timestamp: new Date().toISOString()
             });
         }
         await updatePost(postId);
@@ -807,6 +752,7 @@ async function loadComments(postId) {
             lastCommentIds.set(postId, null);
             newCommentsCount.set(postId, 0);
         }
+
         const comments = await supabaseFetch(`comments?post_id=eq.${postId}&order=id.asc&limit=10`, 'GET');
         if (comments && comments.length > 0) {
             const currentComments = commentsCache.get(postId);
@@ -827,8 +773,10 @@ async function loadComments(postId) {
 async function loadMoreComments(postId) {
     const commentList = document.getElementById(`comment-list-${postId}`);
     if (!commentList || commentList.dataset.isLoadingMore === 'true') return;
+
     commentList.dataset.isLoadingMore = 'true';
     const oldestCommentId = commentsCache.get(postId).length > 0 ? commentsCache.get(postId)[0].id : null;
+
     try {
         const moreComments = await supabaseFetch(`comments?post_id=eq.${postId}&id=lt.${oldestCommentId}&order=id.asc&limit=10`, 'GET');
         if (moreComments && moreComments.length > 0) {
@@ -850,6 +798,7 @@ async function loadMoreComments(postId) {
 async function loadNewComments(postId) {
     const lastCommentId = lastCommentIds.get(postId);
     if (!lastCommentId) return;
+
     try {
         const newComments = await supabaseFetch(`comments?post_id=eq.${postId}&id=gt.${lastCommentId}&order=id.asc`, 'GET');
         if (newComments && newComments.length > 0) {
@@ -871,9 +820,10 @@ function subscribeToNewComments(postId) {
     if (commentChannels.has(postId)) {
         supabaseClient.removeChannel(commentChannels.get(postId));
     }
+
     const channel = supabaseClient
         .channel(`comments-channel-${postId}`)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments', filter: `post_id=eq.${postId}` }, async (payload) => {
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments', filter: `post_id=eq.${postId}` }, (payload) => {
             const newComment = payload.new;
             const currentComments = commentsCache.get(postId) || [];
             if (!currentComments.some(comment => comment.id === newComment.id)) {
@@ -892,14 +842,6 @@ function subscribeToNewComments(postId) {
                         newCommentsBtn.textContent = `Новые комментарии (${newCommentsCount.get(postId)})`;
                     }
                 }
-                if (newComment.user_id !== userData.telegramUsername) {
-                    const post = await supabaseFetch(`posts?id=eq.${postId}`, 'GET');
-                    if (post && post.length > 0) {
-                        const message = `[@${newComment.user_id}](tg://user?id=${newComment.chat_id || ''}) прокомментировал ваш пост:\n${newComment.text.substring(0, 100)}${newComment.text.length > 100 ? '...' : ''}`;
-                        await notifyUser(post[0].user_id, message);
-                        showNotification(`Уведомлен @${post[0].user_id} о комментарии`);
-                    }
-                }
             }
         })
         .subscribe((status) => {
@@ -909,6 +851,7 @@ function subscribeToNewComments(postId) {
                 console.error(`Failed to subscribe to comments channel for post ${postId}:`, status);
             }
         });
+
     commentChannels.set(postId, channel);
 }
 
@@ -921,18 +864,23 @@ function isUserAtBottom(postId) {
 function setupCommentInfiniteScroll(postId) {
     const commentList = document.getElementById(`comment-list-${postId}`);
     if (!commentList) return;
+
     if (commentChannels.has(postId)) {
         supabaseClient.removeChannel(commentChannels.get(postId));
         commentChannels.delete(postId);
     }
+
     const debouncedLoadMoreComments = debounce(() => {
         if (commentList.scrollTop <= 50) {
             loadMoreComments(postId);
         }
     }, 300);
+
     commentList.removeEventListener('scroll', debouncedLoadMoreComments);
     commentList.addEventListener('scroll', debouncedLoadMoreComments);
+
     subscribeToNewComments(postId);
+
     const newCommentsBtn = document.getElementById(`new-comments-btn-${postId}`);
     if (newCommentsBtn) {
         newCommentsBtn.onclick = () => {
@@ -969,18 +917,21 @@ async function renderNewComments(postId, newComments, append = true) {
 function renderNewComment(postId, comment, append = true) {
     const commentList = document.getElementById(`comment-list-${postId}`);
     if (!commentList) return;
+
     const commentDiv = document.createElement('div');
     commentDiv.classList.add('comment');
     const [userInfo, ...contentParts] = comment.text.split(':\n');
     const [fullname, username] = userInfo.split(' (@');
     const cleanUsername = username ? username.replace(')', '') : '';
     const content = contentParts.join(':\n');
+    const formattedContent = formatPostContent(content);
     commentDiv.innerHTML = `
         <div class="comment-user">
             <strong>${fullname}</strong> <span>@${cleanUsername}</span>
         </div>
-        <div class="comment-content">${content}</div>
+        <div class="comment-content">${formattedContent}</div>
     `;
+
     if (append) {
         commentList.appendChild(commentDiv);
         if (isUserAtBottom(postId)) {
@@ -995,17 +946,19 @@ async function renderMoreComments(postId, newComments) {
     for (const comment of newComments) {
         const commentList = document.getElementById(`comment-list-${postId}`);
         if (!commentList) return;
+
         const commentDiv = document.createElement('div');
         commentDiv.classList.add('comment');
         const [userInfo, ...contentParts] = comment.text.split(':\n');
         const [fullname, username] = userInfo.split(' (@');
         const cleanUsername = username ? username.replace(')', '') : '';
         const content = contentParts.join(':\n');
+        const formattedContent = formatPostContent(content);
         commentDiv.innerHTML = `
             <div class="comment-user">
                 <strong>${fullname}</strong> <span>@${cleanUsername}</span>
             </div>
-            <div class="comment-content">${content}</div>
+            <div class="comment-content">${formattedContent}</div>
         `;
         commentList.appendChild(commentDiv);
     }
@@ -1020,23 +973,28 @@ async function addComment(postId) {
         alert('Пожалуйста, введите текст комментария!');
         return;
     }
+
     try {
         const postExists = await supabaseFetch(`posts?id=eq.${postId}`, 'GET');
         if (!postExists || postExists.length === 0) {
             throw new Error('Пост не найден. Возможно, он был удалён.');
         }
+
         const userExists = await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'GET');
         if (!userExists || userExists.length === 0) {
             throw new Error('Пользователь не найден в базе данных. Пожалуйста, зарегистрируйтесь.');
         }
+
         const comment = {
             post_id: postId,
             user_id: userData.telegramUsername,
             text: `${userData.fullname} (@${userData.telegramUsername}):\n${text}`,
             timestamp: new Date().toISOString()
         };
+
         const newComment = await supabaseFetch('comments', 'POST', comment);
         commentInput.value = '';
+
         const currentComments = commentsCache.get(postId) || [];
         if (!currentComments.some(c => c.id === newComment[0].id)) {
             commentsCache.set(postId, [...currentComments, newComment[0]]);
@@ -1054,13 +1012,10 @@ async function addComment(postId) {
                     newCommentsBtn.textContent = `Новые комментарии (${newCommentsCount.get(postId)})`;
                 }
             }
+            await processTags(text, null);
         }
+
         await updatePost(postId);
-        if (postExists[0].user_id !== userData.telegramUsername) {
-            const message = `[@${userData.telegramUsername}](tg://user?id=${userData.chat_id || ''}) прокомментировал ваш пост:\n${text.substring(0, 100)}${text.length > 100 ? '...' : ''}`;
-            await notifyUser(postExists[0].user_id, message);
-            showNotification(`Уведомлен @${postExists[0].user_id} о комментарии`);
-        }
     } catch (error) {
         console.error('Error adding comment:', error);
         alert('Ошибка: ' + error.message);
@@ -1072,6 +1027,7 @@ function toggleComments(postId) {
     if (commentSection) {
         const isVisible = commentSection.style.display === 'block';
         commentSection.style.display = isVisible ? 'none' : 'block';
+
         if (!isVisible) {
             loadComments(postId).then(comments => renderComments(postId, comments));
             setupCommentInfiniteScroll(postId);
@@ -1131,8 +1087,10 @@ async function loadTournaments() {
                 tournamentCard.classList.add('tournament-card');
                 tournamentCard.setAttribute('data-tournament-id', tournament.id);
                 tournamentCard.addEventListener('click', () => showTournamentDetails(tournament.id));
+
                 const logoUrl = tournament.logo || 'placeholder.png';
                 const city = tournament.address ? extractCityFromAddress(tournament.address) : 'Не указан';
+
                 tournamentCard.innerHTML = `
                     <img src="${logoUrl}" class="tournament-logo" alt="Логотип турнира" onerror="this.src='placeholder.png'">
                     <div class="tournament-info">
@@ -1154,13 +1112,16 @@ async function showTournamentDetails(tournamentId) {
     try {
         const tournament = await supabaseFetch(`tournaments?id=eq.${tournamentId}`, 'GET');
         if (!tournament || tournament.length === 0) return;
+
         currentTournamentId = tournamentId;
         const data = tournament[0];
         const city = data.address ? extractCityFromAddress(data.address) : 'Не указан';
         const isCreator = data.creator_id === userData.telegramUsername;
+
         const header = document.getElementById('tournament-header');
         const description = document.getElementById('tournament-description');
         const toggleBtn = document.getElementById('toggle-description-btn');
+
         header.innerHTML = `
             <img src="${data.logo || 'placeholder.png'}" alt="Логотип турнира" onerror="this.src='placeholder.png'">
             <strong>${data.name}</strong>
@@ -1172,9 +1133,11 @@ async function showTournamentDetails(tournamentId) {
         description.innerHTML = `
             <p>Описание: ${data.desc || 'Описание отсутствует'}</p>
         `;
+
         sections.forEach(section => section.classList.remove('active'));
         document.getElementById('tournament-details').classList.add('active');
         buttons.forEach(btn => btn.classList.remove('active'));
+
         toggleBtn.onclick = () => {
             if (description.classList.contains('description-hidden')) {
                 description.classList.remove('description-hidden');
@@ -1184,6 +1147,7 @@ async function showTournamentDetails(tournamentId) {
                 toggleBtn.textContent = 'Развернуть описание';
             }
         };
+
         initTabs();
         initTournamentPosts(isCreator, data.name);
         loadTournamentPosts(tournamentId);
@@ -1208,6 +1172,7 @@ function initTabs() {
     const postsContent = document.getElementById('tournament-posts');
     const registrationContent = document.getElementById('tournament-registration');
     const bracketContent = document.getElementById('tournament-bracket');
+
     postsTab.onclick = () => {
         postsTab.classList.add('active');
         registrationTab.classList.remove('active');
@@ -1216,6 +1181,7 @@ function initTabs() {
         registrationContent.classList.remove('active');
         bracketContent.classList.remove('active');
     };
+
     registrationTab.onclick = () => {
         registrationTab.classList.add('active');
         postsTab.classList.remove('active');
@@ -1224,6 +1190,7 @@ function initTabs() {
         postsContent.classList.remove('active');
         bracketContent.classList.remove('active');
     };
+
     bracketTab.onclick = () => {
         bracketTab.classList.add('active');
         postsTab.classList.remove('active');
@@ -1302,48 +1269,57 @@ async function loadTournamentPosts(tournamentId) {
 function initRegistration() {
     const registerBtn = document.getElementById('register-tournament-btn');
     const registrationForm = document.getElementById('registration-form');
-    const submitRegistrationBtn = document.getElementById('submit-registration');
+    const submitRegistrationBtn = document.getElementById('submit-registration-btn');
+
     registerBtn.onclick = () => {
         registrationForm.classList.toggle('form-hidden');
     };
-    submitRegistrationBtn.onclick = async () => {
+
+    submitRegistrationBtn.addEventListener('click', async () => {
         submitRegistrationBtn.disabled = true;
+
         const registration = {
             tournament_id: currentTournamentId,
-            faction_name: document.getElementById('faction-name').value,
-            club: document.getElementById('club').value,
-            speaker1: document.getElementById('speaker1').value,
-            speaker2: document.getElementById('speaker2').value,
-            city: document.getElementById('city').value,
-            contacts: document.getElementById('contacts').value,
-            extra: document.getElementById('extra').value,
+            faction_name: document.getElementById('reg-faction-name').value,
+            speaker1: document.getElementById('reg-speaker1').value,
+            speaker2: document.getElementById('reg-speaker2').value,
+            club: document.getElementById('reg-club').value,
+            city: document.getElementById('reg-city').value,
+            contacts: document.getElementById('reg-contacts').value,
+            extra: document.getElementById('reg-extra').value,
             timestamp: new Date().toISOString()
         };
+
+        if (!registration.faction_name) {
+            alert('Пожалуйста, укажите название фракции!');
+            submitRegistrationBtn.disabled = false;
+            return;
+        }
+        if (!registration.club) {
+            alert('Пожалуйста, укажите название клуба!');
+            submitRegistrationBtn.disabled = false;
+            return;
+        }
+
         try {
-            const existing = await supabaseFetch(`registrations?tournament_id=eq.${currentTournamentId}&faction_name=eq.${registration.faction_name}&club=eq.${registration.club}`, 'GET');
-            if (existing && existing.length > 0) {
-                alert('Эта команда уже зарегистрирована!');
-                return;
-            }
             await supabaseFetch('registrations', 'POST', registration);
-            alert('Команда успешно зарегистрирована!');
+            alert('Регистрация отправлена!');
             registrationForm.classList.add('form-hidden');
-            document.getElementById('faction-name').value = '';
-            document.getElementById('club').value = '';
-            document.getElementById('speaker1').value = '';
-            document.getElementById('speaker2').value = '';
-            document.getElementById('city').value = '';
-            document.getElementById('contacts').value = '';
-            document.getElementById('extra').value = '';
-            const isCreator = (await supabaseFetch(`tournaments?id=eq.${currentTournamentId}`, 'GET'))[0].creator_id === userData.telegramUsername;
-            await loadRegistrations(currentTournamentId, isCreator);
+            document.getElementById('reg-faction-name').value = '';
+            document.getElementById('reg-speaker1').value = '';
+            document.getElementById('reg-speaker2').value = '';
+            document.getElementById('reg-club').value = '';
+            document.getElementById('reg-city').value = '';
+            document.getElementById('reg-contacts').value = '';
+            document.getElementById('reg-extra').value = '';
+            loadRegistrations(currentTournamentId);
         } catch (error) {
             console.error('Error saving registration:', error);
             alert('Ошибка: ' + error.message);
         } finally {
             submitRegistrationBtn.disabled = false;
         }
-    };
+    });
 }
 
 async function loadRegistrations(tournamentId, isCreator) {
@@ -1351,6 +1327,7 @@ async function loadRegistrations(tournamentId, isCreator) {
         const registrations = await supabaseFetch(`registrations?tournament_id=eq.${tournamentId}&order=timestamp.asc`, 'GET');
         const registrationList = document.getElementById('registration-list');
         registrationList.innerHTML = '';
+
         const seen = new Set();
         const uniqueRegistrations = registrations.filter(reg => {
             const key = `${reg.tournament_id}|${reg.faction_name}|${reg.club}`;
@@ -1358,6 +1335,7 @@ async function loadRegistrations(tournamentId, isCreator) {
             seen.add(key);
             return true;
         });
+
         if (uniqueRegistrations.length > 0) {
             uniqueRegistrations.forEach(reg => {
                 const regCard = document.createElement('div');
@@ -1375,6 +1353,7 @@ async function loadRegistrations(tournamentId, isCreator) {
                 `;
                 registrationList.appendChild(regCard);
             });
+
             if (isCreator) {
                 const deleteButtons = document.querySelectorAll('.delete-registration-btn');
                 deleteButtons.forEach(button => {
@@ -1441,111 +1420,143 @@ async function generateBracket() {
     const format = document.getElementById('bracket-format').value;
     const factionCount = parseInt(document.getElementById('bracket-faction-count').value);
     const roundCount = parseInt(document.getElementById('bracket-round-count').value);
+
     if (isNaN(factionCount) || factionCount < 2 || factionCount % 2 !== 0) {
         alert('Количество фракций должно быть чётным и больше 0!');
         return;
     }
     if (format === 'БПФ' && factionCount % 4 !== 0) {
-        alert('Для БПФ количество фракций должно быть кратно 4!');
+        alert('Для формата БПФ количество фракций должно быть кратно 4!');
         return;
     }
-    try {
-        const registrations = await supabaseFetch(`registrations?tournament_id=eq.${currentTournamentId}&order=timestamp.asc`, 'GET');
-        if (!registrations || registrations.length < factionCount) {
-            alert(`Недостаточно зарегистрированных команд для ${factionCount} фракций!`);
-            return;
+
+    const registrations = await supabaseFetch(`registrations?tournament_id=eq.${currentTournamentId}&order=timestamp.asc`, 'GET');
+    if (!registrations || registrations.length < factionCount) {
+        alert('Недостаточно зарегистрированных команд!');
+        return;
+    }
+
+    const teams = registrations.slice(0, factionCount).map(reg => ({
+        faction_name: reg.faction_name,
+        club: reg.club
+    }));
+    const positions = format === 'АПФ' ? ['Правительство', 'Оппозиция'] : ['ОП', 'ОО', 'ЗП', 'ЗО'];
+    const teamsPerMatch = format === 'АПФ' ? 2 : 4;
+
+    const matches = [];
+    const usedPairs = new Set();
+
+    for (let round = 0; round < roundCount; round++) {
+        const roundMatches = [];
+        const availableTeams = [...teams];
+        while (availableTeams.length >= teamsPerMatch) {
+            const matchTeams = [];
+            for (let i = 0; i < teamsPerMatch; i++) {
+                const randomIndex = Math.floor(Math.random() * availableTeams.length);
+                matchTeams.push(availableTeams.splice(randomIndex, 1)[0]);
+            }
+
+            const matchKey = matchTeams.map(team => team.faction_name).sort().join('|');
+            if (usedPairs.has(matchKey)) {
+                availableTeams.push(...matchTeams);
+                continue;
+            }
+            usedPairs.add(matchKey);
+
+            const match = {
+                teams: matchTeams.map((team, idx) => ({
+                    faction_name: team.faction_name,
+                    club: team.club,
+                    position: positions[idx]
+                })),
+                room: '',
+                judge: ''
+            };
+            roundMatches.push(match);
         }
-        const bracket = {
-            tournament_id: currentTournamentId,
-            format: format,
-            faction_count: factionCount,
-            round_count: roundCount,
-            timestamp: new Date().toISOString(),
-            matches: generateMatches(registrations.slice(0, factionCount), format, roundCount)
-        };
+        if (roundMatches.length > 0) {
+            matches.push({ round: round + 1, matches: roundMatches });
+        }
+    }
+
+    const bracket = {
+        tournament_id: currentTournamentId,
+        format: format,
+        faction_count: factionCount,
+        round_count: roundCount,
+        matches: matches,
+        published: false,
+        timestamp: new Date().toISOString()
+    };
+
+    try {
         await supabaseFetch('brackets', 'POST', bracket);
-        alert('Сетка сформирована!');
         loadBracket(currentTournamentId);
     } catch (error) {
-        console.error('Error generating bracket:', error);
+        console.error('Error saving bracket:', error);
         alert('Ошибка: ' + error.message);
     }
 }
 
-function generateMatches(teams, format, roundCount) {
-    const matches = [];
-    let currentTeams = [...teams];
-    for (let round = 1; round <= roundCount; round++) {
-        const roundMatches = [];
-        if (format === 'АПФ') {
-            for (let i = 0; i < currentTeams.length; i += 2) {
-                if (currentTeams[i + 1]) {
-                    roundMatches.push({
-                        round: round,
-                        team1: currentTeams[i].faction_name,
-                        team2: currentTeams[i + 1].faction_name,
-                        winner: null
-                    });
-                }
-            }
-            currentTeams = currentTeams.slice(0, currentTeams.length / 2);
-        } else {
-            for (let i = 0; i < currentTeams.length; i += 4) {
-                if (currentTeams[i + 3]) {
-                    roundMatches.push({
-                        round: round,
-                        team1: currentTeams[i].faction_name,
-                        team2: currentTeams[i + 1].faction_name,
-                        team3: currentTeams[i + 2].faction_name,
-                        team4: currentTeams[i + 3].faction_name,
-                        winner: null
-                    });
-                }
-            }
-            currentTeams = currentTeams.slice(0, currentTeams.length / 4);
-        }
-        matches.push(...roundMatches);
-    }
-    return matches;
-}
-
 async function loadBracket(tournamentId) {
+    const bracketSection = document.getElementById('tournament-bracket');
+    const bracketDisplay = document.getElementById('bracket-display');
+    const isCreator = (await supabaseFetch(`tournaments?id=eq.${tournamentId}`, 'GET'))[0].creator_id === userData.telegramUsername;
+
     try {
-        const brackets = await supabaseFetch(`brackets?tournament_id=eq.${tournamentId}&order=timestamp.desc`, 'GET');
-        const bracketDisplay = document.getElementById('bracket-display');
+        const bracket = await supabaseFetch(`brackets?tournament_id=eq.${tournamentId}&order=timestamp.desc&limit=1`, 'GET');
+        if (!bracket || bracket.length === 0) {
+            bracketDisplay.innerHTML = '<p>Сетка ещё не сформирована.</p>';
+            return;
+        }
+
+        const data = bracket[0];
         bracketDisplay.innerHTML = '';
-        if (brackets && brackets.length > 0) {
-            const bracket = brackets[0];
-            const isCreator = (await supabaseFetch(`tournaments?id=eq.${tournamentId}`, 'GET'))[0].creator_id === userData.telegramUsername;
-            bracketDisplay.innerHTML = `<h3>Формат: ${bracket.format}, Раундов: ${bracket.round_count}</h3>`;
-            const rounds = [...new Set(bracket.matches.map(m => m.round))];
-            rounds.forEach(round => {
+
+        if (data.published || isCreator) {
+            data.matches.forEach(round => {
                 const roundDiv = document.createElement('div');
                 roundDiv.classList.add('bracket-round');
-                roundDiv.innerHTML = `<h4>Раунд ${round}</h4>`;
-                const roundMatches = bracket.matches.filter(m => m.round === round);
-                roundMatches.forEach(match => {
+                roundDiv.innerHTML = `<h3>Раунд ${round.round}</h3>`;
+                
+                round.matches.forEach((match, matchIdx) => {
                     const matchDiv = document.createElement('div');
                     matchDiv.classList.add('bracket-match');
-                    if (bracket.format === 'АПФ') {
-                        matchDiv.innerHTML = `
-                            <p>${match.team1} vs ${match.team2}</p>
-                            <p>Победитель: ${match.winner || 'Не определён'}</p>
-                            ${isCreator ? `<button onclick="setWinner(${match.round}, '${match.team1}', '${match.team2}', ${tournamentId})">Выбрать победителя</button>` : ''}
+                    let matchHTML = '';
+                    match.teams.forEach(team => {
+                        matchHTML += `
+                            <p>${team.position}: ${team.faction_name} <span class="team-club">(${team.club})</span></p>
                         `;
-                    } else {
-                        matchDiv.innerHTML = `
-                            <p>${match.team1} vs ${match.team2} vs ${match.team3} vs ${match.team4}</p>
-                            <p>Победитель: ${match.winner || 'Не определён'}</p>
-                            ${isCreator ? `<button onclick="setWinner(${match.round}, '${match.team1}', '${match.team2}', '${match.team3}', '${match.team4}', ${tournamentId})">Выбрать победителя</button>` : ''}
+                    });
+                    matchHTML += `
+                        <p>Кабинет: ${match.room || 'Не указан'}</p>
+                        <p>Судья: ${match.judge || 'Не указан'}</p>
+                    `;
+                    if (isCreator && !data.published) {
+                        matchHTML += `
+                            <input type="text" id="room-${round.round}-${matchIdx}" placeholder="Кабинет" value="${match.room || ''}">
+                            <input type="text" id="judge-${round.round}-${matchIdx}" placeholder="Судья" value="${match.judge || ''}">
+                            <button onclick="updateMatch(${tournamentId}, ${round.round}, ${matchIdx})">Сохранить</button>
                         `;
                     }
+                    matchDiv.innerHTML = matchHTML;
                     roundDiv.appendChild(matchDiv);
                 });
                 bracketDisplay.appendChild(roundDiv);
             });
+
+            if (isCreator && !data.published) {
+                const publishBtn = document.createElement('button');
+                publishBtn.textContent = 'Опубликовать сетку';
+                publishBtn.onclick = async () => {
+                    await supabaseFetch(`brackets?id=eq.${data.id}`, 'PATCH', { published: true });
+                    alert('Сетка опубликована!');
+                    loadBracket(tournamentId);
+                };
+                bracketDisplay.appendChild(publishBtn);
+            }
         } else {
-            bracketDisplay.innerHTML = '<p>Сетка ещё не сформирована.</p>';
+            bracketDisplay.innerHTML = '<p>Сетка ещё не опубликована.</p>';
         }
     } catch (error) {
         console.error('Error loading bracket:', error);
@@ -1553,26 +1564,22 @@ async function loadBracket(tournamentId) {
     }
 }
 
-async function setWinner(round, ...teams) {
-    const tournamentId = arguments[arguments.length - 1];
-    const winner = prompt(`Выберите победителя среди: ${teams.join(', ')}`);
-    if (!winner || !teams.includes(winner)) {
-        alert('Пожалуйста, выберите корректного победителя!');
-        return;
-    }
+async function updateMatch(tournamentId, round, matchIdx) {
     try {
-        const brackets = await supabaseFetch(`brackets?tournament_id=eq.${tournamentId}&order=timestamp.desc`, 'GET');
-        if (!brackets || brackets.length === 0) return;
-        const bracket = brackets[0];
-        const match = bracket.matches.find(m => m.round === round && teams.includes(m.team1));
-        if (match) {
-            match.winner = winner;
-            await supabaseFetch(`brackets?id=eq.${bracket.id}`, 'PATCH', { matches: bracket.matches });
-            alert('Победитель сохранён!');
-            loadBracket(tournamentId);
-        }
+        const bracket = await supabaseFetch(`brackets?tournament_id=eq.${tournamentId}&order=timestamp.desc&limit=1`, 'GET');
+        if (!bracket || bracket.length === 0) return;
+
+        const data = bracket[0];
+        const roomInput = document.getElementById(`room-${round}-${matchIdx}`);
+        const judgeInput = document.getElementById(`judge-${round}-${matchIdx}`);
+        data.matches[round - 1].matches[matchIdx].room = roomInput.value;
+        data.matches[round - 1].matches[matchIdx].judge = judgeInput.value;
+
+        await supabaseFetch(`brackets?id=eq.${data.id}`, 'PATCH', { matches: data.matches });
+        alert('Матч обновлён!');
+        loadBracket(tournamentId);
     } catch (error) {
-        console.error('Error setting winner:', error);
+        console.error('Error updating match:', error);
         alert('Ошибка: ' + error.message);
     }
 }
