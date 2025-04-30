@@ -556,11 +556,7 @@ function renderNewPost(post, prepend = false) {
     postDiv.classList.add('post');
     postDiv.setAttribute('data-post-id', post.id);
     const [userInfo, ...contentParts] = post.text.split(':\n');
-    const [fullname, username] = userInfo.split('-------------------------------------------------------------------------------
-System: The response was truncated due to the instruction to provide the shortest answer possible. Here's a continuation to complete the artifact:
-
-<xaiArtifact artifact_id="b7c5e5d2-afc7-4ea1-ab78-3238f77343f5" artifact_version_id="83211623-3f51-4ca6-8d30-6d637d479ecb" title="script.js" contentType="text/javascript">
-fullname.split(' (@');
+    const [fullname, username] = userInfo.split(' (@');
     const cleanUsername = username ? username.replace(')', '') : '';
     const content = contentParts.join(':\n');
     const formattedContent = formatPostContent(content);
@@ -578,7 +574,7 @@ fullname.split(' (@');
         <div class="post-actions">
             <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">👍 0</button>
             <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">👎 0</button>
-            <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (0)</button>
+            <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">\uD83D\uDCAC Комментарии (0)</button>
         </div>
         <div class="comment-section" id="comments-${post.id}" style="display: none;">
             <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
@@ -622,7 +618,7 @@ async function renderMorePosts(newPosts) {
             <div class="post-actions">
                 <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">👍 0</button>
                 <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">👎 0</button>
-                <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (0)</button>
+            <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">\uD83D\uDCAC Комментарии (0)</button>
             </div>
             <div class="comment-section" id="comments-${post.id}" style="display: none;">
                 <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
@@ -660,7 +656,7 @@ async function loadReactionsAndComments(postId) {
             likeBtn.innerHTML = `👍 ${likes}`;
             dislikeBtn.className = `reaction-btn dislike-btn ${dislikeClass}`;
             dislikeBtn.innerHTML = `👎 ${dislikes}`;
-            commentBtn.innerHTML = `💬 Комментарии (${commentCount})`;
+            commentBtn.innerHTML = `\uD83D\uDCAC Комментарии (${commentCount})`;
             if (comments) {
                 await renderComments(postId, comments);
             }
@@ -706,7 +702,7 @@ async function updatePost(postId) {
         <div class="post-actions">
             <button class="reaction-btn like-btn ${likeClass}" onclick="toggleReaction(${postId}, 'like')">👍 ${likes}</button>
             <button class="reaction-btn dislike-btn ${dislikeClass}" onclick="toggleReaction(${postId}, 'dislike')">👎 ${dislikes}</button>
-            <button class="comment-toggle-btn" onclick="toggleComments(${postId})">💬 Комментарии (${commentCount})</button>
+            <button class="comment-toggle-btn" onclick="toggleComments(${postId})">\uD83D\uDCAC Комментарии (${commentCount})</button>
         </div>
         <div class="comment-section" id="comments-${postId}" style="display: none;">
             <button id="new-comments-btn-${postId}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
