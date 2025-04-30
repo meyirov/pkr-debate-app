@@ -6,7 +6,7 @@ const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
 const tg = window.Telegram.WebApp;
 tg.ready();
 
-const TELEGRAM_BOT_TOKEN = '8096269381:AAHIlPVCS3UbHzW9_F51Bj6gOyI4gazMJAc';
+const TELEGRAM_BOT_TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'; // Замени на свой токен
 
 const registrationModal = document.getElementById('registration-modal');
 const appContainer = document.getElementById('app-container');
@@ -57,6 +57,7 @@ async function supabaseFetch(endpoint, method, body = null, retries = 3) {
 async function getChatId(telegramUsername) {
     try {
         const profiles = await supabaseFetch(`profiles?telegram_username=eq.${telegramUsername}`, 'GET');
+        console.log('getChatId profiles:', profiles);
         if (profiles && profiles.length > 0 && profiles[0].chat_id) {
             return profiles[0].chat_id;
         }
@@ -69,9 +70,10 @@ async function getChatId(telegramUsername) {
 
 async function updateChatId(telegramUsername, chatId) {
     try {
-        await supabaseFetch(`profiles?telegram_username=eq.${telegramUsername}`, 'PATCH', {
+        const response = await supabaseFetch(`profiles?telegram_username=eq.${telegramUsername}`, 'PATCH', {
             chat_id: chatId
         });
+        console.log('updateChatId response:', response);
     } catch (error) {
         console.error('Error updating chat ID:', error);
     }
@@ -79,6 +81,7 @@ async function updateChatId(telegramUsername, chatId) {
 
 async function sendTelegramNotification(chatId, message) {
     try {
+        console.log('Sending Telegram message to:', chatId);
         const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
             method: 'POST',
             headers: {
@@ -92,29 +95,38 @@ async function sendTelegramNotification(chatId, message) {
         });
         const data = await response.json();
         if (!data.ok) {
-            throw new Error(data.description);
+            throw new Error(`Telegram API error: ${data.description}`);
         }
+        console.log('Telegram notification sent:', data);
         return data;
     } catch (error) {
         console.error('Error sending Telegram notification:', error);
+        return null;
     }
 }
 
 async function notifyUser(telegramUsername, message) {
+    console.log('Attempting to notify:', telegramUsername);
     let chatId = await getChatId(telegramUsername);
     if (!chatId) {
+        console.log('No chat ID found, sending temp message to:', '@' + telegramUsername);
         const tempMessage = await sendTelegramNotification('@' + telegramUsername, 'Please start the bot to receive notifications.');
-        if (tempMessage && tempMessage.chat) {
+        if (tempMessage && tempMessage.chat && tempMessage.chat.id) {
             chatId = tempMessage.chat.id;
+            console.log('Received chat ID:', chatId);
             await updateChatId(telegramUsername, chatId);
         } else {
+            console.warn('Failed to get chat ID from temp message:', tempMessage);
             return;
         }
     }
-    await sendTelegramNotification(chatId, message);
+    console.log('Sending notification to chat ID:', chatId);
+    const result = await sendTelegramNotification(chatId, message);
+    console.log('Notification result:', result);
 }
 
 function showNotification(message) {
+    console.log('Showing notification:', message);
     const notification = document.createElement('div');
     notification.classList.add('notification');
     notification.textContent = message;
@@ -275,7 +287,7 @@ loadMoreBtn.addEventListener('click', () => {
 postsDiv.appendChild(loadMoreBtn);
 
 async function extractMentions(text) {
-    const mentionRegex = /@(\w+)/g;
+    const mentionRegex = /@(\w+)(?=\s|$|[.,!?])/g;
     const mentions = [];
     let match;
     while ((match = mentionRegex.exec(text)) !== null) {
@@ -294,7 +306,9 @@ submitPost.addEventListener('click', async () => {
         return;
     }
     const text = `${userData.fullname} (@${userData.telegramUsername}):\n${postContent}`;
+    console.log('Post content:', text);
     const mentions = await extractMentions(postContent);
+    console.log('Extracted mentions:', mentions);
     const post = {
         text: text,
         timestamp: new Date().toISOString(),
@@ -320,10 +334,15 @@ submitPost.addEventListener('click', async () => {
             }
             lastPostId = postsCache[0].id;
         }
-        for (const username of mentions) {
-            const message = `[@${userData.telegramUsername}](tg://user?id=${userData.chat_id || ''}) упомянул вас в посте:\n${postContent.substring(0, 100)}${postContent.length > 100 ? '...' : ''}`;
-            await notifyUser(username, message);
-            showNotification(`Уведомлен @${username}`);
+        if (mentions.length > 0) {
+            console.log('Sending notifications for mentions:', mentions);
+            for (const username of mentions) {
+                const message = `[@${userData.telegramUsername}](tg://user?id=${userData.chat_id || ''}) упомянул вас в посте:\n${postContent.substring(0, 100)}${postContent.length > 100 ? '...' : ''}`;
+                await notifyUser(username, message);
+                showNotification(`Уведомлен @${username}`);
+            }
+        } else {
+            console.log('No mentions found in post');
         }
     } catch (error) {
         console.error('Error saving post:', error);
@@ -454,6 +473,7 @@ function subscribeToNewPosts() {
                     newPostsBtn.classList.add('visible');
                 }
                 const mentions = await extractMentions(newPost.text);
+                console.log('New post mentions:', mentions);
                 for (const username of mentions) {
                     const message = `[@${newPost.user_id}](tg://user?id=${newPost.chat_id || ''}) упомянул вас в посте:\n${newPost.text.substring(0, 100)}${newPost.text.length > 100 ? '...' : ''}`;
                     await notifyUser(username, message);
@@ -995,7 +1015,9 @@ async function addComment(postId) {
     postId = parseInt(postId);
     const commentInput = document.getElementById(`comment-input-${postId}`);
     if (!commentInput) return;
-    const text = commentInput.value.trim();
+    const text = commentInput Ratchet up the intensity! Let's get those notifications firing! 🚀
+
+.value.trim();
     if (!text) {
         alert('Пожалуйста, введите текст комментария!');
         return;
@@ -1282,52 +1304,48 @@ async function loadTournamentPosts(tournamentId) {
 function initRegistration() {
     const registerBtn = document.getElementById('register-tournament-btn');
     const registrationForm = document.getElementById('registration-form');
-    const submitRegistrationBtn = document.getElementById('submit-registration-btn');
+    const submitRegistrationBtn = document.getElementById('submit-registration');
     registerBtn.onclick = () => {
         registrationForm.classList.toggle('form-hidden');
     };
-    submitRegistrationBtn.addEventListener('click', async () => {
+    submitRegistrationBtn.onclick = async () => {
         submitRegistrationBtn.disabled = true;
         const registration = {
             tournament_id: currentTournamentId,
-            faction_name: document.getElementById('reg-faction-name').value,
-            speaker1: document.getElementById('reg-speaker1').value,
-            speaker2: document.getElementById('reg-speaker2').value,
-            club: document.getElementById('reg-club').value,
-            city: document.getElementById('reg-city').value,
-            contacts: document.getElementById('reg-contacts').value,
-            extra: document.getElementById('reg-extra').value,
+            faction_name: document.getElementById('faction-name').value,
+            club: document.getElementById('club').value,
+            speaker1: document.getElementById('speaker1').value,
+            speaker2: document.getElementById('speaker2').value,
+            city: document.getElementById('city').value,
+            contacts: document.getElementById('contacts').value,
+            extra: document.getElementById('extra').value,
             timestamp: new Date().toISOString()
         };
-        if (!registration.faction_name) {
-            alert('Пожалуйста, укажите название фракции!');
-            submitRegistrationBtn.disabled = false;
-            return;
-        }
-        if (!registration.club) {
-            alert('Пожалуйста, укажите название клуба!');
-            submitRegistrationBtn.disabled = false;
-            return;
-        }
         try {
+            const existing = await supabaseFetch(`registrations?tournament_id=eq.${currentTournamentId}&faction_name=eq.${registration.faction_name}&club=eq.${registration.club}`, 'GET');
+            if (existing && existing.length > 0) {
+                alert('Эта команда уже зарегистрирована!');
+                return;
+            }
             await supabaseFetch('registrations', 'POST', registration);
-            alert('Регистрация отправлена!');
+            alert('Команда успешно зарегистрирована!');
             registrationForm.classList.add('form-hidden');
-            document.getElementById('reg-faction-name').value = '';
-            document.getElementById('reg-speaker1').value = '';
-            document.getElementById('reg-speaker2').value = '';
-            document.getElementById('reg-club').value = '';
-            document.getElementById('reg-city').value = '';
-            document.getElementById('reg-contacts').value = '';
-            document.getElementById('reg-extra').value = '';
-            loadRegistrations(currentTournamentId);
+            document.getElementById('faction-name').value = '';
+            document.getElementById('club').value = '';
+            document.getElementById('speaker1').value = '';
+            document.getElementById('speaker2').value = '';
+            document.getElementById('city').value = '';
+            document.getElementById('contacts').value = '';
+            document.getElementById('extra').value = '';
+            const isCreator = (await supabaseFetch(`tournaments?id=eq.${currentTournamentId}`, 'GET'))[0].creator_id === userData.telegramUsername;
+            await loadRegistrations(currentTournamentId, isCreator);
         } catch (error) {
             console.error('Error saving registration:', error);
             alert('Ошибка: ' + error.message);
         } finally {
             submitRegistrationBtn.disabled = false;
         }
-    });
+    };
 }
 
 async function loadRegistrations(tournamentId, isCreator) {
@@ -1430,132 +1448,106 @@ async function generateBracket() {
         return;
     }
     if (format === 'БПФ' && factionCount % 4 !== 0) {
-        alert('Для формата БПФ количество фракций должно быть кратно 4!');
+        alert('Для БПФ количество фракций должно быть кратно 4!');
         return;
     }
-    const registrations = await supabaseFetch(`registrations?tournament_id=eq.${currentTournamentId}&order=timestamp.asc`, 'GET');
-    if (!registrations || registrations.length < factionCount) {
-        alert('Недостаточно зарегистрированных команд!');
-        return;
-    }
-    const teams = registrations.slice(0, factionCount).map(reg => ({
-        faction_name: reg.faction_name,
-        club: reg.club
-    }));
-    const positions = format === 'АПФ' ? ['Правительство', 'Оппозиция'] : ['ОП', 'ОО', 'ЗП', 'ЗО'];
-    const teamsPerMatch = format === 'АПФ' ? 2 : 4;
-    const matches = [];
-    const usedPairs = new Set();
-    for (let round = 0; round < roundCount; round++) {
-        const roundMatches = [];
-        const availableTeams = [...teams];
-        while (availableTeams.length >= teamsPerMatch) {
-            const matchTeams = [];
-            for (let i = 0; i < teamsPerMatch; i++) {
-                const randomIndex = Math.floor(Math.random() * availableTeams.length);
-                matchTeams.push(availableTeams.splice(randomIndex, 1)[0]);
-            }
-            const matchKey = matchTeams.map(team => team.faction_name).sort().join('|');
-            if (usedPairs.has(matchKey)) {
-                availableTeams.push(...matchTeams);
-                continue;
-            }
-            usedPairs.add(matchKey);
-            const match = {
-                teams: matchTeams.map((team, idx) => ({
-                    faction_name: team.faction_name,
-                    club: team.club,
-                    position: positions[idx]
-                })),
-                room: '',
-                judge: ''
-            };
-            roundMatches.push(match);
-        }
-        if (roundMatches.length > 0) {
-            matches.push({ round: round + 1, matches: roundMatches });
-        }
-    }
-    const bracket = {
-        tournament_id: currentTournamentId,
-        format: format,
-        faction_count: factionCount,
-        round_count: roundCount,
-        matches: matches,
-        published: false,
-        timestamp: new Date().toISOString()
-    };
     try {
+        const registrations = await supabaseFetch(`registrations?tournament_id=eq.${currentTournamentId}&order=timestamp.asc`, 'GET');
+        if (!registrations || registrations.length < factionCount) {
+            alert(`Недостаточно зарегистрированных команд для ${factionCount} фракций!`);
+            return;
+        }
+        const bracket = {
+            tournament_id: currentTournamentId,
+            format: format,
+            faction_count: factionCount,
+            round_count: roundCount,
+            timestamp: new Date().toISOString(),
+            matches: generateMatches(registrations.slice(0, factionCount), format, roundCount)
+        };
         await supabaseFetch('brackets', 'POST', bracket);
+        alert('Сетка сформирована!');
         loadBracket(currentTournamentId);
     } catch (error) {
-        console.error('Error saving bracket:', error);
+        console.error('Error generating bracket:', error);
         alert('Ошибка: ' + error.message);
     }
 }
 
-async function loadBracket(tournamentId) {
-    const bracketSection = document.getElementById('tournament-bracket');
-    const bracketDisplay = document.getElementById('bracket-display');
-    const isCreator = (await supabaseFetch(`tournaments?id=eq.${tournamentId}`, 'GET'))[0].creator_id === userData.telegramUsername;
-    try {
-        const bracket = await supabaseFetch(`brackets?tournament_id=eq.${tournamentId}&order=timestamp.desc&limit=1`, 'GET');
-        if (!bracket || bracket.length === 0) {
-            bracketDisplay.innerHTML = '<p>Сетка ещё не сформирована.</p>';
-            return;
+function generateMatches(teams, format, roundCount) {
+    const matches = [];
+    let currentTeams = [...teams];
+    for (let round = 1; round <= roundCount; round++) {
+        const roundMatches = [];
+        if (format === 'АПФ') {
+            for (let i = 0; i < currentTeams.length; i += 2) {
+                if (currentTeams[i + 1]) {
+                    roundMatches.push({
+                        round: round,
+                        team1: currentTeams[i].faction_name,
+                        team2: currentTeams[i + 1].faction_name,
+                        winner: null
+                    });
+                }
+            }
+            currentTeams = currentTeams.slice(0, currentTeams.length / 2);
+        } else {
+            for (let i = 0; i < currentTeams.length; i += 4) {
+                if (currentTeams[i + 3]) {
+                    roundMatches.push({
+                        round: round,
+                        team1: currentTeams[i].faction_name,
+                        team2: currentTeams[i + 1].faction_name,
+                        team3: currentTeams[i + 2].faction_name,
+                        team4: currentTeams[i + 3].faction_name,
+                        winner: null
+                    });
+                }
+            }
+            currentTeams = currentTeams.slice(0, currentTeams.length / 4);
         }
-        const data = bracket[0];
+        matches.push(...roundMatches);
+    }
+    return matches;
+}
+
+async function loadBracket(tournamentId) {
+    try {
+        const brackets = await supabaseFetch(`brackets?tournament_id=eq.${tournamentId}&order=timestamp.desc`, 'GET');
+        const bracketDisplay = document.getElementById('bracket-display');
         bracketDisplay.innerHTML = '';
-        if (data.published || isCreator) {
-            data.matches.forEach(round => {
+        if (brackets && brackets.length > 0) {
+            const bracket = brackets[0];
+            const isCreator = (await supabaseFetch(`tournaments?id=eq.${tournamentId}`, 'GET'))[0].creator_id === userData.telegramUsername;
+            bracketDisplay.innerHTML = `<h3>Формат: ${bracket.format}, Раундов: ${bracket.round_count}</h3>`;
+            const rounds = [...new Set(bracket.matches.map(m => m.round))];
+            rounds.forEach(round => {
                 const roundDiv = document.createElement('div');
                 roundDiv.classList.add('bracket-round');
-                roundDiv.innerHTML = `<h3>Раунд ${round.round}</h3>`;
-                round.matches.forEach((match, matchIdx) => {
+                roundDiv.innerHTML = `<h4>Раунд ${round}</h4>`;
+                const roundMatches = bracket.matches.filter(m => m.round === round);
+                roundMatches.forEach(match => {
                     const matchDiv = document.createElement('div');
                     matchDiv.classList.add('bracket-match');
-                    let matchHTML = '';
-                    match.teams.forEach(team => {
-                        matchHTML += `
-                            <p>${team.position}: ${team.faction_name} <span class="team-club">(${team.club})</span></p>
+                    if (bracket.format === 'АПФ') {
+                        matchDiv.innerHTML = `
+                            <p>${match.team1} vs ${match.team2}</p>
+                            <p>Победитель: ${match.winner || 'Не определён'}</p>
+                            ${isCreator ? `<button onclick="setWinner(${match.round}, '${match.team1}', '${match.team2}', ${tournamentId})">Выбрать победителя</button>` : ''}
                         `;
-                    });
-                    if (isCreator && !data.published) {
-                        matchHTML += `
-                            <input type="text" id="room-input-${round.round}-${matchIdx}" name="room-${round.round}-${matchIdx}" placeholder="Кабинет" value="${match.room || ''}" data-round="${round.round}" data-match="${matchIdx}" class="room-input">
-                            <input type="text" id="judge-input-${round.round}-${matchIdx}" name="judge-${round.round}-${matchIdx}" placeholder="Судья" value="${match.judge || ''}" data-round="${round.round}" data-match="${matchIdx}" class="judge-input">
-                        `;
-                    } else if (data.published) {
-                        matchHTML += `
-                            <p>Кабинет: ${match.room || 'Не указан'}</p>
-                            <p>Судья: ${match.judge || 'Не указан'}</p>
+                    } else {
+                        matchDiv.innerHTML = `
+                            <p>${match.team1} vs ${match.team2} vs ${match.team3} vs ${match.team4}</p>
+                            <p>Победитель: ${match.winner || 'Не определён'}</p>
+                            ${isCreator ? `<button onclick="setWinner(${match.round}, '${match.team1}', '${match.team2}', '${match.team3}', '${match.team4}', ${tournamentId})">Выбрать победителя</button>` : ''}
                         `;
                     }
-                    matchDiv.innerHTML = matchHTML;
                     roundDiv.appendChild(matchDiv);
                 });
                 bracketDisplay.appendChild(roundDiv);
             });
-            if (isCreator && !data.published) {
-                const publishBtn = document.createElement('button');
-                publishBtn.id = 'publish-bracket-btn';
-                publishBtn.textContent = 'Опубликовать';
-                publishBtn.onclick = async () => {
-                    const updatedMatches = data.matches.map(round => ({
-                        round: round.round,
-                        matches: round.matches.map((match, matchIdx) => ({
-                            teams: match.teams,
-                            room: document.querySelector(`.room-input[data-round="${round.round}"][data-match="${matchIdx}"]`).value,
-                            judge: document.querySelector(`.judge-input[data-round="${round.round}"][data-match="${matchIdx}"]`).value
-                        }))
-                    }));
-                    await supabaseFetch(`brackets?id=eq.${data.id}`, 'PATCH', { matches: updatedMatches, published: true });
-                    loadBracket(tournamentId);
-                };
-                bracketDisplay.appendChild(publishBtn);
-            }
         } else {
-            bracketDisplay.innerHTML = '<p>Сетка ещё не опубликована.</p>';
+            bracketDisplay.innerHTML = '<p>Сетка ещё не сформирована.</p>';
         }
     } catch (error) {
         console.error('Error loading bracket:', error);
@@ -1563,17 +1555,28 @@ async function loadBracket(tournamentId) {
     }
 }
 
-const ratingList = document.getElementById('rating-list');
-const rating = [
-    { name: 'Иван Иванов', points: 150 },
-    { name: 'Анна Петрова', points: 120 }
-];
-
-rating.forEach(player => {
-    const div = document.createElement('div');
-    div.classList.add('post');
-    div.innerHTML = `<strong>${player.name}</strong> - ${player.points} очков`;
-    ratingList.appendChild(div);
-});
+async function setWinner(round, ...teams) {
+    const tournamentId = arguments[arguments.length - 1];
+    const winner = prompt(`Выберите победителя среди: ${teams.join(', ')}`);
+    if (!winner || !teams.includes(winner)) {
+        alert('Пожалуйста, выберите корректного победителя!');
+        return;
+    }
+    try {
+        const brackets = await supabaseFetch(`brackets?tournament_id=eq.${tournamentId}&order=timestamp.desc`, 'GET');
+        if (!brackets || brackets.length === 0) return;
+        const bracket = brackets[0];
+        const match = bracket.matches.find(m => m.round === round && teams.includes(m.team1));
+        if (match) {
+            match.winner = winner;
+            await supabaseFetch(`brackets?id=eq.${bracket.id}`, 'PATCH', { matches: bracket.matches });
+            alert('Победитель сохранён!');
+            loadBracket(tournamentId);
+        }
+    } catch (error) {
+        console.error('Error setting winner:', error);
+        alert('Ошибка: ' + error.message);
+    }
+}
 
 checkProfile();
