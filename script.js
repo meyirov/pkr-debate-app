@@ -148,6 +148,7 @@ buttons.forEach(button => {
             debouncedLoadPosts();
         }
         if (button.id === 'tournaments-btn') loadTournaments();
+        if (button.id === 'rating-btn') loadRating();
     });
 });
 
@@ -523,12 +524,12 @@ async function renderMorePosts(newPosts) {
             <div class="comment-section" id="comments-${post.id}" style="display: none;">
                 <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
                 <div class="comment-list" id="comment-list-${post.id}" style="max-height: 200px; overflow-y: auto;"></div>
-                <div class="comment-form">
-                    <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
-                    <button onclick="addComment(${post.id})">Отправить</button>
-                </div>
+            <div class="comment-form">
+                <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
+                <button onclick="addComment(${post.id})">Отправить</button>
             </div>
-        `;
+        </div>
+    `;
 
         postsDiv.appendChild(postDiv);
 
@@ -1536,4 +1537,30 @@ async function loadBracket(tournamentId) {
 }
 
 const ratingList = document.getElementById('rating-list');
-const rating =
+
+async function loadRating() {
+    try {
+        const ratings = await supabaseFetch('ratings?order=points.desc&limit=100', 'GET');
+        ratingList.innerHTML = '';
+        if (ratings && ratings.length > 0) {
+            ratings.forEach((rating, index) => {
+                const ratingItem = document.createElement('div');
+                ratingItem.classList.add('rating-item');
+                ratingItem.innerHTML = `
+                    <span>#${index + 1}</span>
+                    <strong>${rating.fullname}</strong>
+                    <span>@${rating.telegram_username}</span>
+                    <span>${rating.points} очков</span>
+                `;
+                ratingList.appendChild(ratingItem);
+            });
+        } else {
+            ratingList.innerHTML = '<p>Рейтинг пока пуст.</p>';
+        }
+    } catch (error) {
+        console.error('Error loading ratings:', error);
+        ratingList.innerHTML = '<p>Ошибка загрузки рейтинга.</p>';
+    }
+}
+
+checkProfile();
