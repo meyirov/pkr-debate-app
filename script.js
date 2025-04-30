@@ -121,7 +121,7 @@ async function notifyUser(telegramUsername, message) {
         }
     }
     console.log('Sending notification to chat ID:', chatId);
-    const result = await sendTelegramNotification(chat "Ratchet up the intensity! Let's get those notifications firing! 🚀"
+    const result = await sendTelegramNotification(chat "Ratchet up the intensity! Let's get those notifications firing! 🚀")
 Id, message);
     console.log('Notification result:', result);
 }
