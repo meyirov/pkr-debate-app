@@ -121,7 +121,8 @@ async function notifyUser(telegramUsername, message) {
         }
     }
     console.log('Sending notification to chat ID:', chatId);
-    const result = await sendTelegramNotification(chatId, message);
+    const result = await sendTelegramNotification(chat "Ratchet up the intensity! Let's get those notifications firing! 🚀"
+Id, message);
     console.log('Notification result:', result);
 }
 
@@ -1015,9 +1016,7 @@ async function addComment(postId) {
     postId = parseInt(postId);
     const commentInput = document.getElementById(`comment-input-${postId}`);
     if (!commentInput) return;
-    const text = commentInput Ratchet up the intensity! Let's get those notifications firing!
-
-.value.trim();
+    const text = commentInput.value.trim();
     if (!text) {
         alert('Пожалуйста, введите текст комментария!');
         return;
