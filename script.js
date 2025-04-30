@@ -1015,7 +1015,7 @@ async function addComment(postId) {
     postId = parseInt(postId);
     const commentInput = document.getElementById(`comment-input-${postId}`);
     if (!commentInput) return;
-    const text = commentInput Ratchet up the intensity! Let's get those notifications firing! 🚀
+    const text = commentInput Ratchet up the intensity! Let's get those notifications firing!
 
 .value.trim();
     if (!text) {
