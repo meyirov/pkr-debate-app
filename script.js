@@ -1,4 +1,4 @@
-console.log('script.js loaded, version: 2025-04-29');
+console.log('script.js loaded, version: 2025-04-30');
 
 const { createClient } = supabase;
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -9,6 +9,7 @@ tg.ready();
 const registrationModal = document.getElementById('registration-modal');
 const appContainer = document.getElementById('app-container');
 const regFullname = document.getElementById('reg-fullname');
+const regTelegramId = document.getElementById('reg-telegram-id');
 const submitProfileRegBtn = document.getElementById('submit-profile-reg-btn');
 let userData = {};
 let postsCache = [];
@@ -72,6 +73,42 @@ async function uploadImage(file) {
     return urlData.publicUrl;
 }
 
+async function sendTelegramNotification(telegramId, message) {
+    try {
+        const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                chat_id: telegramId,
+                text: message,
+                parse_mode: 'HTML'
+            })
+        });
+        if (!response.ok) {
+            throw new Error('Failed to send Telegram notification');
+        }
+    } catch (error) {
+        console.error('Error sending Telegram notification:', error);
+    }
+}
+
+async function notifyTaggedUsers(content, senderFullname, senderUsername, postId = null) {
+    const tagRegex = /@(\w+)/g;
+    const taggedUsernames = [...content.matchAll(tagRegex)].map(match => match[1]);
+    
+    for (const username of taggedUsernames) {
+        const profile = await supabaseFetch(`profiles?telegram_username=eq.${username}`, 'GET');
+        if (profile && profile.length > 0 && profile[0].telegram_id) {
+            const message = postId ?
+                `<b>${senderFullname} (@${senderUsername})</b> упомянул вас в посте:\n${content.substring(0, 100)}...\n<a href="#post-${postId}">Перейти к посту</a>` :
+                `<b>${senderFullname} (@${senderUsername})</b> упомянул вас в комментарии:\n${content.substring(0, 100)}...`;
+            await sendTelegramNotification(profile[0].telegram_id, message);
+        }
+    }
+}
+
 async function checkProfile() {
     console.log('checkProfile started');
     const telegramUsername = tg.initDataUnsafe.user ? tg.initDataUnsafe.user.username : null;
@@ -86,6 +123,7 @@ async function checkProfile() {
         console.log('Profiles fetched:', profiles);
         if (profiles && profiles.length > 0) {
             userData.fullname = profiles[0].fullname;
+            userData.telegramId = profiles[0].telegram_id;
             showApp();
         } else {
             registrationModal.style.display = 'block';
@@ -97,15 +135,17 @@ async function checkProfile() {
 }
 
 submitProfileRegBtn.addEventListener('click', async () => {
-    if (!regFullname.value.trim()) {
-        alert('Пожалуйста, введите имя!');
+    if (!regFullname.value.trim() || !regTelegramId.value.trim()) {
+        alert('Пожалуйста, введите имя и Telegram ID!');
         return;
     }
     userData.fullname = regFullname.value.trim();
+    userData.telegramId = regTelegramId.value.trim();
     try {
         await supabaseFetch('profiles', 'POST', {
             telegram_username: userData.telegramUsername,
-            fullname: userData.fullname
+            fullname: userData.fullname,
+            telegram_id: userData.telegramId
         });
         registrationModal.style.display = 'none';
         showApp();
@@ -120,6 +160,7 @@ function showApp() {
     appContainer.style.display = 'block';
     document.getElementById('username').textContent = userData.telegramUsername;
     document.getElementById('fullname').value = userData.fullname;
+    document.getElementById('telegram-id').value = userData.telegramId || '';
     console.log('Calling loadPosts');
     loadPosts();
     console.log('Calling subscribeToNewPosts');
@@ -149,6 +190,7 @@ buttons.forEach(button => {
         }
         if (button.id === 'tournaments-btn') loadTournaments();
         if (button.id === 'rating-btn') loadRating();
+        if (button.id === 'profile-btn') showProfile();
     });
 });
 
@@ -157,16 +199,19 @@ const debouncedLoadPosts = debounce(loadPosts, 300);
 const updateProfileBtn = document.getElementById('update-profile');
 updateProfileBtn.addEventListener('click', async () => {
     const newFullname = document.getElementById('fullname').value.trim();
-    if (!newFullname) {
-        alert('Пожалуйста, введите новое имя!');
+    const newTelegramId = document.getElementById('telegram-id').value.trim();
+    if (!newFullname || !newTelegramId) {
+        alert('Пожалуйста, введите имя и Telegram ID!');
         return;
     }
     userData.fullname = newFullname;
+    userData.telegramId = newTelegramId;
     try {
         await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'PATCH', {
-            fullname: userData.fullname
+            fullname: userData.fullname,
+            telegram_id: userData.telegramId
         });
-        alert('Имя обновлено!');
+        alert('Профиль обновлен!');
     } catch (error) {
         console.error('Error updating profile:', error);
         alert('Ошибка: ' + error.message);
@@ -218,6 +263,7 @@ submitPost.addEventListener('click', async () => {
             post.image_url = imageUrl;
         }
         const newPost = await supabaseFetch('posts', 'POST', post);
+        await notifyTaggedUsers(postContent, userData.fullname, userData.telegramUsername, newPost[0].id);
         postText.value = '';
         postImage.value = '';
         if (!postsCache.some(p => p.id === newPost[0].id)) {
@@ -354,7 +400,7 @@ function subscribeToNewPosts() {
 
     channel = supabaseClient
         .channel('posts-channel')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, (payload) => {
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, async (payload) => {
             const newPost = payload.new;
             if (!postsCache.some(post => post.id === newPost.id)) {
                 postsCache.unshift(newPost);
@@ -367,6 +413,8 @@ function subscribeToNewPosts() {
                     newPostsBtn.style.display = 'block';
                     newPostsBtn.classList.add('visible');
                 }
+                const [, content] = newPost.text.split(':\n');
+                await notifyTaggedUsers(content, userData.fullname, userData.telegramUsername, newPost.id);
             }
         })
         .subscribe((status) => {
@@ -432,12 +480,12 @@ function renderNewPosts(newPosts, prepend = false) {
 
 function formatPostContent(content) {
     let formattedContent = content.replace(/\n/g, '<br>');
-
     const urlRegex = /(https?:\/\/[^\s<]+[^\s<.,:;"')\]\}])/g;
     formattedContent = formattedContent.replace(urlRegex, (url) => {
-        return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="post-link">${url}</a>`;
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
     });
-
+    const tagRegex = /@(\w+)/g;
+    formattedContent = formattedContent.replace(tagRegex, '<span class="tag">@$1</span>');
     return formattedContent;
 }
 
@@ -473,7 +521,7 @@ function renderNewPost(post, prepend = false) {
             <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
             <div class="comment-list" id="comment-list-${post.id}" style="max-height: 200px; overflow-y: auto;"></div>
             <div class="comment-form">
-                <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
+                <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий... Используйте @username для тега"></textarea>
                 <button onclick="addComment(${post.id})">Отправить</button>
             </div>
         </div>
@@ -521,12 +569,12 @@ async function renderMorePosts(newPosts) {
             <div class="comment-section" id="comments-${post.id}" style="display: none;">
                 <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
                 <div class="comment-list" id="comment-list-${post.id}" style="max-height: 200px; overflow-y: auto;"></div>
-            <div class="comment-form">
-                <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
-                <button onclick="addComment(${post.id})">Отправить</button>
+                <div class="comment-form">
+                    <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий... Используйте @username для тега"></textarea>
+                    <button onclick="addComment(${post.id})">Отправить</button>
+                </div>
             </div>
-        </div>
-    `;
+        `;
 
         postsDiv.appendChild(postDiv);
 
@@ -616,10 +664,10 @@ async function updatePost(postId) {
             <button class="comment-toggle-btn" onclick="toggleComments(${postId})">💬 Комментарии (${commentCount})</button>
         </div>
         <div class="comment-section" id="comments-${postId}" style="display: none;">
-            <button id="new-comments-btn-${postId}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
+            <button id="new-comments- btn-${postId}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
             <div class="comment-list" id="comment-list-${postId}" style="max-height: 200px; overflow-y: auto;"></div>
             <div class="comment-form">
-                <textarea class="comment-input" id="comment-input-${postId}" placeholder="Написать комментарий..."></textarea>
+                <textarea class="comment-input" id="comment-input-${postId}" placeholder="Написать комментарий... Используйте @username для тега"></textarea>
                 <button onclick="addComment(${postId})">Отправить</button>
             </div>
         </div>
@@ -662,12 +710,23 @@ function subscribeToReactions(postId) {
 
     const channel = supabaseClient
         .channel(`reactions-channel-${postId}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'reactions', filter: `post_id=eq.${postId}` }, (payload) => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'reactions', filter: `post_id=eq.${postId}` }, async (payload) => {
             console.log(`Reaction change detected for post ${postId}:`, payload);
-            updatePost(postId);
+            await updatePost(postId);
+            const reaction = payload.new || payload.old;
+            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                const post = postsCache.find(p => p.id === postId);
+                if (post && post.user_id !== userData.telegramUsername) {
+                    const profile = await supabaseFetch(`profiles?telegram_username=eq.${post.user_id}`, 'GET');
+                    if (profile && profile.length > 0 && profile[0].telegram_id) {
+                        const message = `<b>${userData.fullname} (@${userData.telegramUsername})</b> поставил ${reaction.type === 'like' ? 'лайк' : 'дизлайк'} вашему посту:\n${post.text.substring(0, 100)}...`;
+                        await sendTelegramNotification(profile[0].telegram_id, message);
+                    }
+                }
+            }
         })
         .subscribe((status) => {
-            if (status === 'SUBSCRIBED') {
+            if (status === ' 로드') {
                 console.log(`Subscribed to reactions channel for post ${postId}`);
             } else {
                 console.error(`Failed to subscribe to reactions channel for post ${postId}:`, status);
@@ -787,7 +846,7 @@ function subscribeToNewComments(postId) {
 
     const channel = supabaseClient
         .channel(`comments-channel-${postId}`)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments', filter: `post_id=eq.${postId}` }, (payload) => {
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments', filter: `post_id=eq.${postId}` }, async (payload) => {
             const newComment = payload.new;
             const currentComments = commentsCache.get(postId) || [];
             if (!currentComments.some(comment => comment.id === newComment.id)) {
@@ -806,6 +865,17 @@ function subscribeToNewComments(postId) {
                         newCommentsBtn.textContent = `Новые комментарии (${newCommentsCount.get(postId)})`;
                     }
                 }
+                const post = postsCache.find(p => p.id === postId);
+                if (post && post.user_id !== userData.telegramUsername) {
+                    const profile = await supabaseFetch(`profiles?telegram_username=eq.${post.user_id}`, 'GET');
+                    if (profile && profile.length > 0 && profile[0].telegram_id) {
+                        const [, commentContent] = newComment.text.split(':\n');
+                        const message = `<b>${userData.fullname} (@${userData.telegramUsername})</b> прокомментировал ваш пост:\n${commentContent.substring(0, 100)}...`;
+                        await sendTelegramNotification(profile[0].telegram_id, message);
+                    }
+                }
+                const [, commentContent] = newComment.text.split(':\n');
+                await notifyTaggedUsers(commentContent, userData.fullname, userData.telegramUsername);
             }
         })
         .subscribe((status) => {
@@ -867,120 +937,106 @@ async function renderComments(postId, comments) {
     const commentList = document.getElementById(`comment-list-${postId}`);
     if (!commentList) return;
     commentList.innerHTML = '';
-    comments.forEach(comment => {
-        renderNewComment(postId, comment, true);
-    });
-}
 
-async function renderNewComments(postId, newComments, append = true) {
-    for (const comment of newComments) {
-        renderNewComment(postId, comment, append);
+    for (const comment of comments) {
+        renderNewComment(postId, comment, false);
     }
 }
 
-function renderNewComment(postId, comment, append = true) {
+function renderNewComment(postId, comment, prepend = false) {
     const commentList = document.getElementById(`comment-list-${postId}`);
     if (!commentList) return;
 
     const commentDiv = document.createElement('div');
     commentDiv.classList.add('comment');
+
     const [userInfo, ...contentParts] = comment.text.split(':\n');
     const [fullname, username] = userInfo.split(' (@');
     const cleanUsername = username ? username.replace(')', '') : '';
     const content = contentParts.join(':\n');
     const formattedContent = formatPostContent(content);
+    const timeAgo = getTimeAgo(new Date(comment.timestamp));
 
     commentDiv.innerHTML = `
         <div class="comment-user">
-            <strong>${fullname}</strong> <span>@${cleanUsername}</span>
+            <strong>${fullname}</strong>
+            <span>@${cleanUsername}</span> • ${timeAgo}
         </div>
         <div class="comment-content">${formattedContent}</div>
     `;
 
-    if (append) {
-        commentList.appendChild(commentDiv);
-        if (isUserAtBottom(postId)) {
-            commentList.scrollTop = commentList.scrollHeight;
-        }
-    } else {
+    if (prepend) {
         commentList.prepend(commentDiv);
+    } else {
+        commentList.appendChild(commentDiv);
     }
 }
 
-async function renderMoreComments(postId, newComments) {
-    for (const comment of newComments) {
-        const commentList = document.getElementById(`comment-list-${postId}`);
-        if (!commentList) return;
+async function renderMoreComments(postId, comments) {
+    const commentList = document.getElementById(`comment-list-${postId}`);
+    if (!commentList) return;
 
+    for (const comment of comments) {
         const commentDiv = document.createElement('div');
         commentDiv.classList.add('comment');
+
         const [userInfo, ...contentParts] = comment.text.split(':\n');
         const [fullname, username] = userInfo.split(' (@');
         const cleanUsername = username ? username.replace(')', '') : '';
         const content = contentParts.join(':\n');
         const formattedContent = formatPostContent(content);
+        const timeAgo = getTimeAgo(new Date(comment.timestamp));
 
         commentDiv.innerHTML = `
             <div class="comment-user">
-                <strong>${fullname}</strong> <span>@${cleanUsername}</span>
+                <strong>${fullname}</strong>
+                <span>@${cleanUsername}</span> • ${timeAgo}
             </div>
             <div class="comment-content">${formattedContent}</div>
         `;
-        commentList.appendChild(commentDiv);
+
+        commentList.prepend(commentDiv);
+    }
+}
+
+async function renderNewComments(postId, comments, prepend = false) {
+    for (const comment of comments) {
+        renderNewComment(postId, comment, prepend);
     }
 }
 
 async function addComment(postId) {
-    postId = parseInt(postId);
     const commentInput = document.getElementById(`comment-input-${postId}`);
-    if (!commentInput) return;
-    const text = commentInput.value.trim();
-    if (!text) {
+    const commentContent = commentInput.value.trim();
+    if (!commentContent) {
         alert('Пожалуйста, введите текст комментария!');
         return;
     }
 
+    const text = `${userData.fullname} (@${userData.telegramUsername}):\n${commentContent}`;
+    const comment = {
+        post_id: postId,
+        user_id: userData.telegramUsername,
+        text: text,
+        timestamp: new Date().toISOString()
+    };
+
     try {
-        const postExists = await supabaseFetch(`posts?id=eq.${postId}`, 'GET');
-        if (!postExists || postExists.length === 0) {
-            throw new Error('Пост не найден. Возможно, он был удалён.');
-        }
-
-        const userExists = await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'GET');
-        if (!userExists || userExists.length === 0) {
-            throw new Error('Пользователь не найден в базе данных. Пожалуйста, зарегистрируйтесь.');
-        }
-
-        const comment = {
-            post_id: postId,
-            user_id: userData.telegramUsername,
-            text: `${userData.fullname} (@${userData.telegramUsername}):\n${text}`,
-            timestamp: new Date().toISOString()
-        };
-
         const newComment = await supabaseFetch('comments', 'POST', comment);
         commentInput.value = '';
-
         const currentComments = commentsCache.get(postId) || [];
         if (!currentComments.some(c => c.id === newComment[0].id)) {
             commentsCache.set(postId, [...currentComments, newComment[0]]);
             sortCommentsCache(postId);
-            if (isUserAtBottom(postId)) {
-                renderNewComment(postId, newComment[0], true);
-                lastCommentIds.set(postId, commentsCache.get(postId)[commentsCache.get(postId).lengthGramma - 1].id);
-            } else {
-                const currentCount = newCommentsCount.get(postId) || 0;
-                newCommentsCount.set(postId, currentCount + 1);
-                const newCommentsBtn = document.getElementById(`new-comments-btn-${postId}`);
-                if (newCommentsBtn) {
-                    newCommentsBtn.style.display = 'block';
-                    newCommentsBtn.classList.add('visible');
-                    newCommentsBtn.textContent = `Новые комментарии (${newCommentsCount.get(postId)})`;
-                }
+            renderNewComment(postId, newComment[0], true);
+            lastCommentIds.set(postId, commentsCache.get(postId)[commentsCache.get(postId).length - 1].id);
+            const commentBtn = document.querySelector(`[data-post-id="${postId}"] .comment-toggle-btn`);
+            if (commentBtn) {
+                const commentCount = commentsCache.get(postId).length;
+                commentBtn.innerHTML = `💬 Комментарии (${commentCount})`;
             }
+            await notifyTaggedUsers(commentContent, userData.fullname, userData.telegramUsername);
         }
-
-        await updatePost(postId);
     } catch (error) {
         console.error('Error adding comment:', error);
         alert('Ошибка: ' + error.message);
@@ -989,45 +1045,452 @@ async function addComment(postId) {
 
 function toggleComments(postId) {
     const commentSection = document.getElementById(`comments-${postId}`);
-    if (commentSection) {
-        const isVisible = commentSection.style.display === 'block';
-        commentSection.style.display = isVisible ? 'none' : 'block';
+    if (commentSection.style.display === 'none' || !commentSection.style.display) {
+        commentSection.style.display = 'block';
+        loadComments(postId).then(comments => renderComments(postId, comments));
+    } else {
+        commentSection.style.display = 'none';
+    }
+}
 
-        if (!isVisible) {
-            loadComments(postId).then(comments => renderComments(postId, comments));
-            setupCommentInfiniteScroll(postId);
+async function loadTournaments() {
+    const tournamentList = document.getElementById('tournament-list');
+    tournamentList.innerHTML = '';
+
+    try {
+        const tournaments = await supabaseFetch('tournaments?order=created_at.desc', 'GET');
+        if (tournaments && tournaments.length > 0) {
+            tournaments.forEach(tournament => {
+                const card = document.createElement('div');
+                card.classList.add('tournament-card');
+                card.innerHTML = `
+                    <img src="${tournament.logo || 'https://via.placeholder.com/64'}" class="tournament-logo" alt="${tournament.name}">
+                    <div class="tournament-info">
+                        <strong>${tournament.name}</strong>
+                        <span>Дата: ${tournament.date}</span>
+                        <span>Дедлайн: ${tournament.deadline}</span>
+                    </div>
+                `;
+                card.addEventListener('click', () => showTournamentDetails(tournament.id));
+                tournamentList.appendChild(card);
+            });
         } else {
-            if (commentChannels.has(postId)) {
-                supabaseClient.removeChannel(commentChannels.get(postId));
-                commentChannels.delete(postId);
-            }
+            tournamentList.innerHTML = '<p>Турниры не найдены.</p>';
         }
+    } catch (error) {
+        console.error('Error loading tournaments:', error);
+        alert('Ошибка загрузки турниров: ' + error.message);
+    }
+}
+
+async function showTournamentDetails(tournamentId) {
+    currentTournamentId = tournamentId;
+    const tournamentDetails = document.getElementById('tournament-details');
+    const tournamentHeader = document.getElementById('tournament-header');
+    const tournamentDescription = document.getElementById('tournament-description');
+    const toggleDescriptionBtn = document.getElementById('toggle-description-btn');
+    const sections = document.querySelectorAll('.content');
+    const navButtons = document.querySelectorAll('.nav-btn');
+
+    sections.forEach(section => section.classList.remove('active'));
+    navButtons.forEach(btn => btn.classList.remove('active'));
+    tournamentDetails.classList.add('active');
+
+    try {
+        const tournament = await supabaseFetch(`tournaments?id=eq.${tournamentId}`, 'GET');
+        if (tournament && tournament.length > 0) {
+            const t = tournament[0];
+            tournamentHeader.innerHTML = `
+                <img src="${t.logo || 'https://via.placeholder.com/150'}" alt="${t.name}">
+                <strong>${t.name}</strong>
+                <p>Дата: ${t.date}</p>
+                <p>Дедлайн: ${t.deadline}</p>
+                <p>Адрес: <a href="${t.address}" target="_blank">Открыть в 2GIS</a></p>
+            `;
+            tournamentDescription.innerHTML = `<p>${t.description}</p>`;
+            tournamentDescription.classList.add('description-hidden');
+            toggleDescriptionBtn.textContent = 'Развернуть описание';
+            toggleDescriptionBtn.onclick = () => {
+                tournamentDescription.classList.toggle('description-hidden');
+                toggleDescriptionBtn.textContent = tournamentDescription.classList.contains('description-hidden') ? 'Развернуть описание' : 'Свернуть описание';
+            };
+            setupTournamentTabs(tournamentId);
+            loadTournamentPosts(tournamentId);
+        } else {
+            tournamentHeader.innerHTML = '<p>Турнир не найден.</p>';
+        }
+    } catch (error) {
+        console.error('Error loading tournament details:', error);
+        alert('Ошибка: ' + error.message);
+    }
+}
+
+function setupTournamentTabs(tournamentId) {
+    const postsTab = document.getElementById('posts-tab');
+    const registrationTab = document.getElementById('registration-tab');
+    const bracketTab = document.getElementById('bracket-tab');
+    const postsContent = document.getElementById('tournament-posts');
+    const registrationContent = document.getElementById('tournament-registration');
+    const bracketContent = document.getElementById('tournament-bracket');
+
+    postsTab.addEventListener('click', () => {
+        postsTab.classList.add('active');
+        registrationTab.classList.remove('active');
+        bracketTab.classList.remove('active');
+        postsContent.classList.add('active');
+        registrationContent.classList.remove('active');
+        bracketContent.classList.remove('active');
+        loadTournamentPosts(tournamentId);
+    });
+
+    registrationTab.addEventListener('click', () => {
+        postsTab.classList.remove('active');
+        registrationTab.classList.add('active');
+        bracketTab.classList.remove('active');
+        postsContent.classList.remove('active');
+        registrationContent.classList.add('active');
+        bracketContent.classList.remove('active');
+        loadRegistrations(tournamentId);
+    });
+
+    bracketTab.addEventListener('click', () => {
+        postsTab.classList.remove('active');
+        registrationTab.classList.remove('active');
+        bracketTab.classList.add('active');
+        postsContent.classList.remove('active');
+        registrationContent.classList.remove('active');
+        bracketContent.classList.add('active');
+        loadBracket(tournamentId);
+    });
+
+    postsTab.classList.add('active');
+    postsContent.classList.add('active');
+}
+
+async function loadTournamentPosts(tournamentId) {
+    const postsContainer = document.getElementById('tournament-posts');
+    postsContainer.innerHTML = `
+        <div id="new-tournament-post">
+            <textarea id="tournament-post-text" placeholder="Напишите пост для турнира... Используйте @username для тега"></textarea>
+            <button id="submit-tournament-post">Опубликовать</button>
+        </div>
+        <div id="tournament-posts-list"></div>
+    `;
+
+    const submitTournamentPost = document.getElementById('submit-tournament-post');
+    const tournamentPostText = document.getElementById('tournament-post-text');
+    const tournamentPostsList = document.getElementById('tournament-posts-list');
+
+    submitTournamentPost.addEventListener('click', async () => {
+        const postContent = tournamentPostText.value.trim();
+        if (!postContent) {
+            alert('Пожалуйста, введите текст поста!');
+            return;
+        }
+        const text = `${userData.fullname} (@${userData.telegramUsername}):\n${postContent}`;
+        const post = {
+            tournament_id: tournamentId,
+            text: text,
+            timestamp: new Date().toISOString(),
+            user_id: userData.telegramUsername
+        };
+        try {
+            const newPost = await supabaseFetch('tournament_posts', 'POST', post);
+            await notifyTaggedUsers(postContent, userData.fullname, userData.telegramUsername, newPost[0].id);
+            tournamentPostText.value = '';
+            loadTournamentPosts(tournamentId);
+        } catch (error) {
+            console.error('Error saving tournament post:', error);
+            alert('Ошибка: ' + error.message);
+        }
+    });
+
+    try {
+        const posts = await supabaseFetch(`tournament_posts?tournament_id=eq.${tournamentId}&order=id.desc`, 'GET');
+        tournamentPostsList.innerHTML = '';
+        if (posts && posts.length > 0) {
+            posts.forEach(post => {
+                const postDiv = document.createElement('div');
+                postDiv.classList.add('post');
+                const [userInfo, ...contentParts] = post.text.split(':\n');
+                const [fullname, username] = userInfo.split(' (@');
+                const cleanUsername = username ? username.replace(')', '') : '';
+                const content = contentParts.join(':\n');
+                const formattedContent = formatPostContent(content);
+                const timeAgo = getTimeAgo(new Date(post.timestamp));
+
+                postDiv.innerHTML = `
+                    <div class="post-header">
+                        <div class="post-user">
+                            <strong>${fullname}</strong>
+                            <span>@${cleanUsername}</span>
+                        </div>
+                        <div class="post-time">${timeAgo}</div>
+                    </div>
+                    <div class="post-content">${formattedContent}</div>
+                `;
+                tournamentPostsList.appendChild(postDiv);
+            });
+        } else {
+            tournamentPostsList.innerHTML = '<p>Посты не найдены.</p>';
+        }
+    } catch (error) {
+        console.error('Error loading tournament posts:', error);
+        alert('Ошибка: ' + error.message);
+    }
+}
+
+async function loadRegistrations(tournamentId) {
+    const registrationContainer = document.getElementById('registration-list');
+    const registerBtn = document.getElementById('register-tournament-btn');
+    const registrationForm = document.getElementById('registration-form');
+    const submitRegistrationBtn = document.getElementById('submit-registration-btn');
+
+    registerBtn.onclick = () => {
+        registrationForm.classList.toggle('form-hidden');
+    };
+
+    submitRegistrationBtn.onclick = async () => {
+        const factionName = document.getElementById('reg-faction-name').value.trim();
+        const speaker1 = document.getElementById('reg-speaker1').value.trim();
+        const speaker2 = document.getElementById('reg-speaker2').value.trim();
+        const club = document.getElementById('reg-club').value.trim();
+        const city = document.getElementById('reg-city').value.trim();
+        const contacts = document.getElementById('reg-contacts').value.trim();
+        const extra = document.getElementById('reg-extra').value.trim();
+
+        if (!factionName || !speaker1 || !speaker2 || !club || !city || !contacts) {
+            alert('Пожалуйста, заполните все обязательные поля!');
+            return;
+        }
+
+        const registration = {
+            tournament_id: tournamentId,
+            user_id: userData.telegramUsername,
+            faction_name: factionName,
+            speaker1,
+            speaker2,
+            club,
+            city,
+            contacts,
+            extra,
+            status: 'pending'
+        };
+
+        try {
+            await supabaseFetch('registrations', 'POST', registration);
+            registrationForm.classList.add('form-hidden');
+            document.getElementById('reg-faction-name').value = '';
+            document.getElementById('reg-speaker1').value = '';
+            document.getElementById('reg-speaker2').value = '';
+            document.getElementById('reg-club').value = '';
+            document.getElementById('reg-city').value = '';
+            document.getElementById('reg-contacts').value = '';
+            document.getElementById('reg-extra').value = '';
+            loadRegistrations(tournamentId);
+        } catch (error) {
+            console.error('Error submitting registration:', error);
+            alert('Ошибка: ' + error.message);
+        }
+    };
+
+    try {
+        const registrations = await supabaseFetch(`registrations?tournament_id=eq.${tournamentId}&order=created_at.desc`, 'GET');
+        registrationContainer.innerHTML = '';
+        if (registrations && registrations.length > 0) {
+            registrations.forEach(reg => {
+                const card = document.createElement('div');
+                card.classList.add('registration-card');
+                card.innerHTML = `
+                    <strong>${reg.faction_name}</strong>
+                    <p>Спикеры: ${reg.speaker1}, ${reg.speaker2}</p>
+                    <p>Клуб: ${reg.club}</p>
+                    <p>Город: ${reg.city}</p>
+                    <p>Контакты: ${reg.contacts}</p>
+                    ${reg.extra ? `<p>Дополнительно: ${reg.extra}</p>` : ''}
+                    <p>Статус: ${reg.status === 'pending' ? 'Ожидает' : reg.status === 'approved' ? 'Подтверждено' : 'Отклонено'}</p>
+                    ${reg.user_id === userData.telegramUsername ? `<button class="delete-registration-btn" onclick="deleteRegistration(${reg.id}, ${tournamentId})">Удалить</button>` : ''}
+                `;
+                registrationContainer.appendChild(card);
+            });
+        } else {
+            registrationContainer.innerHTML = '<p>Регистрации не найдены.</p>';
+        }
+    } catch (error) {
+        console.error('Error loading registrations:', error);
+        alert('Ошибка: ' + error.message);
+    }
+}
+
+async function deleteRegistration(registrationId, tournamentId) {
+    try {
+        await supabaseFetch(`registrations?id=eq.${registrationId}`, 'DELETE');
+        loadRegistrations(tournamentId);
+    } catch (error) {
+        console.error('Error deleting registration:', error);
+        alert('Ошибка: ' + error.message);
+    }
+}
+
+async function loadBracket(tournamentId) {
+    const bracketContainer = document.getElementById('tournament-bracket');
+    bracketContainer.innerHTML = `
+        <div id="bracket-form" class="form-hidden">
+            <select id="bracket-team1">
+                <option value="">Выберите первую команду</option>
+            </select>
+            <select id="bracket-team2">
+                <option value="">Выберите вторую команду</option>
+            </select>
+            <input id="bracket-score1" type="number" placeholder="Счет первой команды">
+            <input id="bracket-score2" type="number" placeholder="Счет второй команды">
+            <input id="bracket-round" type="text" placeholder="Раунд (например, Полуфинал)">
+            <button id="submit-bracket">Добавить матч</button>
+        </div>
+        <button id="toggle-bracket-form">Создать матч</button>
+        <div id="bracket-list"></div>
+    `;
+
+    const toggleBracketForm = document.getElementById('toggle-bracket-form');
+    const bracketForm = document.getElementById('bracket-form');
+    const submitBracket = document.getElementById('submit-bracket');
+    const team1Select = document.getElementById('bracket-team1');
+    const team2Select = document.getElementById('bracket-team2');
+    const bracketList = document.getElementById('bracket-list');
+
+    toggleBracketForm.onclick = () => {
+        bracketForm.classList.toggle('form-hidden');
+    };
+
+    try {
+        const registrations = await supabaseFetch(`registrations?tournament_id=eq.${tournamentId}&status=eq.approved`, 'GET');
+        if (registrations && registrations.length > 0) {
+            registrations.forEach(reg => {
+                const option1 = document.createElement('option');
+                option1.value = reg.faction_name;
+                option1.textContent = reg.faction_name;
+                team1Select.appendChild(option1);
+
+                const option2 = document.createElement('option');
+                option2.value = reg.faction_name;
+                option2.textContent = reg.faction_name;
+                team2Select.appendChild(option2);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading teams for bracket:', error);
+    }
+
+    submitBracket.onclick = async () => {
+        const team1 = team1Select.value;
+        const team2 = team2Select.value;
+        const score1 = document.getElementById('bracket-score1').value;
+        const score2 = document.getElementById('bracket-score2').value;
+        const round = document.getElementById('bracket-round').value.trim();
+
+        if (!team1 || !team2 || !round || score1 === '' || score2 === '') {
+            alert('Пожалуйста, заполните все поля!');
+            return;
+        }
+
+        if (team1 === team2) {
+            alert('Команды должны быть разными!');
+            return;
+        }
+
+        const match = {
+            tournament_id: tournamentId,
+            team1,
+            team2,
+            score1: parseInt(score1),
+            score2: parseInt(score2),
+            round
+        };
+
+        try {
+            await supabaseFetch('brackets', 'POST', match);
+            bracketForm.classList.add('form-hidden');
+            team1Select.value = '';
+            team2Select.value = '';
+            document.getElementById('bracket-score1').value = '';
+            document.getElementById('bracket-score2').value = '';
+            document.getElementById('bracket-round').value = '';
+            loadBracket(tournamentId);
+        } catch (error) {
+            console.error('Error submitting bracket:', error);
+            alert('Ошибка: ' + error.message);
+        }
+    };
+
+    try {
+        const brackets = await supabaseFetch(`brackets?tournament_id=eq.${tournamentId}&order=created_at.asc`, 'GET');
+        bracketList.innerHTML = '';
+        if (brackets && brackets.length > 0) {
+            const rounds = {};
+            brackets.forEach(match => {
+                if (!rounds[match.round]) {
+                    rounds[match.round] = [];
+                }
+                rounds[match.round].push(match);
+            });
+
+            for (const round in rounds) {
+                const roundDiv = document.createElement('div');
+                roundDiv.classList.add('bracket-round');
+                roundDiv.innerHTML = `<h3>${round}</h3>`;
+                rounds[round].forEach(match => {
+                    const matchDiv = document.createElement('div');
+                    matchDiv.classList.add('bracket-match');
+                    matchDiv.innerHTML = `
+                        <p>${match.team1} vs ${match.team2}</p>
+                        <p>Счет: ${match.score1} - ${match.score2}</p>
+                    `;
+                    roundDiv.appendChild(matchDiv);
+                });
+                bracketList.appendChild(roundDiv);
+            }
+        } else {
+            bracketList.innerHTML = '<p>Сетка не найдена.</p>';
+        }
+    } catch (error) {
+        console.error('Error loading bracket:', error);
+        alert('Ошибка: ' + error.message);
     }
 }
 
 const createTournamentBtn = document.getElementById('create-tournament-btn');
 const createTournamentForm = document.getElementById('create-tournament-form');
 const submitTournament = document.getElementById('submit-tournament');
-const tournamentList = document.getElementById('tournament-list');
 
 createTournamentBtn.addEventListener('click', () => {
     createTournamentForm.classList.toggle('form-hidden');
 });
 
 submitTournament.addEventListener('click', async () => {
+    const name = document.getElementById('tournament-name').value.trim();
+    const date = document.getElementById('tournament-date').value.trim();
+    const logo = document.getElementById('tournament-logo').value.trim();
+    const description = document.getElementById('tournament-desc').value.trim();
+    const address = document.getElementById('tournament-address').value.trim();
+    const deadline = document.getElementById('tournament-deadline').value.trim();
+
+    if (!name || !date || !description || !address || !deadline) {
+        alert('Пожалуйста, заполните все обязательные поля!');
+        return;
+    }
+
     const tournament = {
-        name: document.getElementById('tournament-name').value,
-        date: document.getElementById('tournament-date').value,
-        logo: document.getElementById('tournament-logo').value,
-        desc: document.getElementById('tournament-desc').value,
-        address: document.getElementById('tournament-address').value,
-        deadline: document.getElementById('tournament-deadline').value,
-        creator_id: userData.telegramUsername,
-        timestamp: new Date().toISOString()
+        name,
+        date,
+        logo,
+        description,
+        address,
+        deadline,
+        created_by: userData.telegramUsername
     };
+
     try {
         await supabaseFetch('tournaments', 'POST', tournament);
-        alert('Турнир создан!');
         createTournamentForm.classList.add('form-hidden');
         document.getElementById('tournament-name').value = '';
         document.getElementById('tournament-date').value = '';
@@ -1037,531 +1500,40 @@ submitTournament.addEventListener('click', async () => {
         document.getElementById('tournament-deadline').value = '';
         loadTournaments();
     } catch (error) {
-        console.error('Error saving tournament:', error);
+        console.error('Error creating tournament:', error);
         alert('Ошибка: ' + error.message);
     }
 });
 
-async function loadTournaments() {
-    try {
-        const tournaments = await supabaseFetch('tournaments?order=timestamp.desc&limit=50', 'GET');
-        tournamentList.innerHTML = '';
-        if (tournaments) {
-            tournaments.forEach(tournament => {
-                const tournamentCard = document.createElement('div');
-                tournamentCard.classList.add('tournament-card');
-                tournamentCard.setAttribute('data-tournament-id', tournament.id);
-                tournamentCard.addEventListener('click', () => showTournamentDetails(tournament.id));
-
-                const logoUrl = tournament.logo || 'placeholder.png';
-                const city = tournament.address ? extractCityFromAddress(tournament.address) : 'Не указан';
-
-                tournamentCard.innerHTML = `
-                    <img src="${logoUrl}" class="tournament-logo" alt="Логотип турнира" onerror="this.src='placeholder.png'">
-                    <div class="tournament-info">
-                        <strong>${tournament.name}</strong>
-                        <span>Дата: ${tournament.date}</span>
-                        <span>Город: ${city}</span>
-                    </div>
-                `;
-                tournamentList.appendChild(tournamentCard);
-            });
-        }
-    } catch (error) {
-        console.error('Error loading tournaments:', error);
-        alert('Ошибка загрузки турниров: ' + error.message);
-    }
-}
-
-async function showTournamentDetails(tournamentId) {
-    try {
-        const tournament = await supabaseFetch(`tournaments?id=eq.${tournamentId}`, 'GET');
-        if (!tournament || tournament.length === 0) return;
-
-        currentTournamentId = tournamentId;
-        const data = tournament[0];
-        const city = data.address ? extractCityFromAddress(data.address) : 'Не указан';
-        const isCreator = data.creator_id === userData.telegramUsername;
-
-        const header = document.getElementById('tournament-header');
-        const description = document.getElementById('tournament-description');
-        const toggleBtn = document.getElementById('toggle-description-btn');
-
-        header.innerHTML = `
-            <img src="${data.logo || 'placeholder.png'}" alt="Логотип турнира" onerror="this.src='placeholder.png'">
-            <strong>${data.name}</strong>
-            <p>Дата: ${data.date}</p>
-            <p>Город: ${city}</p>
-            <p>Адрес: <a href="${data.address}" target="_blank">${data.address}</a></p>
-            <p>Дедлайн: ${data.deadline}</p>
-        `;
-        description.innerHTML = `
-            <p>Описание: ${data.desc || 'Описание отсутствует'}</p>
-        `;
-
-        sections.forEach(section => section.classList.remove('active'));
-        document.getElementById('tournament-details').classList.add('active');
-        buttons.forEach(btn => btn.classList.remove('active'));
-
-        toggleBtn.onclick = () => {
-            if (description.classList.contains('description-hidden')) {
-                description.classList.remove('description-hidden');
-                toggleBtn.textContent = 'Свернуть описание';
-            } else {
-                description.classList.add('description-hidden');
-                toggleBtn.textContent = 'Развернуть описание';
-            }
-        };
-
-        initTabs();
-        initTournamentPosts(isCreator, data.name);
-        loadTournamentPosts(tournamentId);
-        initRegistration();
-        loadRegistrations(tournamentId, isCreator);
-        initBracket(isCreator);
-        loadBracket(tournamentId);
-    } catch (error) {
-        console.error('Error loading tournament details:', error);
-        alert('Ошибка: ' + error.message);
-    }
-}
-
-function extractCityFromAddress(address) {
-    return address.split('/')[3] || 'Не указан';
-}
-
-function initTabs() {
-    const postsTab = document.getElementById('posts-tab');
-    const registrationTab = document.getElementById('registration-tab');
-    const bracketTab = document.getElementById('bracket-tab');
-    const postsContent = document.getElementById('tournament-posts');
-    const registrationContent = document.getElementById('tournament-registration');
-    const bracketContent = document.getElementById('tournament-bracket');
-
-    postsTab.onclick = () => {
-        postsTab.classList.add('active');
-        registrationTab.classList.remove('active');
-        bracketTab.classList.remove('active');
-        postsContent.classList.add('active');
-        registrationContent.classList.remove('active');
-        bracketContent.classList.remove('active');
-    };
-
-    registrationTab.onclick = () => {
-        registrationTab.classList.add('active');
-        postsTab.classList.remove('active');
-        bracketTab.classList.remove('active');
-        registrationContent.classList.add('active');
-        postsContent.classList.remove('active');
-        bracketContent.classList.remove('active');
-    };
-
-    bracketTab.onclick = () => {
-        bracketTab.classList.add('active');
-        postsTab.classList.remove('active');
-        registrationTab.classList.remove('active');
-        bracketContent.classList.add('active');
-        postsContent.classList.remove('active');
-        registrationContent.classList.remove('active');
-    };
-}
-
-function initTournamentPosts(isCreator, tournamentName) {
-    const postsSection = document.getElementById('tournament-posts');
-    postsSection.innerHTML = '';
-    if (isCreator) {
-        postsSection.innerHTML = `
-            <div id="new-tournament-post">
-                <textarea id="tournament-post-text" placeholder="Создать пост от имени турнира"></textarea>
-                <button id="submit-tournament-post">Опубликовать</button>
-            </div>
-            <div id="tournament-posts-list"></div>
-        `;
-        document.getElementById('submit-tournament-post').onclick = async () => {
-            const text = document.getElementById('tournament-post-text').value.trim();
-            if (!text) {
-                alert('Пожалуйста, введите текст поста!');
-                return;
-            }
-            try {
-                await supabaseFetch('tournament_posts', 'POST', {
-                    tournament_id: currentTournamentId,
-                    creator_id: userData.telegramUsername,
-                    text: text,
-                    timestamp: new Date().toISOString()
-                });
-                document.getElementById('tournament-post-text').value = '';
-                loadTournamentPosts(currentTournamentId);
-            } catch (error) {
-                console.error('Error saving tournament post:', error);
-                alert('Ошибка: ' + error.message);
-            }
-        };
-    } else {
-        postsSection.innerHTML = `<div id="tournament-posts-list"></div>`;
-    }
-}
-
-async function loadTournamentPosts(tournamentId) {
-    try {
-        const posts = await supabaseFetch(`tournament_posts?tournament_id=eq.${tournamentId}&order=timestamp.desc`, 'GET');
-        const postsList = document.getElementById('tournament-posts-list');
-        postsList.innerHTML = '';
-        if (posts && posts.length > 0) {
-            const tournament = await supabaseFetch(`tournaments?id=eq.${tournamentId}`, 'GET');
-            const tournamentName = tournament[0].name;
-            posts.forEach(post => {
-                const postDiv = document.createElement('div');
-                postDiv.classList.add('post');
-                postDiv.innerHTML = `
-                    <div class="post-header">
-                        <strong>Турнир: ${tournamentName}</strong>
-                        <span>${getTimeAgo(new Date(post.timestamp))}</span>
-                    </div>
-                    <div class="post-content">${formatPostContent(post.text)}</div>
-                `;
-                postsList.appendChild(postDiv);
-            });
-        } else {
-            postsList.innerHTML = '<p>Пока нет постов от турнира.</p>';
-        }
-    } catch (error) {
-        console.error('Error loading tournament posts:', error);
-        postsList.innerHTML = '<p>Ошибка загрузки постов.</p>';
-    }
-}
-
-function initRegistration() {
-    const registerBtn = document.getElementById('register-tournament-btn');
-    const registrationForm = document.getElementById('registration-form');
-    const submitRegistrationBtn = document.getElementById('submit-registration-btn');
-
-    registerBtn.onclick = () => {
-        registrationForm.classList.toggle('form-hidden');
-    };
-
-    submitRegistrationBtn.addEventListener('click', async () => {
-        submitRegistrationBtn.disabled = true;
-
-        const registration = {
-            tournament_id: currentTournamentId,
-            faction_name: document.getElementById('reg-faction-name').value,
-            speaker1: document.getElementById('reg-speaker1').value,
-            speaker2: document.getElementById('reg-speaker2').value,
-            club: document.getElementById('reg-club').value,
-            city: document.getElementById('reg-city').value,
-            contacts: document.getElementById('reg-contacts').value,
-            extra: document.getElementById('reg-extra').value,
-            timestamp: new Date().toISOString()
-        };
-
-        if (!registration.faction_name) {
-            alert('Пожалуйста, укажите название фракции!');
-            submitRegistrationBtn.disabled = false;
-            return;
-        }
-        if (!registration.club) {
-            alert('Пожалуйста, укажите название клуба!');
-            submitRegistrationBtn.disabled = false;
-            return;
-        }
-
-        try {
-            await supabaseFetch('registrations', 'POST', registration);
-            alert('Регистрация отправлена!');
-            registrationForm.classList.add('form-hidden');
-            document.getElementById('reg-faction-name').value = '';
-            document.getElementById('reg-speaker1').value = '';
-            document.getElementById('reg-speaker2').value = '';
-            document.getElementById('reg-club').value = '';
-            document.getElementById('reg-city').value = '';
-            document.getElementById('reg-contacts').value = '';
-            document.getElementById('reg-extra').value = '';
-            loadRegistrations(currentTournamentId);
-        } catch (error) {
-            console.error('Error saving registration:', error);
-            alert('Ошибка: ' + error.message);
-        } finally {
-            submitRegistrationBtn.disabled = false;
-        }
-    });
-}
-
-async function loadRegistrations(tournamentId, isCreator) {
-    try {
-        const registrations = await supabaseFetch(`registrations?tournament_id=eq.${tournamentId}&order=timestamp.asc`, 'GET');
-        const registrationList = document.getElementById('registration-list');
-        registrationList.innerHTML = '';
-
-        const seen = new Set();
-        const uniqueRegistrations = registrations.filter(reg => {
-            const key = `${reg.tournament_id}|${reg.faction_name}|${reg.club}`;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        });
-
-        if (uniqueRegistrations.length > 0) {
-            uniqueRegistrations.forEach(reg => {
-                const regCard = document.createElement('div');
-                regCard.classList.add('registration-card');
-                regCard.setAttribute('data-registration-id', reg.id);
-                regCard.innerHTML = `
-                    <strong>${reg.faction_name || 'Не указано'}</strong>
-                    <p>Клуб: ${reg.club || 'Не указано'}</p>
-                    <p>Спикер 1: ${reg.speaker1 || 'Не указано'}</p>
-                    <p>Спикер 2: ${reg.speaker2 || 'Не указано'}</p>
-                    <p>Город: ${reg.city || 'Не указано'}</p>
-                    <p>Контакты: ${reg.contacts || 'Не указано'}</p>
-                    <p>Дополнительно: ${reg.extra || 'Нет'}</p>
-                    ${isCreator ? `<button class="delete-registration-btn" data-registration-id="${reg.id}">Удалить</button>` : ''}
-                `;
-                registrationList.appendChild(regCard);
-            });
-
-            if (isCreator) {
-                const deleteButtons = document.querySelectorAll('.delete-registration-btn');
-                deleteButtons.forEach(button => {
-                    button.onclick = async () => {
-                        const registrationId = button.getAttribute('data-registration-id');
-                        if (confirm('Вы уверены, что хотите удалить эту команду?')) {
-                            await deleteRegistration(registrationId, tournamentId);
-                        }
-                    };
-                });
-            }
-        } else {
-            registrationList.innerHTML = '<p>Пока нет зарегистрированных команд.</p>';
-        }
-    } catch (error) {
-        console.error('Error loading registrations:', error);
-        alert('Ошибка загрузки регистраций: ' + error.message);
-    }
-}
-
-async function deleteRegistration(registrationId, tournamentId) {
-    try {
-        await supabaseFetch(`registrations?id=eq.${registrationId}`, 'DELETE');
-        alert('Команда успешно удалена!');
-        const isCreator = (await supabaseFetch(`tournaments?id=eq.${tournamentId}`, 'GET'))[0].creator_id === userData.telegramUsername;
-        await loadRegistrations(tournamentId, isCreator);
-    } catch (error) {
-        console.error('Error deleting registration:', error);
-        alert('Ошибка при удалении команды: ' + error.message);
-    }
-}
-
-function initBracket(isCreator) {
-    const bracketSection = document.getElementById('tournament-bracket');
-    bracketSection.innerHTML = '';
-    if (isCreator) {
-        bracketSection.innerHTML = `
-            <div id="bracket-form">
-                <select id="bracket-format">
-                    <option value="АПФ">АПФ</option>
-                    <option value="БПФ">БПФ</option>
-                </select>
-                <input id="bracket-faction-count" type="number" placeholder="Количество фракций (чётное)" min="2" step="2">
-                <select id="bracket-round-count">
-                    <option value="1">1 раунд</option>
-                    <option value="2">2 раунда</option>
-                    <option value="3">3 раунда</option>
-                    <option value="4">4 раунда</option>
-                    <option value="5">5 раундов</option>
-                </select>
-                <button id="generate-bracket-btn">Сформировать сетку</button>
-            </div>
-            <div id="bracket-display"></div>
-        `;
-        document.getElementById('generate-bracket-btn').onclick = async () => {
-            generateBracket();
-        };
-    } else {
-        bracketSection.innerHTML = `<div id="bracket-display"></div>`;
-    }
-}
-
-async function generateBracket() {
-    const format = document.getElementById('bracket-format').value;
-    const factionCount = parseInt(document.getElementById('bracket-faction-count').value);
-    const roundCount = parseInt(document.getElementById('bracket-round-count').value);
-
-    if (isNaN(factionCount) || factionCount < 2 || factionCount % 2 !== 0) {
-        alert('Количество фракций должно быть чётным и больше 0!');
-        return;
-    }
-    if (format === 'БПФ' && factionCount % 4 !== 0) {
-        alert('Для формата БПФ количество фракций должно быть кратно 4!');
-        return;
-    }
-
-    const registrations = await supabaseFetch(`registrations?tournament_id=eq.${currentTournamentId}&order=timestamp.asc`, 'GET');
-    if (!registrations || registrations.length < factionCount) {
-        alert('Недостаточно зарегистрированных команд!');
-        return;
-    }
-
-    const teams = registrations.slice(0, factionCount).map(reg => ({
-        faction_name: reg.faction_name,
-        club: reg.club
-    }));
-    const positions = format === 'АПФ' ? ['Правительство', 'Оппозиция'] : ['ОП', 'ОО', 'ЗП', 'ЗО'];
-    const teamsPerMatch = format === 'АПФ' ? 2 : 4;
-
-    const matches = [];
-    const usedPairs = new Set();
-
-    for (let round = 0; round < roundCount; round++) {
-        const roundMatches = [];
-        const availableTeams = [...teams];
-        while (availableTeams.length >= teamsPerMatch) {
-            const matchTeams = [];
-            for (let i = 0; i < teamsPerMatch; i++) {
-                const randomIndex = Math.floor(Math.random() * availableTeams.length);
-                matchTeams.push(availableTeams.splice(randomIndex, 1)[0]);
-            }
-
-            const matchKey = matchTeams.map(team => team.faction_name).sort().join('|');
-            if (usedPairs.has(matchKey)) {
-                availableTeams.push(...matchTeams);
-                continue;
-            }
-            usedPairs.add(matchKey);
-
-            const match = {
-                teams: matchTeams.map((team, idx) => ({
-                    faction_name: team.faction_name,
-                    club: team.club,
-                    position: positions[idx]
-                })),
-                room: '',
-                judge: ''
-            };
-            roundMatches.push(match);
-        }
-        if (roundMatches.length > 0) {
-            matches.push({ round: round + 1, matches: roundMatches });
-        }
-    }
-
-    const bracket = {
-        tournament_id: currentTournamentId,
-        format: format,
-        faction_count: factionCount,
-        round_count: roundCount,
-        matches: matches,
-        published: false,
-        timestamp: new Date().toISOString()
-    };
-
-    try {
-        await supabaseFetch('brackets', 'POST', bracket);
-        loadBracket(currentTournamentId);
-    } catch (error) {
-        console.error('Error saving bracket:', error);
-        alert('Ошибка: ' + error.message);
-    }
-}
-
-async function loadBracket(tournamentId) {
-    const bracketSection = document.getElementById('tournament-bracket');
-    const bracketDisplay = document.getElementById('bracket-display');
-    const isCreator = (await supabaseFetch(`tournaments?id=eq.${tournamentId}`, 'GET'))[0].creator_id === userData.telegramUsername;
-
-    try {
-        const bracket = await supabaseFetch(`brackets?tournament_id=eq.${tournamentId}&order=timestamp.desc&limit=1`, 'GET');
-        if (!bracket || bracket.length === 0) {
-            bracketDisplay.innerHTML = '<p>Сетка ещё не сформирована.</p>';
-            return;
-        }
-
-        const data = bracket[0];
-        bracketDisplay.innerHTML = '';
-
-        if (data.published || isCreator) {
-            data.matches.forEach(round => {
-                const roundDiv = document.createElement('div');
-                roundDiv.classList.add('bracket-round');
-                roundDiv.innerHTML = `<h3>Раунд ${round.round}</h3>`;
-                
-                round.matches.forEach((match, matchIdx) => {
-                    const matchDiv = document.createElement('div');
-                    matchDiv.classList.add('bracket-match');
-                    let matchHTML = '';
-                    match.teams.forEach(team => {
-                        matchHTML += `
-                            <p>${team.position}: ${team.faction_name} <span class="team-club">(${team.club})</span></p>
-                        `;
-                    });
-                    if (isCreator && !data.published) {
-                        matchHTML += `
-                            <input type="text" id="room-input-${round.round}-${matchIdx}" name="room-${round.round}-${matchIdx}" placeholder="Кабинет" value="${match.room || ''}" data-round="${round.round}" data-match="${matchIdx}" class="room-input">
-                            <input type="text" id="judge-input-${round.round}-${matchIdx}" name="judge-${round.round}-${matchIdx}" placeholder="Судья" value="${match.judge || ''}" data-round="${round.round}" data-match="${matchIdx}" class="judge-input">
-                        `;
-                    } else if (data.published) {
-                        matchHTML += `
-                            <p>Кабинет: ${match.room || 'Не указан'}</p>
-                            <p>Судья: ${match.judge || 'Не указан'}</p>
-                        `;
-                    }
-                    matchDiv.innerHTML = matchHTML;
-                    roundDiv.appendChild(matchDiv);
-                });
-                bracketDisplay.appendChild(roundDiv);
-            });
-
-            if (isCreator && !data.published) {
-                const publishBtn = document.createElement('button');
-                publishBtn.id = 'publish-bracket-btn';
-                publishBtn.textContent = 'Опубликовать';
-                publishBtn.onclick = async () => {
-                    const updatedMatches = data.matches.map(round => ({
-                        round: round.round,
-                        matches: round.matches.map((match, matchIdx) => ({
-                            teams: match.teams,
-                            room: document.querySelector(`.room-input[data-round="${round.round}"][data-match="${matchIdx}"]`).value,
-                            judge: document.querySelector(`.judge-input[data-round="${round.round}"][data-match="${matchIdx}"]`).value
-                        }))
-                    }));
-                    await supabaseFetch(`brackets?id=eq.${data.id}`, 'PATCH', { matches: updatedMatches, published: true });
-                    loadBracket(tournamentId);
-                };
-                bracketDisplay.appendChild(publishBtn);
-            }
-        } else {
-            bracketDisplay.innerHTML = '<p>Сетка ещё не опубликована.</p>';
-        }
-    } catch (error) {
-        console.error('Error loading bracket:', error);
-        bracketDisplay.innerHTML = '<p>Ошибка загрузки сетки.</p>';
-    }
-}
-
-const ratingList = document.getElementById('rating-list');
-
 async function loadRating() {
+    const ratingList = document.getElementById('rating-list');
+    ratingList.innerHTML = '<p>Загрузка рейтинга...</p>';
+
     try {
-        const ratings = await supabaseFetch('ratings?order=points.desc&limit=100', 'GET');
+        const ratings = await supabaseFetch('ratings?order=points.desc', 'GET');
         ratingList.innerHTML = '';
         if (ratings && ratings.length > 0) {
             ratings.forEach((rating, index) => {
                 const ratingItem = document.createElement('div');
                 ratingItem.classList.add('rating-item');
                 ratingItem.innerHTML = `
-                    <span>#${index + 1}</span>
-                    <strong>${rating.fullname}</strong>
-                    <span>@${rating.telegram_username}</span>
-                    <span>${rating.points} очков</span>
+                    <p>${index + 1}. ${rating.user_id} - ${rating.points} очков</p>
                 `;
                 ratingList.appendChild(ratingItem);
             });
         } else {
-            ratingList.innerHTML = '<p>Рейтинг пока пуст.</p>';
+            ratingList.innerHTML = '<p>Рейтинг не найден.</p>';
         }
     } catch (error) {
-        console.error('Error loading ratings:', error);
-        ratingList.innerHTML = '<p>Ошибка загрузки рейтинга.</p>';
+        console.error('Error loading rating:', error);
+        alert('Ошибка загрузки рейтинга: ' + error.message);
     }
+}
+
+function showProfile() {
+    document.getElementById('username').textContent = userData.telegramUsername;
+    document.getElementById('fullname').value = userData.fullname;
+    document.getElementById('telegram-id').value = userData.telegramId || '';
 }
 
 checkProfile();
