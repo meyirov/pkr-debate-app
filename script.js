@@ -1,4 +1,4 @@
-console.log('script.js loaded, version: 2025-04-30');
+console.log('script.js loaded, version: 2025-05-02');
 
 const { createClient } = supabase;
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -72,16 +72,69 @@ async function uploadImage(file) {
     return urlData.publicUrl;
 }
 
-async function saveChatId() {
+async function saveChatId(userId) {
     if (tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
         try {
-            await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'PATCH', {
-                chat_id: tg.initDataUnsafe.user.id.toString()
-            });
+            const { error } = await supabaseClient
+                .from('profiles')
+                .update({ chat_id: tg.initDataUnsafe.user.id.toString() })
+                .eq('telegram_username', userData.telegramUsername);
+            if (error) throw error;
             console.log('Chat ID saved:', tg.initDataUnsafe.user.id);
+            alert('Telegram успешно привязан!');
+            showProfile(); // Обновляем профиль
         } catch (error) {
             console.error('Error saving chat_id:', error);
+            alert('Ошибка привязки Telegram: ' + error.message);
         }
+    } else {
+        // Открываем бота с /start <user_id>
+        const botLink = `https://t.me/MyPKRBot?start=${userId}`;
+        tg.openTelegramLink(botLink);
+    }
+}
+
+async function showProfile() {
+    const profileSection = document.getElementById('profile');
+    try {
+        const profiles = await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'GET');
+        if (profiles && profiles.length > 0) {
+            const profile = profiles[0];
+            const chatIdStatus = profile.chat_id ? `Привязан (ID: ${profile.chat_id})` : 'Не привязан';
+            profileSection.innerHTML = `
+                <h2>Профиль</h2>
+                ${!profile.chat_id ? '<p style="color: #ff4d4d;">📢 Привяжите Telegram для уведомлений!</p>' : ''}
+                <p>Username: <span>${userData.telegramUsername}</span></p>
+                <p>Chat ID: <span>${chatIdStatus}</span></p>
+                <input id="fullname" type="text" placeholder="Имя и фамилия" value="${profile.fullname || ''}">
+                <button id="update-profile">Изменить имя</button>
+                ${!profile.chat_id ? '<button id="link-telegram">Привязать Telegram</button>' : ''}
+            `;
+            const updateProfileBtn = document.getElementById('update-profile');
+            updateProfileBtn.addEventListener('click', async () => {
+                const newFullname = document.getElementById('fullname').value.trim();
+                if (!newFullname) {
+                    alert('Пожалуйста, введите новое имя!');
+                    return;
+                }
+                userData.fullname = newFullname;
+                try {
+                    await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'PATCH', {
+                        fullname: userData.fullname
+                    });
+                    alert('Имя обновлено!');
+                } catch (error) {
+                    console.error('Error updating profile:', error);
+                    alert('Ошибка: ' + error.message);
+                }
+            });
+            if (!profile.chat_id) {
+                document.getElementById('link-telegram').addEventListener('click', () => saveChatId(profiles[0].id));
+            }
+        }
+    } catch (error) {
+        console.error('Error loading profile:', error);
+        profileSection.innerHTML += '<p>Ошибка загрузки профиля</p>';
     }
 }
 
@@ -100,7 +153,7 @@ async function checkProfile() {
         if (profiles && profiles.length > 0) {
             userData.fullname = profiles[0].fullname;
             showApp();
-            await saveChatId();
+            await saveChatId(profiles[0].id);
         } else {
             registrationModal.style.display = 'block';
         }
@@ -163,29 +216,11 @@ buttons.forEach(button => {
             debouncedLoadPosts();
         }
         if (button.id === 'tournaments-btn') loadTournaments();
+        if (button.id === 'profile-btn') showProfile();
     });
 });
 
 const debouncedLoadPosts = debounce(loadPosts, 300);
-
-const updateProfileBtn = document.getElementById('update-profile');
-updateProfileBtn.addEventListener('click', async () => {
-    const newFullname = document.getElementById('fullname').value.trim();
-    if (!newFullname) {
-        alert('Пожалуйста, введите новое имя!');
-        return;
-    }
-    userData.fullname = newFullname;
-    try {
-        await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'PATCH', {
-            fullname: userData.fullname
-        });
-        alert('Имя обновлено!');
-    } catch (error) {
-        console.error('Error updating profile:', error);
-        alert('Ошибка: ' + error.message);
-    }
-});
 
 const postText = document.getElementById('post-text');
 const postImage = document.getElementById('post-image');
@@ -1571,7 +1606,7 @@ async function updateMatch(tournamentId, round, matchIdx) {
 
         const data = bracket[0];
         const roomInput = document.getElementById(`room-${round}-${matchIdx}`);
-        const judgeInput = document.getElementById(`judge-${round}-${matchIdx}`);
+        const judgeInput = document.getElementById(`judge-${round.round}-${matchIdx}`);
         data.matches[round - 1].matches[matchIdx].room = roomInput.value;
         data.matches[round - 1].matches[matchIdx].judge = judgeInput.value;
 
