@@ -116,7 +116,6 @@ body {
 .post {
     padding: 15px;
     border-bottom: 1px solid #2f3336;
-    background: #0f1419;
 }
 
 .post-header {
@@ -129,43 +128,39 @@ body {
 .post-user {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 8px;
 }
 
 .user-avatar {
-    width: 32px;
-    height: 32px;
+    width: 40px;
+    height: 40px;
+    background: #2f3336;
+    color: #d9d9d9;
     border-radius: 50%;
-    background: #9b59b6;
-    color: #ffffff;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 16px;
+    font-weight: bold;
 }
 
 .post-user strong {
     font-weight: 600;
-    font-size: 15px;
-    color: #ffffff;
 }
 
 .post-user span {
-    color: #536471;
+    color: #71767b;
     font-size: 14px;
 }
 
 .post-time {
-    color: #536471;
-    font-size: 13px;
+    color: #71767b;
+    font-size: 14px;
 }
 
 .post-content {
-    margin-top: 5px;
-    font-size: 14px;
-    color: #d9d9d9;
-    white-space: pre-wrap;
+    margin: 5px 0;
+    word-wrap: break-word;
 }
 
 .post-content a {
@@ -179,27 +174,22 @@ body {
 
 .post-image {
     max-width: 100%;
-    height: auto;
+    border-radius: 10px;
     margin-top: 10px;
-    display: block;
 }
 
 .post-actions {
     display: flex;
-    gap: 20px;
+    gap: 10px;
     margin-top: 10px;
 }
 
 .reaction-btn {
     background: none;
-    color: #536471;
     border: none;
+    color: #d9d9d9;
     cursor: pointer;
     font-size: 14px;
-}
-
-.reaction-btn:hover {
-    color: #9b59b6;
 }
 
 .reaction-btn.active {
@@ -208,45 +198,21 @@ body {
 
 .comment-toggle-btn {
     background: none;
-    color: #536471;
     border: none;
+    color: #d9d9d9;
     cursor: pointer;
     font-size: 14px;
 }
 
-.comment-toggle-btn:hover {
-    color: #9b59b6;
-}
-
-/* Кнопка "Загрузить ещё" */
-.load-more-btn {
-    display: block;
-    margin: 20px auto;
-    padding: 8px 16px;
-    background: #9b59b6;
-    color: #ffffff;
-    border: none;
-    border-radius: 20px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 600;
-}
-
-.load-more-btn:hover {
-    background: #a66bbe;
-}
-
-/* Комментарии */
 .comment-section {
     margin-top: 10px;
-    padding: 10px;
-    background: #0f1419;
+    padding-left: 20px;
 }
 
 .comment-list {
-    margin-bottom: 10px;
     max-height: 200px;
     overflow-y: auto;
+    margin-bottom: 10px;
 }
 
 .comment {
@@ -257,57 +223,45 @@ body {
 .comment-user {
     display: flex;
     align-items: center;
-    gap: 5px;
-    font-size: 14px;
-    margin-bottom: 3px;
-}
-
-.comment-user .user-avatar {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: #9b59b6;
-    color: #ffffff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    font-weight: 600;
+    gap: 8px;
+    margin-bottom: 5px;
 }
 
 .comment-user strong {
     font-weight: 600;
-    color: #ffffff;
 }
 
 .comment-user span {
-    color: #536471;
+    color: #71767b;
+    font-size: 14px;
+}
+
+.team-club {
+    margin-left: auto;
+    color: #71767b;
+    font-size: 14px;
 }
 
 .comment-content {
+    margin-left: 48px;
     font-size: 14px;
-    color: #d9d9d9;
 }
 
 .comment-form {
     display: flex;
-    flex-direction: column;
-    gap: 5px;
+    gap: 10px;
+    margin-top: 10px;
 }
 
 .comment-input {
-    width: 100%;
-    height: 40px;
+    flex: 1;
     padding: 8px;
-    border: none;
-    background: #20262b;
+    border: 1px solid #2f3336;
+    background: #0f1419;
     color: #d9d9d9;
+    border-radius: 5px;
     resize: none;
     font-size: 14px;
-}
-
-.comment-input:focus {
-    outline: none;
 }
 
 .comment-form button {
@@ -318,7 +272,6 @@ body {
     border-radius: 20px;
     cursor: pointer;
     font-size: 14px;
-    font-weight: 600;
 }
 
 .comment-form button:hover {
@@ -329,117 +282,76 @@ body {
 .new-posts-btn {
     display: none;
     position: sticky;
-    top: 10px;
-    z-index: 10;
+    top: 0;
+    width: 100%;
+    padding: 10px;
     background: #9b59b6;
     color: #ffffff;
     border: none;
-    padding: 8px 16px;
     border-radius: 20px;
     cursor: pointer;
-    margin: 10px auto;
-    width: fit-content;
-    font-weight: 600;
     font-size: 14px;
-    opacity: 0;
-    transform: translateY(-10px);
-    transition: opacity 0.3s ease, transform 0.3s ease;
+    text-align: center;
+    z-index: 10;
 }
 
 .new-posts-btn.visible {
-    opacity: 1;
-    transform: translateY(0);
+    display: block;
+    animation: slideDown 0.3s ease;
 }
 
-/* Кнопка "Создать турнир" */
-#create-tournament-btn {
-    padding: 8px 16px;
-    background: #9b59b6;
-    color: #ffffff;
-    border: none;
-    border-radius: 20px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 600;
+@keyframes slideDown {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Кнопка "Загрузить ещё" */
+.load-more-btn {
+    display: block;
     width: 100%;
-    margin: 10px 0;
-    text-align: center;
-}
-
-#create-tournament-btn:hover {
-    background: #a66bbe;
-}
-
-/* Форма создания турнира */
-#create-tournament-form {
     padding: 10px;
-    border-bottom: 1px solid #2f3336;
-    background: #0f1419;
-}
-
-#create-tournament-form input,
-#create-tournament-form textarea {
-    width: 100%;
-    padding: 8px;
-    margin: 5px 0;
-    border: none;
-    background: #20262b;
-    color: #d9d9d9;
-    font-size: 14px;
-}
-
-#create-tournament-form textarea {
-    height: 80px;
-    resize: none;
-}
-
-#create-tournament-form input:focus,
-#create-tournament-form textarea:focus {
-    outline: none;
-}
-
-#create-tournament-form button {
-    padding: 8px 16px;
     background: #9b59b6;
     color: #ffffff;
     border: none;
     border-radius: 20px;
     cursor: pointer;
     font-size: 14px;
-    font-weight: 600;
+    text-align: center;
     margin-top: 10px;
 }
 
-#create-tournament-form button:hover {
+.load-more-btn:hover {
     background: #a66bbe;
 }
 
-/* Карточка турнира */
+/* Турниры */
+#tournament-list {
+    padding: 15px;
+}
+
 .tournament-card {
     display: flex;
     align-items: center;
-    padding: 15px;
+    padding: 10px;
     border-bottom: 1px solid #2f3336;
-    background: #0f1419;
     cursor: pointer;
 }
 
 .tournament-card:hover {
-    background: #141b22;
+    background: #1c2526;
 }
 
 .tournament-logo {
     width: 40px;
     height: 40px;
-    margin-right: 10px;
     border-radius: 50%;
-    background: #9b59b6;
-    color: #ffffff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    font-weight: 600;
+    margin-right: 10px;
 }
 
 .tournament-info {
@@ -447,50 +359,40 @@ body {
 }
 
 .tournament-info strong {
-    font-size: 15px;
     font-weight: 600;
-    color: #ffffff;
-    display: block;
-    margin-bottom: 4px;
 }
 
 .tournament-info span {
-    font-size: 14px;
-    color: #536471;
     display: block;
-    line-height: 1.4;
+    color: #71767b;
+    font-size: 14px;
 }
 
-/* Заголовок турнира */
-#tournament-header {
+/* Детали турнира */
+#tournament-details {
     padding: 15px;
-    border-bottom: 1px solid #2f3336;
-    background: #0f1419;
+}
+
+#tournament-header {
+    margin-bottom: 10px;
 }
 
 #tournament-header img {
-    width: 100%;
-    max-height: 180px;
-    object-fit: cover;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
     margin-bottom: 10px;
 }
 
 #tournament-header strong {
-    font-size: 16px;
-    font-weight: 600;
-    color: #ffffff;
     display: block;
-    margin-bottom: 5px;
+    font-size: 18px;
+    font-weight: 600;
 }
 
 #tournament-header p {
-    margin: 3px 0;
+    color: #71767b;
     font-size: 14px;
-    color: #d9d9d9;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
 }
 
 #tournament-header a {
@@ -503,28 +405,25 @@ body {
 }
 
 #tournament-description {
-    padding: 15px;
-    border-bottom: 1px solid #2f3336;
-    background: #0f1419;
+    margin-bottom: 10px;
+    font-size: 14px;
 }
 
 .description-hidden {
-    display: none;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 #toggle-description-btn {
-    padding: 8px 16px;
-    background: #9b59b6;
-    color: #ffffff;
+    background: none;
     border: none;
-    border-radius: 20px;
+    color: #9b59b6;
     cursor: pointer;
     font-size: 14px;
-    font-weight: 600;
-}
-
-#toggle-description-btn:hover {
-    background: #a66bbe;
+    margin-bottom: 10px;
 }
 
 .section-divider {
@@ -534,38 +433,21 @@ body {
     margin: 10px 0;
 }
 
-/* Вкладки турнира */
 .tournament-tabs {
     display: flex;
-    justify-content: space-between;
-    width: 100%;
+    gap: 10px;
     margin-bottom: 10px;
 }
 
 .tab-btn {
     flex: 1;
-    padding: 8px 16px;
-    background: #0f1419;
+    padding: 8px;
+    background: #2f3336;
     color: #d9d9d9;
     border: none;
     border-radius: 20px;
     cursor: pointer;
     font-size: 14px;
-    font-weight: 600;
-    margin: 0 5px;
-    text-align: center;
-}
-
-.tab-btn:first-child {
-    margin-left: 0;
-}
-
-.tab-btn:last-child {
-    margin-right: 0;
-}
-
-.tab-btn:hover {
-    background: #141b22;
 }
 
 .tab-btn.active {
@@ -581,11 +463,8 @@ body {
     display: block;
 }
 
-/* Новый пост турнира */
 #new-tournament-post {
-    padding: 15px;
-    border-bottom: 1px solid #2f3336;
-    background: #0f1419;
+    padding: 10px 0;
 }
 
 #new-tournament-post textarea {
@@ -604,216 +483,335 @@ body {
 }
 
 #new-tournament-post button {
-    padding: 8px 16px;
+    width: 100%;
+    padding: 8px;
     background: #9b59b6;
     color: #ffffff;
     border: none;
     border-radius: 20px;
     cursor: pointer;
     font-size: 14px;
-    font-weight: 600;
+    margin-top: 10px;
 }
 
 #new-tournament-post button:hover {
     background: #a66bbe;
 }
 
-#tournament-posts-list .post-header strong {
-    font-size: 15px;
-    font-weight: 600;
-    color: #ffffff;
-}
-
-/* Кнопка регистрации */
 #register-tournament-btn {
-    padding: 8px 16px;
-    background: #9b59b6;
-    color: #ffffff;
-    border: none;
-    border-radius: 20px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 600;
-}
-
-#register-tournament-btn:hover {
-    background: #a66bbe;
-}
-
-/* Форма регистрации */
-#registration-form input,
-#registration-form textarea {
     width: 100%;
-    padding: 8px;
-    margin: 5px 0;
-    border: none;
-    background: #20262b;
-    color: #d9d9d9;
-    font-size: 14px;
-}
-
-#registration-form textarea {
-    height: 80px;
-    resize: none;
-}
-
-#registration-form button {
-    padding: 8px 16px;
+    padding: 10px;
     background: #9b59b6;
     color: #ffffff;
     border: none;
     border-radius: 20px;
     cursor: pointer;
     font-size: 14px;
-    font-weight: 600;
+    margin-bottom: 10px;
 }
 
-#registration-form button:hover {
-    background: #a66bbe;
+#registration-form {
+    margin-bottom: 10px;
 }
 
 .form-hidden {
     display: none;
 }
 
-.registration-card {
-    padding: 15px;
-    border-bottom: 1px solid #2f3336;
-    background: #0f1419;
-}
-
-.registration-card strong {
-    font-size: 15px;
-    font-weight: 600;
-    color: #ffffff;
-    display: block;
-    margin-bottom: 5px;
-    text-transform: uppercase;
-}
-
-.registration-card p {
-    font-size: 14px;
-    color: #d9d9d9;
-    margin: 3px 0;
-}
-
-/* Форма сетки */
-#bracket-form {
-    padding: 15px;
-    border-bottom: 1px solid #2f3336;
-    background: #0f1419;
-}
-
-#bracket-form select,
-#bracket-form input {
+#registration-form input,
+#registration-form textarea {
     width: 100%;
     padding: 8px;
-    margin: 5px 0;
-    border: none;
-    background: #20262b;
+    margin-bottom: 10px;
+    border: 1px solid #2f3336;
+    background: #0f1419;
     color: #d9d9d9;
+    border-radius: 5px;
     font-size: 14px;
 }
 
-#bracket-form button {
-    padding: 8px 16px;
+#registration-form textarea {
+    height: 60px;
+    resize: none;
+}
+
+#registration-form button {
+    width: 100%;
+    padding: 8px;
     background: #9b59b6;
     color: #ffffff;
     border: none;
     border-radius: 20px;
     cursor: pointer;
     font-size: 14px;
+}
+
+#registration-form button:hover {
+    background: #a66bbe;
+}
+
+.registration-card {
+    padding: 10px;
+    border-bottom: 1px solid #2f3336;
+}
+
+.registration-card strong {
+    display: block;
     font-weight: 600;
+}
+
+.registration-card p {
+    font-size: 14px;
+    color: #71767b;
+}
+
+.delete-registration-btn {
+    padding: 5px 10px;
+    background: #ff4d4d;
+    color: #ffffff;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-top: 5px;
+}
+
+.delete-registration-btn:hover {
+    background: #ff6666;
+}
+
+#tournament-bracket {
+    padding: 10px 0;
+}
+
+.bracket-round {
+    margin-bottom: 20px;
+}
+
+.bracket-round h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.bracket-match {
+    padding: 10px;
+    border-bottom: 1px solid #2f3336;
+}
+
+.bracket-match p {
+    font-size: 14px;
+}
+
+.bracket-match input {
+    width: 100%;
+    padding: 8px;
+    margin-top: 5px;
+    border: 1px solid #2f3336;
+    background: #0f1419;
+    color: #d9d9d9;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+#bracket-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#bracket-form select,
+#bracket-form input {
+    padding: 8px;
+    border: 1px solid #2f3336;
+    background: #0f1419;
+    color: #d9d9d9;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+#bracket-form button {
+    padding: 8px;
+    background: #9b59b6;
+    color: #ffffff;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
 }
 
 #bracket-form button:hover {
     background: #a66bbe;
 }
 
-.bracket-round {
-    margin-bottom: 10px;
-}
-
-.bracket-round h3 {
-    font-size: 15px;
-    font-weight: 600;
-    color: #ffffff;
-    margin-bottom: 5px;
-}
-
-.bracket-match {
-    padding: 15px;
-    border-bottom: 1px solid #2f3336;
-    background: #0f1419;
-}
-
-.bracket-match p {
-    margin: 3px 0;
-    font-size: 14px;
-    color: #d9d9d9;
-}
-
-.bracket-match input {
-    width: 100%;
-    padding: 8px;
-    margin: 5px 0;
-    border: none;
-    background: #20262b;
-    color: #d9d9d9;
-    font-size: 14px;
-}
-
 #publish-bracket-btn {
-    padding: 8px 16px;
+    width: 100%;
+    padding: 10px;
     background: #9b59b6;
     color: #ffffff;
     border: none;
     border-radius: 20px;
     cursor: pointer;
     font-size: 14px;
-    font-weight: 600;
+    margin-top: 10px;
 }
 
 #publish-bracket-btn:hover {
     background: #a66bbe;
 }
 
+/* Создание турнира */
+#create-tournament-btn {
+    width: 100%;
+    padding: 10px;
+    background: #9b59b6;
+    color: #ffffff;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-bottom: 10px;
+}
+
+#create-tournament-form {
+    margin-bottom: 10px;
+}
+
+#create-tournament-form input,
+#create-tournament-form textarea {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 10px;
+    border: 1px solid #2f3336;
+    background: #0f1419;
+    color: #d9d9d9;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+#create-tournament-form textarea {
+    height: 80px;
+    resize: none;
+}
+
+#create-tournament-form button {
+    width: 100%;
+    padding: 8px;
+    background: #9b59b6;
+    color: #ffffff;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+#create-tournament-form button:hover {
+    background: #a66bbe;
+}
+
+/* Профиль */
+#profile {
+    padding: 15px;
+}
+
+#profile-avatar {
+    width: 60px;
+    height: 60px;
+    background: #2f3336;
+    color: #d9d9d9;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+#profile h2 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+#profile p {
+    margin-bottom: 10px;
+}
+
+#profile span {
+    color: #71767b;
+}
+
+#profile input {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 10px;
+    border: 1px solid #2f3336;
+    background: #0f1419;
+    color: #d9d9d9;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+#profile button {
+    width: 100%;
+    padding: 8px;
+    background: #9b59b6;
+    color: #ffffff;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-bottom: 10px;
+}
+
+#profile button:hover {
+    background: #a66bbe;
+}
+
+/* EDU */
+#edu {
+    padding: 15px;
+}
+
+#edu h2 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
 /* Навигация */
 .navbar {
-    display: flex;
-    justify-content: space-around;
-    background: #0f1419;
-    padding: 10px 0;
-    border-top: 1px solid #2f3336;
     position: fixed;
     bottom: 0;
-    left: 0;
-    right: 0;
+    width: 100%;
+    display: flex;
+    background: #0f1419;
+    border-top: 1px solid #2f3336;
+    padding: 5px 0;
     z-index: 1000;
 }
 
 .nav-btn {
+    flex: 1;
+    padding: 10px;
     background: none;
     border: none;
-    color: #536471;
-    font-size: 14px;
+    color: #d9d9d9;
     cursor: pointer;
+    font-size: 12px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
 }
 
 .nav-btn span {
-    display: none; /* Убираем иконки */
+    font-size: 18px;
 }
 
 .nav-btn.active {
     color: #9b59b6;
-}
-
-.nav-btn:hover {
-    color: #a66bbe;
 }
 
 /* Модальное окно */
@@ -831,129 +829,52 @@ body {
 }
 
 .modal-content {
-    background: #20262b;
+    background: #0f1419;
     padding: 20px;
-    border-radius: 8px;
-    text-align: center;
-    max-width: 300px;
+    border-radius: 10px;
     width: 90%;
-    color: #d9d9d9;
+    max-width: 400px;
+    text-align: center;
+}
+
+.modal-content h2 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.modal-content p {
+    margin-bottom: 10px;
 }
 
 .modal-content input {
     width: 100%;
-    padding: 10px;
-    margin: 10px 0;
-    border: none;
+    padding: 8px;
+    margin-bottom: 10px;
+    border: 1px solid #2f3336;
     background: #0f1419;
     color: #d9d9d9;
+    border-radius: 5px;
     font-size: 14px;
 }
 
 .modal-content button {
-    padding: 8px 16px;
+    width: 100%;
+    padding: 8px;
     background: #9b59b6;
     color: #ffffff;
     border: none;
     border-radius: 20px;
     cursor: pointer;
     font-size: 14px;
-    font-weight: 600;
 }
 
 .modal-content button:hover {
     background: #a66bbe;
 }
 
-.team-club {
-    font-size: 12px;
-    color: #536471;
-    margin-left: 4px;
-}
-
-.delete-registration-btn {
-    padding: 6px 12px;
-    background: #e0245e;
-    color: #ffffff;
-    border: none;
-    border-radius: 20px;
-    cursor: pointer;
-    font-size: 14px;
+/* Теги */
+.tag {
+    color: #9b59b6;
     font-weight: 600;
-    margin-top: 8px;
-}
-
-.delete-registration-btn:hover {
-    background: #c61e50;
-}
-
-/* Раздел профиля */
-#profile {
-    padding: 15px;
-    border-bottom: 1px solid #2f3336;
-    background: #0f1419;
-}
-
-.profile-avatar {
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    background: #9b59b6;
-    color: #ffffff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    font-weight: 600;
-    margin-bottom: 10px;
-    margin-left: auto;
-    margin-right: auto;
-}
-
-#profile h2 {
-    font-size: 16px;
-    font-weight: 600;
-    color: #ffffff;
-    margin-bottom: 10px;
-}
-
-#profile p {
-    font-size: 14px;
-    color: #d9d9d9;
-    margin-bottom: 10px;
-}
-
-#profile p span {
-    color: #ffffff;
-    font-weight: 600;
-}
-
-#profile input[type="text"] {
-    width: 100%;
-    padding: 8px;
-    margin: 5px 0;
-    border: none;
-    background: #20262b;
-    color: #d9d9d9;
-    font-size: 14px;
-}
-
-#profile input[type="text"]:focus {
-    outline: none;
-}
-
-#profile button {
-    padding: 8px 16px;
-    background: #9b59b6;
-    color: #ffffff;
-    border: none;
-    border-radius: 20px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 600;
-    margin-top: 10px;
-}
-
-#profile button:hover {
-    background: #a66bbe;
 }
