@@ -82,13 +82,12 @@ async function saveChatId(userId) {
             if (error) throw error;
             console.log('Chat ID saved:', tg.initDataUnsafe.user.id);
             alert('Telegram успешно привязан!');
-            showProfile(); // Обновляем профиль
+            showProfile();
         } catch (error) {
             console.error('Error saving chat_id:', error);
             alert('Ошибка привязки Telegram: ' + error.message);
         }
     } else {
-        // Открываем бота с /start <user_id>
         const botLink = `https://t.me/MyPKRBot?start=${userId}`;
         tg.openTelegramLink(botLink);
     }
@@ -526,7 +525,7 @@ function generateAvatarText(name, username) {
 }
 
 function renderNewPost(post, prepend = false) {
-    const postId = post.id; // Добавляем явное определение postId
+    const postId = post.id;
     const postDiv = document.createElement('div');
     postDiv.classList.add('post');
     postDiv.setAttribute('data-post-id', postId);
@@ -578,7 +577,7 @@ function renderNewPost(post, prepend = false) {
 
 async function renderMorePosts(newPosts) {
     for (const post of newPosts) {
-        const postId = post.id; // Добавляем явное определение postId
+        const postId = post.id;
         const postDiv = document.createElement('div');
         postDiv.classList.add('post');
         postDiv.setAttribute('data-post-id', postId);
@@ -639,7 +638,7 @@ async function loadReactionsAndComments(postId) {
         const comments = await loadComments(postId);
         const commentCount = comments ? comments.length : 0;
 
-        const postDiv = postsDiv.querySelector(`[data-post-id="${postId}"]`);
+        const postDiv = document.querySelector(`[data-post-id="${postId}"]`);
         if (postDiv) {
             const likeBtn = postDiv.querySelector('.like-btn');
             const dislikeBtn = postDiv.querySelector('.dislike-btn');
@@ -1036,10 +1035,13 @@ function toggleComments(postId) {
 
 async function loadTournaments() {
     const tournamentList = document.getElementById('tournament-list');
+    tournamentList.innerHTML = '<div id="tournaments-loading" style="text-align: center; padding: 10px;">Загрузка...</div>';
+    
     try {
         const tournaments = await supabaseFetch('tournaments?order=id.desc', 'GET');
+        tournamentList.innerHTML = '';
+        
         if (tournaments && tournaments.length > 0) {
-            tournamentList.innerHTML = '';
             for (const tournament of tournaments) {
                 const tournamentCard = document.createElement('div');
                 tournamentCard.classList.add('tournament-card');
@@ -1048,20 +1050,43 @@ async function loadTournaments() {
                 tournamentCard.innerHTML = `
                     <img src="${tournament.logo || 'https://via.placeholder.com/40'}" alt="Tournament Logo" class="tournament-logo">
                     <div class="tournament-info">
-                        <strong>${tournament.name}</strong>
-                        <span>${new Date(tournament.date).toLocaleDateString('ru-RU')} | ${tournament.address}</span>
+                        <strong>${tournament.name || 'Без названия'}</strong>
+                        <span>${tournament.date ? new Date(tournament.date).toLocaleDateString('ru-RU') : 'Дата не указана'} | ${tournament.address || 'Адрес не указан'}</span>
                     </div>
                 `;
+
                 tournamentCard.addEventListener('click', () => {
                     currentTournamentId = tournament.id;
                     showTournamentDetails(tournament);
                 });
+
                 tournamentList.appendChild(tournamentCard);
             }
+        } else {
+            tournamentList.innerHTML = '<p>Турниров пока нет.</p>';
         }
     } catch (error) {
         console.error('Error loading tournaments:', error);
-        tournamentList.innerHTML = '<p>Ошибка загрузки турниров</p>';
+        tournamentList.innerHTML = '<p>Ошибка загрузки турниров: ' + error.message + '</p>';
+    }
+}
+
+async function loadTournamentPosts(tournamentId) {
+    const tournamentPosts = document.getElementById('tournament-posts');
+    try {
+        const posts = await supabaseFetch(`tournament_posts?tournament_id=eq.${tournamentId}&order=id.desc`, 'GET');
+        if (posts && posts.length > 0) {
+            for (const post of posts) {
+                if (!tournamentPosts.querySelector(`[data-post-id="${post.id}"]`)) {
+                    renderTournamentPost(post, false);
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error loading tournament posts:', error);
+        const errorDiv = document.createElement('div');
+        errorDiv.innerHTML = `<p>Ошибка загрузки постов турнира: ${error.message}</p>`;
+        tournamentPosts.appendChild(errorDiv);
     }
 }
 
@@ -1077,15 +1102,24 @@ async function showTournamentDetails(tournament) {
     const registrationTab = document.getElementById('registration-tab');
     const bracketTab = document.getElementById('bracket-tab');
 
+    // Очистка содержимого перед загрузкой
+    tournamentHeader.innerHTML = '';
+    tournamentDescription.innerHTML = '';
+    tournamentPosts.innerHTML = '';
+    tournamentRegistration.innerHTML = '';
+    tournamentBracket.innerHTML = '';
+
+    // Заполняем заголовок турнира
     tournamentHeader.innerHTML = `
         ${tournament.logo ? `<img src="${tournament.logo}" alt="Tournament Logo">` : ''}
-        <strong>${tournament.name}</strong>
-        <p>Дата: ${new Date(tournament.date).toLocaleDateString('ru-RU')}</p>
-        <p>Адрес: <a href="${tournament.address}" target="_blank" rel="noopener noreferrer">${tournament.address}</a></p>
-        <p>Дедлайн: ${new Date(tournament.deadline).toLocaleDateString('ru-RU')}</p>
+        <strong>${tournament.name || 'Без названия'}</strong>
+        <p>Дата: ${tournament.date ? new Date(tournament.date).toLocaleDateString('ru-RU') : 'Не указана'}</p>
+        <p>Адрес: ${tournament.address ? `<a href="${tournament.address}" target="_blank" rel="noopener noreferrer">${tournament.address}</a>` : 'Не указан'}</p>
+        <p>Дедлайн: ${tournament.deadline ? new Date(tournament.deadline).toLocaleDateString('ru-RU') : 'Не указан'}</p>
     `;
-    tournamentDescription.textContent = tournament.description;
 
+    // Описание турнира
+    tournamentDescription.textContent = tournament.description || 'Описание отсутствует.';
     toggleDescriptionBtn.addEventListener('click', () => {
         if (tournamentDescription.classList.contains('description-hidden')) {
             tournamentDescription.classList.remove('description-hidden');
@@ -1096,13 +1130,13 @@ async function showTournamentDetails(tournament) {
         }
     });
 
+    // Форма для нового поста в турнире
     const newTournamentPost = document.createElement('div');
     newTournamentPost.id = 'new-tournament-post';
     newTournamentPost.innerHTML = `
         <textarea id="tournament-post-text" placeholder="Что нового?"></textarea>
         <button id="submit-tournament-post">Твитнуть</button>
     `;
-    tournamentPosts.innerHTML = '';
     tournamentPosts.appendChild(newTournamentPost);
 
     const submitTournamentPost = document.getElementById('submit-tournament-post');
@@ -1130,6 +1164,25 @@ async function showTournamentDetails(tournament) {
             alert('Ошибка: ' + error.message);
         }
     });
+
+    // Загружаем существующие посты турнира
+    await loadTournamentPosts(currentTournamentId);
+
+    // Вкладка регистрации
+    tournamentRegistration.innerHTML = `
+        <button id="register-tournament-btn">Зарегистрироваться</button>
+        <div id="registration-form" class="form-hidden">
+            <input id="reg-faction-name" type="text" placeholder="Название Фракции">
+            <input id="reg-speaker1" type="text" placeholder="Имя и фамилия 1-го спикера">
+            <input id="reg-speaker2" type="text" placeholder="Имя и фамилия 2-го спикера">
+            <input id="reg-club" type="text" placeholder="Клуб">
+            <input id="reg-city" type="text" placeholder="Город">
+            <input id="reg-contacts" type="text" placeholder="Контакты">
+            <textarea id="reg-extra" placeholder="Дополнительно (достижения)"></textarea>
+            <button id="submit-registration-btn">Отправить</button>
+        </div>
+        <div id="registration-list"></div>
+    `;
 
     const registerTournamentBtn = document.getElementById('register-tournament-btn');
     const registrationForm = document.getElementById('registration-form');
@@ -1181,6 +1234,26 @@ async function showTournamentDetails(tournament) {
         }
     });
 
+    // Загружаем регистрации сразу, чтобы они отобразились при открытии вкладки
+    const loadRegistrations = async () => {
+        registrationList.innerHTML = '<div style="text-align: center; padding: 10px;">Загрузка...</div>';
+        try {
+            const registrations = await supabaseFetch(`tournament_registrations?tournament_id=eq.${currentTournamentId}`, 'GET');
+            registrationList.innerHTML = '';
+            if (registrations && registrations.length > 0) {
+                for (const reg of registrations) {
+                    renderRegistration(reg);
+                }
+            } else {
+                registrationList.innerHTML = '<p>Регистраций пока нет.</p>';
+            }
+        } catch (error) {
+            console.error('Error loading registrations:', error);
+            registrationList.innerHTML = `<p>Ошибка загрузки регистраций: ${error.message}</p>`;
+        }
+    };
+
+    // Вкладки
     postsTab.addEventListener('click', () => {
         postsTab.classList.add('active');
         registrationTab.classList.remove('active');
@@ -1197,14 +1270,7 @@ async function showTournamentDetails(tournament) {
         tournamentPosts.classList.remove('active');
         tournamentRegistration.classList.add('active');
         tournamentBracket.classList.remove('active');
-
-        const registrations = await supabaseFetch(`tournament_registrations?tournament_id=eq.${currentTournamentId}`, 'GET');
-        if (registrations && registrations.length > 0) {
-            registrationList.innerHTML = '';
-            for (const reg of registrations) {
-                renderRegistration(reg);
-            }
-        }
+        await loadRegistrations();
     });
 
     bracketTab.addEventListener('click', () => {
@@ -1217,11 +1283,19 @@ async function showTournamentDetails(tournament) {
         loadBracket();
     });
 
+    // Изначально показываем вкладку постов
+    postsTab.classList.add('active');
+    tournamentPosts.classList.add('active');
+    tournamentRegistration.classList.remove('active');
+    tournamentBracket.classList.remove('active');
+
+    // Показываем секцию деталей турнира
+    sections.forEach(section => section.classList.remove('active'));
     tournamentDetails.classList.add('active');
 }
 
 function renderTournamentPost(post, prepend = false) {
-    const postId = post.id; // Добавляем явное определение postId
+    const postId = post.id;
     const postDiv = document.createElement('div');
     postDiv.classList.add('post');
     postDiv.setAttribute('data-post-id', postId);
@@ -1262,7 +1336,7 @@ function renderTournamentPost(post, prepend = false) {
 
     const tournamentPosts = document.getElementById('tournament-posts');
     if (prepend) {
-        tournamentPosts.prepend(postDiv);
+        tournamentPosts.insertBefore(postDiv, tournamentPosts.children[1]); // После формы нового поста
     } else {
         tournamentPosts.appendChild(postDiv);
     }
@@ -1277,10 +1351,10 @@ function renderRegistration(registration) {
     const avatarText = generateAvatarText(registration.faction_name);
 
     registrationCard.innerHTML = `
-        <strong>${registration.faction_name}</strong>
-        <p>Спикеры: ${registration.speaker1}, ${registration.speaker2}</p>
-        <p>Клуб: ${registration.club} (${registration.city})</p>
-        <p>Контакты: ${registration.contacts}</p>
+        <strong>${registration.faction_name || 'Без названия'}</strong>
+        <p>Спикеры: ${registration.speaker1 || 'Не указан'}, ${registration.speaker2 || 'Не указан'}</p>
+        <p>Клуб: ${registration.club || 'Не указан'} (${registration.city || 'Не указан'})</p>
+        <p>Контакты: ${registration.contacts || 'Не указаны'}</p>
         <p>Достижения: ${registration.extra || 'Нет данных'}</p>
         <button class="delete-registration-btn" data-registration-id="${registration.id}">Удалить</button>
     `;
@@ -1304,23 +1378,31 @@ function renderRegistration(registration) {
 
 async function loadBracket() {
     const tournamentBracket = document.getElementById('tournament-bracket');
+    tournamentBracket.innerHTML = '<div style="text-align: center; padding: 10px;">Загрузка...</div>';
+
     try {
         const bracket = await supabaseFetch(`tournament_brackets?tournament_id=eq.${currentTournamentId}`, 'GET');
+        tournamentBracket.innerHTML = '';
+
         if (bracket && bracket.length > 0) {
             tournamentBracket.innerHTML = '<h2>Сетка</h2>';
             for (const round of bracket) {
                 const roundDiv = document.createElement('div');
                 roundDiv.classList.add('bracket-round');
-                roundDiv.innerHTML = `<h3>${round.round_name}</h3>`;
-                for (const match of round.matches) {
-                    const matchDiv = document.createElement('div');
-                    matchDiv.classList.add('bracket-match');
-                    matchDiv.innerHTML = `
-                        <p>${match.team1} vs ${match.team2}</p>
-                        <p>Счет: ${match.score || 'Не определен'}</p>
-                        ${match.winner ? `<p>Победитель: ${match.winner}</p>` : '<input type="text" placeholder="Победитель">'}
-                    `;
-                    roundDiv.appendChild(matchDiv);
+                roundDiv.innerHTML = `<h3>${round.round_name || 'Раунд'}</h3>`;
+                if (round.matches && Array.isArray(round.matches)) {
+                    for (const match of round.matches) {
+                        const matchDiv = document.createElement('div');
+                        matchDiv.classList.add('bracket-match');
+                        matchDiv.innerHTML = `
+                            <p>${match.team1 || 'Команда 1'} vs ${match.team2 || 'Команда 2'}</p>
+                            <p>Счет: ${match.score || 'Не определен'}</p>
+                            ${match.winner ? `<p>Победитель: ${match.winner}</p>` : '<input type="text" placeholder="Победитель">'}
+                        `;
+                        roundDiv.appendChild(matchDiv);
+                    }
+                } else {
+                    roundDiv.innerHTML += '<p>Матчи отсутствуют.</p>';
                 }
                 tournamentBracket.appendChild(roundDiv);
             }
@@ -1345,14 +1427,26 @@ async function loadBracket() {
                 </div>
             `;
             const addMatchBtn = document.getElementById('add-match-btn');
-            addMatchBtn.addEventListener('click', () => {
+            addMatchBtn.addEventListener('click', async () => {
                 const roundName = document.getElementById('round-select').value;
                 const team1 = document.getElementById('team1-input').value.trim();
                 const team2 = document.getElementById('team2-input').value.trim();
                 if (team1 && team2) {
-                    console.log(`Adding match: ${team1} vs ${team2} in ${roundName}`);
-                    document.getElementById('team1-input').value = '';
-                    document.getElementById('team2-input').value = '';
+                    const match = { team1, team2, score: null, winner: null };
+                    const bracketEntry = {
+                        tournament_id: currentTournamentId,
+                        round_name: roundName,
+                        matches: [match]
+                    };
+                    try {
+                        await supabaseFetch('tournament_brackets', 'POST', bracketEntry);
+                        document.getElementById('team1-input').value = '';
+                        document.getElementById('team2-input').value = '';
+                        loadBracket();
+                    } catch (error) {
+                        console.error('Error adding match:', error);
+                        alert('Ошибка: ' + error.message);
+                    }
                 } else {
                     alert('Укажите обе команды!');
                 }
@@ -1360,7 +1454,7 @@ async function loadBracket() {
         }
     } catch (error) {
         console.error('Error loading bracket:', error);
-        tournamentBracket.innerHTML = '<p>Ошибка загрузки сетки</p>';
+        tournamentBracket.innerHTML = `<p>Ошибка загрузки сетки: ${error.message}</p>`;
     }
 }
 
