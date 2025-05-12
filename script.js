@@ -526,9 +526,10 @@ function generateAvatarText(name, username) {
 }
 
 function renderNewPost(post, prepend = false) {
+    const postId = post.id; // Добавляем явное определение postId
     const postDiv = document.createElement('div');
     postDiv.classList.add('post');
-    postDiv.setAttribute('data-post-id', post.id);
+    postDiv.setAttribute('data-post-id', postId);
 
     const [userInfo, ...contentParts] = post.text.split(':\n');
     const [fullname, username] = userInfo.split(' (@');
@@ -551,16 +552,16 @@ function renderNewPost(post, prepend = false) {
         <div class="post-content">${formattedContent}</div>
         ${post.image_url ? `<img src="${post.image_url}" class="post-image" alt="Post image">` : ''}
         <div class="post-actions">
-            <button class="reaction-btn like-btn" data-post-id="${post.id}" onclick="toggleReaction(this.dataset.postId, 'like')">👍 0</button>
-            <button class="reaction-btn dislike-btn" data-post-id="${post.id}" onclick="toggleReaction(this.dataset.postId, 'dislike')">👎 0</button>
-            <button class="comment-toggle-btn" data-post-id="${post.id}" onclick="toggleComments(this.dataset.postId)">💬 Комментарии (0)</button>
+            <button class="reaction-btn like-btn" data-post-id="${postId}" onclick="toggleReaction(this.dataset.postId, 'like')">👍 0</button>
+            <button class="reaction-btn dislike-btn" data-post-id="${postId}" onclick="toggleReaction(this.dataset.postId, 'dislike')">👎 0</button>
+            <button class="comment-toggle-btn" data-post-id="${postId}" onclick="toggleComments(this.dataset.postId)">💬 Комментарии (0)</button>
         </div>
-        <div class="comment-section" id="comments-${post.id}" style="display: none;">
-            <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
-            <div class="comment-list" id="comment-list-${post.id}" style="max-height: 200px; overflow-y: auto;"></div>
+        <div class="comment-section" id="comments-${postId}" style="display: none;">
+            <button id="new-comments-btn-${postId}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
+            <div class="comment-list" id="comment-list-${postId}" style="max-height: 200px; overflow-y: auto;"></div>
             <div class="comment-form">
-                <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
-                <button data-post-id="${post.id}" onclick="addComment(this.dataset.postId)">Отправить</button>
+                <textarea class="comment-input" id="comment-input-${postId}" placeholder="Написать комментарий..."></textarea>
+                <button data-post-id="${postId}" onclick="addComment(this.dataset.postId)">Отправить</button>
             </div>
         </div>
     `;
@@ -577,9 +578,10 @@ function renderNewPost(post, prepend = false) {
 
 async function renderMorePosts(newPosts) {
     for (const post of newPosts) {
+        const postId = post.id; // Добавляем явное определение postId
         const postDiv = document.createElement('div');
         postDiv.classList.add('post');
-        postDiv.setAttribute('data-post-id', post.id);
+        postDiv.setAttribute('data-post-id', postId);
 
         const [userInfo, ...contentParts] = post.text.split(':\n');
         const [fullname, username] = userInfo.split(' (@');
@@ -602,24 +604,24 @@ async function renderMorePosts(newPosts) {
             <div class="post-content">${formattedContent}</div>
             ${post.image_url ? `<img src="${post.image_url}" class="post-image" alt="Post image">` : ''}
             <div class="post-actions">
-                <button class="reaction-btn like-btn" data-post-id="${post.id}" onclick="toggleReaction(this.dataset.postId, 'like')">👍 0</button>
-                <button class="reaction-btn dislike-btn" data-post-id="${post.id}" onclick="toggleReaction(this.dataset.postId, 'dislike')">👎 0</button>
-                <button class="comment-toggle-btn" data-post-id="${post.id}" onclick="toggleComments(this.dataset.postId)">💬 Комментарии (0)</button>
+                <button class="reaction-btn like-btn" data-post-id="${postId}" onclick="toggleReaction(this.dataset.postId, 'like')">👍 0</button>
+                <button class="reaction-btn dislike-btn" data-post-id="${postId}" onclick="toggleReaction(this.dataset.postId, 'dislike')">👎 0</button>
+                <button class="comment-toggle-btn" data-post-id="${postId}" onclick="toggleComments(this.dataset.postId)">💬 Комментарии (0)</button>
             </div>
-            <div class="comment-section" id="comments-${post.id}" style="display: none;">
-                <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
-                <div class="comment-list" id="comment-list-${post.id}" style="max-height: 200px; overflow-y: auto;"></div>
+            <div class="comment-section" id="comments-${postId}" style="display: none;">
+                <button id="new-comments-btn-${postId}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
+                <div class="comment-list" id="comment-list-${postId}" style="max-height: 200px; overflow-y: auto;"></div>
                 <div class="comment-form">
-                    <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
-                    <button data-post-id="${post.id}" onclick="addComment(this.dataset.postId)">Отправить</button>
+                    <textarea class="comment-input" id="comment-input-${postId}" placeholder="Написать комментарий..."></textarea>
+                    <button data-post-id="${postId}" onclick="addComment(this.dataset.postId)">Отправить</button>
                 </div>
             </div>
         `;
 
         postsDiv.appendChild(postDiv);
 
-        loadReactionsAndComments(post.id);
-        subscribeToReactions(post.id);
+        loadReactionsAndComments(postId);
+        subscribeToReactions(postId);
     }
     console.log('Rendered more posts, count:', newPosts.length);
     postsDiv.appendChild(loadMoreBtn);
@@ -1042,10 +1044,9 @@ async function loadTournaments() {
                 const tournamentCard = document.createElement('div');
                 tournamentCard.classList.add('tournament-card');
                 tournamentCard.setAttribute('data-tournament-id', tournament.id);
-                const avatarText = generateAvatarText(tournament.name);
 
                 tournamentCard.innerHTML = `
-                    <div class="tournament-logo">${avatarText}</div>
+                    <img src="${tournament.logo || 'https://via.placeholder.com/40'}" alt="Tournament Logo" class="tournament-logo">
                     <div class="tournament-info">
                         <strong>${tournament.name}</strong>
                         <span>${new Date(tournament.date).toLocaleDateString('ru-RU')} | ${tournament.address}</span>
@@ -1077,6 +1078,7 @@ async function showTournamentDetails(tournament) {
     const bracketTab = document.getElementById('bracket-tab');
 
     tournamentHeader.innerHTML = `
+        ${tournament.logo ? `<img src="${tournament.logo}" alt="Tournament Logo">` : ''}
         <strong>${tournament.name}</strong>
         <p>Дата: ${new Date(tournament.date).toLocaleDateString('ru-RU')}</p>
         <p>Адрес: <a href="${tournament.address}" target="_blank" rel="noopener noreferrer">${tournament.address}</a></p>
@@ -1219,9 +1221,10 @@ async function showTournamentDetails(tournament) {
 }
 
 function renderTournamentPost(post, prepend = false) {
+    const postId = post.id; // Добавляем явное определение postId
     const postDiv = document.createElement('div');
     postDiv.classList.add('post');
-    postDiv.setAttribute('data-post-id', post.id);
+    postDiv.setAttribute('data-post-id', postId);
 
     const [userInfo, ...contentParts] = post.text.split(':\n');
     const [fullname, username] = userInfo.split(' (@');
@@ -1243,16 +1246,16 @@ function renderTournamentPost(post, prepend = false) {
         </div>
         <div class="post-content">${formattedContent}</div>
         <div class="post-actions">
-            <button class="reaction-btn like-btn" data-post-id="${post.id}" onclick="toggleReaction(this.dataset.postId, 'like')">👍 0</button>
-            <button class="reaction-btn dislike-btn" data-post-id="${post.id}" onclick="toggleReaction(this.dataset.postId, 'dislike')">👎 0</button>
-            <button class="comment-toggle-btn" data-post-id="${post.id}" onclick="toggleComments(this.dataset.postId)">💬 Комментарии (0)</button>
+            <button class="reaction-btn like-btn" data-post-id="${postId}" onclick="toggleReaction(this.dataset.postId, 'like')">👍 0</button>
+            <button class="reaction-btn dislike-btn" data-post-id="${postId}" onclick="toggleReaction(this.dataset.postId, 'dislike')">👎 0</button>
+            <button class="comment-toggle-btn" data-post-id="${postId}" onclick="toggleComments(this.dataset.postId)">💬 Комментарии (0)</button>
         </div>
-        <div class="comment-section" id="comments-${post.id}" style="display: none;">
-            <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
-            <div class="comment-list" id="comment-list-${post.id}" style="max-height: 200px; overflow-y: auto;"></div>
+        <div class="comment-section" id="comments-${postId}" style="display: none;">
+            <button id="new-comments-btn-${postId}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
+            <div class="comment-list" id="comment-list-${postId}" style="max-height: 200px; overflow-y: auto;"></div>
             <div class="comment-form">
-                <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
-                <button data-post-id="${post.id}" onclick="addComment(this.dataset.postId)">Отправить</button>
+                <textarea class="comment-input" id="comment-input-${postId}" placeholder="Написать комментарий..."></textarea>
+                <button data-post-id="${postId}" onclick="addComment(this.dataset.postId)">Отправить</button>
             </div>
         </div>
     `;
@@ -1264,8 +1267,8 @@ function renderTournamentPost(post, prepend = false) {
         tournamentPosts.appendChild(postDiv);
     }
 
-    loadReactionsAndComments(post.id);
-    subscribeToReactions(post.id);
+    loadReactionsAndComments(postId);
+    subscribeToReactions(postId);
 }
 
 function renderRegistration(registration) {
