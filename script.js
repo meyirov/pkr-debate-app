@@ -1225,7 +1225,7 @@ async function showTournamentDetails(tournament) {
         };
 
         try {
-            const newRegistration = await supabaseFetch('tournament_registrations', 'POST', registration);
+            const newRegistration = await supabaseFetch('registrations', 'POST', registration);
             registrationForm.classList.add('form-hidden');
             renderRegistration(newRegistration[0]);
             await loadRegistrations(); // Перезагружаем список регистраций после добавления
@@ -1239,7 +1239,9 @@ async function showTournamentDetails(tournament) {
     const loadRegistrations = async () => {
         registrationList.innerHTML = '<div style="text-align: center; padding: 10px;">Загрузка...</div>';
         try {
-            const registrations = await supabaseFetch(`tournament_registrations?tournament_id=eq.${currentTournamentId}&order=timestamp.desc`, 'GET');
+            console.log('Loading registrations for tournament_id:', currentTournamentId);
+            const registrations = await supabaseFetch(`registrations?tournament_id=eq.${currentTournamentId}&order=timestamp.desc`, 'GET');
+            console.log('Registrations loaded:', registrations);
             registrationList.innerHTML = '';
             if (registrations && registrations.length > 0) {
                 for (const reg of registrations) {
@@ -1362,7 +1364,7 @@ function renderRegistration(registration) {
     deleteBtn.addEventListener('click', async () => {
         if (confirm('Вы уверены, что хотите удалить регистрацию?')) {
             try {
-                await supabaseFetch(`tournament_registrations?id=eq.${registration.id}`, 'DELETE');
+                await supabaseFetch(`registrations?id=eq.${registration.id}`, 'DELETE');
                 registrationCard.remove();
             } catch (error) {
                 console.error('Error deleting registration:', error);
@@ -1377,79 +1379,50 @@ function renderRegistration(registration) {
 
 async function loadBracket() {
     const tournamentBracket = document.getElementById('tournament-bracket');
-    tournamentBracket.innerHTML = '<div style="text-align: center; padding: 10px;">Загрузка...</div>';
-
     try {
         const bracket = await supabaseFetch(`brackets?tournament_id=eq.${currentTournamentId}`, 'GET');
         tournamentBracket.innerHTML = '';
-
         if (bracket && bracket.length > 0) {
-            tournamentBracket.innerHTML = '<h2>Сетка</h2>';
-            for (const round of bracket) {
-                const roundDiv = document.createElement('div');
-                roundDiv.classList.add('bracket-round');
-                roundDiv.innerHTML = `<h3>${round.round_name || 'Раунд'}</h3>`;
-                if (round.matches && Array.isArray(round.matches)) {
-                    for (const match of round.matches) {
-                        const matchDiv = document.createElement('div');
-                        matchDiv.classList.add('bracket-match');
-                        matchDiv.innerHTML = `
-                            <p>${match.team1 || 'Команда 1'} vs ${match.team2 || 'Команда 2'}</p>
-                            <p>Счет: ${match.score || 'Не определен'}</p>
-                            ${match.winner ? `<p>Победитель: ${match.winner}</p>` : '<input type="text" placeholder="Победитель">'}
+            const bracketData = bracket[0];
+            if (bracketData.matches) {
+                const bracketDiv = document.createElement('div');
+                bracketDiv.className = 'bracket-container';
+
+                let html = '<div class="bracket">';
+                for (const [roundName, matches] of Object.entries(bracketData.matches)) {
+                    html += `
+                        <div class="bracket-round">
+                            <h3 class="round-title">${roundName}</h3>
+                            <div class="matches">
+                    `;
+                    matches.forEach(match => {
+                        html += `
+                            <div class="bracket-match">
+                                <div class="match-team team1">
+                                    <span>${match.team1 || 'TBD'}</span>
+                                </div>
+                                <div class="match-score">
+                                    <span>${match.score || 'vs'}</span>
+                                </div>
+                                <div class="match-team team2">
+                                    <span>${match.team2 || 'TBD'}</span>
+                                </div>
+                            </div>
                         `;
-                        roundDiv.appendChild(matchDiv);
-                    }
-                } else {
-                    roundDiv.innerHTML += '<p>Матчи отсутствуют.</p>';
+                    });
+                    html += `
+                            </div>
+                        </div>
+                    `;
                 }
-                tournamentBracket.appendChild(roundDiv);
+                html += '</div>';
+                bracketDiv.innerHTML = html;
+                tournamentBracket.appendChild(bracketDiv);
+            } else {
+                tournamentBracket.innerHTML = '<p>Сетка пока не сформирована.</p>';
             }
-            const publishBtn = document.createElement('button');
-            publishBtn.id = 'publish-bracket-btn';
-            publishBtn.textContent = 'Опубликовать сетку';
-            publishBtn.addEventListener('click', () => {
-                console.log('Publish bracket clicked');
-            });
-            tournamentBracket.appendChild(publishBtn);
         } else {
-            tournamentBracket.innerHTML = `
-                <div id="bracket-form">
-                    <select id="round-select">
-                        <option value="quarterfinals">1/4 финала</option>
-                        <option value="semifinals">1/2 финала</option>
-                        <option value="final">Финал</option>
-                    </select>
-                    <input type="text" id="team1-input" placeholder="Команда 1">
-                    <input type="text" id="team2-input" placeholder="Команда 2">
-                    <button id="add-match-btn">Добавить матч</button>
-                </div>
-            `;
-            const addMatchBtn = document.getElementById('add-match-btn');
-            addMatchBtn.addEventListener('click', async () => {
-                const roundName = document.getElementById('round-select').value;
-                const team1 = document.getElementById('team1-input').value.trim();
-                const team2 = document.getElementById('team2-input').value.trim();
-                if (team1 && team2) {
-                    const match = { team1, team2, score: null, winner: null };
-                    const bracketEntry = {
-                        tournament_id: currentTournamentId,
-                        round_name: roundName,
-                        matches: [match]
-                    };
-                    try {
-                        await supabaseFetch('brackets', 'POST', bracketEntry);
-                        document.getElementById('team1-input').value = '';
-                        document.getElementById('team2-input').value = '';
-                        loadBracket();
-                    } catch (error) {
-                        console.error('Error adding match:', error);
-                        alert('Ошибка: ' + error.message);
-                    }
-                } else {
-                    alert('Укажите обе команды!');
-                }
-            });
+            tournamentBracket.innerHTML = '<p>Сетка пока не сформирована.</p>';
         }
     } catch (error) {
         console.error('Error loading bracket:', error);
