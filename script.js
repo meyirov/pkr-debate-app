@@ -1228,6 +1228,7 @@ async function showTournamentDetails(tournament) {
             const newRegistration = await supabaseFetch('tournament_registrations', 'POST', registration);
             registrationForm.classList.add('form-hidden');
             renderRegistration(newRegistration[0]);
+            await loadRegistrations(); // Перезагружаем список регистраций после добавления
         } catch (error) {
             console.error('Error submitting registration:', error);
             alert('Ошибка: ' + error.message);
@@ -1238,7 +1239,7 @@ async function showTournamentDetails(tournament) {
     const loadRegistrations = async () => {
         registrationList.innerHTML = '<div style="text-align: center; padding: 10px;">Загрузка...</div>';
         try {
-            const registrations = await supabaseFetch(`tournament_registrations?tournament_id=eq.${currentTournamentId}`, 'GET');
+            const registrations = await supabaseFetch(`tournament_registrations?tournament_id=eq.${currentTournamentId}&order=timestamp.desc`, 'GET');
             registrationList.innerHTML = '';
             if (registrations && registrations.length > 0) {
                 for (const reg of registrations) {
@@ -1305,14 +1306,13 @@ function renderTournamentPost(post, prepend = false) {
     const cleanUsername = username ? username.replace(')', '') : '';
     const content = contentParts.join(':\n');
     const formattedContent = formatPostContent(content);
-    const avatarText = generateAvatarText(fullname, cleanUsername);
 
     const timeAgo = getTimeAgo(new Date(post.timestamp));
 
+    // Убрали аватарку из постов турнира
     postDiv.innerHTML = `
         <div class="post-header">
             <div class="post-user">
-                <div class="user-avatar">${avatarText}</div>
                 <strong>${fullname}</strong>
                 <span>@${cleanUsername}</span>
             </div>
@@ -1348,7 +1348,6 @@ function renderTournamentPost(post, prepend = false) {
 function renderRegistration(registration) {
     const registrationCard = document.createElement('div');
     registrationCard.classList.add('registration-card');
-    const avatarText = generateAvatarText(registration.faction_name);
 
     registrationCard.innerHTML = `
         <strong>${registration.faction_name || 'Без названия'}</strong>
@@ -1381,7 +1380,7 @@ async function loadBracket() {
     tournamentBracket.innerHTML = '<div style="text-align: center; padding: 10px;">Загрузка...</div>';
 
     try {
-        const bracket = await supabaseFetch(`tournament_brackets?tournament_id=eq.${currentTournamentId}`, 'GET');
+        const bracket = await supabaseFetch(`brackets?tournament_id=eq.${currentTournamentId}`, 'GET');
         tournamentBracket.innerHTML = '';
 
         if (bracket && bracket.length > 0) {
@@ -1439,7 +1438,7 @@ async function loadBracket() {
                         matches: [match]
                     };
                     try {
-                        await supabaseFetch('tournament_brackets', 'POST', bracketEntry);
+                        await supabaseFetch('brackets', 'POST', bracketEntry);
                         document.getElementById('team1-input').value = '';
                         document.getElementById('team2-input').value = '';
                         loadBracket();
