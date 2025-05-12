@@ -41,7 +41,42 @@
                     </div>
                 </div>
                 <div id="posts-loading" style="display: none; text-align: center; padding: 10px;">Загрузка...</div>
-                <div id="posts"></div>
+                <div id="posts">
+                    <!-- Шаблон поста -->
+                    <div class="post" style="display: none;">
+                        <div class="post-header">
+                            <div class="post-user">
+                                <div class="user-avatar"></div>
+                                <strong></strong> <span></span>
+                            </div>
+                            <div class="post-time"></div>
+                        </div>
+                        <div class="post-content"></div>
+                        <img class="post-image" src="" alt="Post Image" style="display: none;">
+                        <div class="post-actions">
+                            <button class="reaction-btn like-btn" onclick="toggleReaction(this.dataset.postId, 'like')">👍 0</button>
+                            <button class="reaction-btn dislike-btn" onclick="toggleReaction(this.dataset.postId, 'dislike')">👎 0</button>
+                            <button class="comment-toggle-btn" onclick="toggleComments(this.dataset.postId)">💬 Комментарии (0)</button>
+                        </div>
+                        <div class="comment-section" id="comments-0" style="display: none;">
+                            <button id="new-comments-btn-0" class="new-posts-btn" style="display: none;">Новые комментарии</button>
+                            <div class="comment-list" id="comment-list-0" style="max-height: 200px; overflow-y: auto;">
+                                <!-- Шаблон комментария -->
+                                <div class="comment" style="display: none;">
+                                    <div class="comment-user">
+                                        <div class="user-avatar"></div>
+                                        <strong></strong> <span></span>
+                                    </div>
+                                    <div class="comment-content"></div>
+                                </div>
+                            </div>
+                            <div class="comment-form">
+                                <textarea class="comment-input" id="comment-input-0" placeholder="Написать комментарий..."></textarea>
+                                <button onclick="addComment(this.dataset.postId)">Отправить</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </section>
             <section id="tournaments" class="content">
                 <button id="create-tournament-btn">Создать турнир</button>
@@ -54,7 +89,16 @@
                     <input id="tournament-deadline" type="text" placeholder="Дедлайн (например, 05.04.2025)">
                     <button id="submit-tournament">Создать</button>
                 </div>
-                <div id="tournament-list"></div>
+                <div id="tournament-list">
+                    <!-- Шаблон карточки турнира -->
+                    <div class="tournament-card" style="display: none;">
+                        <div class="tournament-logo"></div>
+                        <div class="tournament-info">
+                            <strong></strong>
+                            <span></span>
+                        </div>
+                    </div>
+                </div>
             </section>
             <section id="tournament-details" class="content">
                 <div id="tournament-header"></div>
@@ -89,6 +133,7 @@
                 <div id="rating-list"></div>
             </section>
             <section id="profile" class="content">
+                <div id="profile-avatar" class="profile-avatar"></div>
                 <h2>Профиль</h2>
                 <p>Username: <span id="username"></span></p>
                 <input id="fullname" type="text" placeholder="Имя и фамилия">
@@ -108,5 +153,5 @@
         </nav>
     </div>
     <script src="script.js"></script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'937f34e8dc411363',t:'MTc0NTkzMzk3OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'937f34e8dc411363',t:'MTc0NTkzMzk3OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'93e9d4b3aca37ba5',t:'MTc0NzA1MjAxNC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
