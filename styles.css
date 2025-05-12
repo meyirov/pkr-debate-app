@@ -34,33 +34,6 @@ body {
     flex-direction: column;
 }
 
-/* Уведомления */
-.notification-container {
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    z-index: 2000;
-}
-
-.notification {
-    background: #1a1a1a;
-    padding: 10px;
-    margin-bottom: 10px;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    color: #e6e6e6;
-    font-size: 14px;
-    max-width: 300px;
-    opacity: 0;
-    transform: translateY(-10px);
-    transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-.notification.visible {
-    opacity: 1;
-    transform: translateY(0);
-}
-
 .content {
     display: none;
     flex: 1; /* Растягивается на всё доступное пространство */
@@ -528,14 +501,6 @@ body {
 }
 
 #tournament-header img {
-    width: 100%;
-    max-height: 180px;
-    object-fit: cover;
-    border-radius: 8px;
-    margin-bottom: 10px;
-}
-
-#tournamentwherever {
     width: 100%;
     max-height: 180px;
     object-fit: cover;
