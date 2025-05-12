@@ -1256,223 +1256,56 @@ async function showTournamentDetails(tournament) {
         }
     };
 
-    // Вкладки
-    postsTab.addEventListener('click', () => {
-        postsTab.classList.add('active');
-        registrationTab.classList.remove('active');
-        bracketTab.classList.remove('active');
-        tournamentPosts.classList.add('active');
-        tournamentRegistration.classList.remove('active');
-        tournamentBracket.classList.remove('active');
-    });
+    // Вкладка сетки
+    async function loadBracket() {
+        const tournamentBracket = document.getElementById('tournament-bracket');
+        try {
+            const bracket = await supabaseFetch(`brackets?tournament_id=eq.${currentTournamentId}`, 'GET');
+            console.log('Bracket data:', bracket);
+            tournamentBracket.innerHTML = '';
+            if (bracket && bracket.length > 0) {
+                const bracketData = bracket[0];
+                if (bracketData.matches && typeof bracketData.matches === 'object') {
+                    const bracketDiv = document.createElement('div');
+                    bracketDiv.className = 'bracket-container';
 
-    registrationTab.addEventListener('click', async () => {
-        postsTab.classList.remove('active');
-        registrationTab.classList.add('active');
-        bracketTab.classList.remove('active');
-        tournamentPosts.classList.remove('active');
-        tournamentRegistration.classList.add('active');
-        tournamentBracket.classList.remove('active');
-        await loadRegistrations();
-    });
-
-    bracketTab.addEventListener('click', () => {
-        postsTab.classList.remove('active');
-        registrationTab.classList.remove('active');
-        bracketTab.classList.add('active');
-        tournamentPosts.classList.remove('active');
-        tournamentRegistration.classList.remove('active');
-        tournamentBracket.classList.add('active');
-        loadBracket();
-    });
-
-    // Изначально показываем вкладку постов
-    postsTab.classList.add('active');
-    tournamentPosts.classList.add('active');
-    tournamentRegistration.classList.remove('active');
-    tournamentBracket.classList.remove('active');
-
-    // Показываем секцию деталей турнира
-    sections.forEach(section => section.classList.remove('active'));
-    tournamentDetails.classList.add('active');
-}
-
-function renderTournamentPost(post, prepend = false) {
-    const postId = post.id;
-    const postDiv = document.createElement('div');
-    postDiv.classList.add('post');
-    postDiv.setAttribute('data-post-id', postId);
-
-    const [userInfo, ...contentParts] = post.text.split(':\n');
-    const [fullname, username] = userInfo.split(' (@');
-    const cleanUsername = username ? username.replace(')', '') : '';
-    const content = contentParts.join(':\n');
-    const formattedContent = formatPostContent(content);
-
-    const timeAgo = getTimeAgo(new Date(post.timestamp));
-
-    // Убрали аватарку из постов турнира
-    postDiv.innerHTML = `
-        <div class="post-header">
-            <div class="post-user">
-                <strong>${fullname}</strong>
-                <span>@${cleanUsername}</span>
-            </div>
-            <div class="post-time">${timeAgo}</div>
-        </div>
-        <div class="post-content">${formattedContent}</div>
-        <div class="post-actions">
-            <button class="reaction-btn like-btn" data-post-id="${postId}" onclick="toggleReaction(this.dataset.postId, 'like')">👍 0</button>
-            <button class="reaction-btn dislike-btn" data-post-id="${postId}" onclick="toggleReaction(this.dataset.postId, 'dislike')">👎 0</button>
-            <button class="comment-toggle-btn" data-post-id="${postId}" onclick="toggleComments(this.dataset.postId)">💬 Комментарии (0)</button>
-        </div>
-        <div class="comment-section" id="comments-${postId}" style="display: none;">
-            <button id="new-comments-btn-${postId}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
-            <div class="comment-list" id="comment-list-${postId}" style="max-height: 200px; overflow-y: auto;"></div>
-            <div class="comment-form">
-                <textarea class="comment-input" id="comment-input-${postId}" placeholder="Написать комментарий..."></textarea>
-                <button data-post-id="${postId}" onclick="addComment(this.dataset.postId)">Отправить</button>
-            </div>
-        </div>
-    `;
-
-    const tournamentPosts = document.getElementById('tournament-posts');
-    if (prepend) {
-        tournamentPosts.insertBefore(postDiv, tournamentPosts.children[1]); // После формы нового поста
-    } else {
-        tournamentPosts.appendChild(postDiv);
-    }
-
-    loadReactionsAndComments(postId);
-    subscribeToReactions(postId);
-}
-
-function renderRegistration(registration) {
-    const registrationCard = document.createElement('div');
-    registrationCard.classList.add('registration-card');
-
-    registrationCard.innerHTML = `
-        <strong>${registration.faction_name || 'Без названия'}</strong>
-        <p>Спикеры: ${registration.speaker1 || 'Не указан'}, ${registration.speaker2 || 'Не указан'}</p>
-        <p>Клуб: ${registration.club || 'Не указан'} (${registration.city || 'Не указан'})</p>
-        <p>Контакты: ${registration.contacts || 'Не указаны'}</p>
-        <p>Достижения: ${registration.extra || 'Нет данных'}</p>
-        <button class="delete-registration-btn" data-registration-id="${registration.id}">Удалить</button>
-    `;
-
-    const deleteBtn = registrationCard.querySelector('.delete-registration-btn');
-    deleteBtn.addEventListener('click', async () => {
-        if (confirm('Вы уверены, что хотите удалить регистрацию?')) {
-            try {
-                await supabaseFetch(`registrations?id=eq.${registration.id}`, 'DELETE');
-                registrationCard.remove();
-            } catch (error) {
-                console.error('Error deleting registration:', error);
-                alert('Ошибка: ' + error.message);
-            }
-        }
-    });
-
-    const registrationList = document.getElementById('registration-list');
-    registrationList.appendChild(registrationCard);
-}
-
-async function loadBracket() {
-    const tournamentBracket = document.getElementById('tournament-bracket');
-    try {
-        const bracket = await supabaseFetch(`brackets?tournament_id=eq.${currentTournamentId}`, 'GET');
-        tournamentBracket.innerHTML = '';
-        if (bracket && bracket.length > 0) {
-            const bracketData = bracket[0];
-            if (bracketData.matches) {
-                const bracketDiv = document.createElement('div');
-                bracketDiv.className = 'bracket-container';
-
-                let html = '<div class="bracket">';
-                for (const [roundName, matches] of Object.entries(bracketData.matches)) {
-                    html += `
-                        <div class="bracket-round">
-                            <h3 class="round-title">${roundName}</h3>
-                            <div class="matches">
-                    `;
-                    matches.forEach(match => {
-                        html += `
-                            <div class="bracket-match">
-                                <div class="match-team team1">
-                                    <span>${match.team1 || 'TBD'}</span>
+                    let html = '<div class="bracket">';
+                    for (const [roundName, matches] of Object.entries(bracketData.matches)) {
+                        if (Array.isArray(matches)) {
+                            html += `
+                                <div class="bracket-round">
+                                    <h3 class="round-title">${roundName}</h3>
+                                    <div class="matches">
+                            `;
+                            matches.forEach(match => {
+                                html += `
+                                    <div class="bracket-match">
+                                        <div class="match-team team1"><span>${match.team1 || 'TBD'}</span></div>
+                                        <div class="match-score"><span>${match.score || 'vs'}</span></div>
+                                        <div class="match-team team2"><span>${match.team2 || 'TBD'}</span></div>
+                                    </div>
+                                `;
+                            });
+                            html += `
+                                    </div>
                                 </div>
-                                <div class="match-score">
-                                    <span>${match.score || 'vs'}</span>
-                                </div>
-                                <div class="match-team team2">
-                                    <span>${match.team2 || 'TBD'}</span>
-                                </div>
-                            </div>
-                        `;
-                    });
-                    html += `
-                            </div>
-                        </div>
-                    `;
+                            `;
+                        } else {
+                            console.warn(`Matches for round ${roundName} is not an array:`, matches);
+                        }
+                    }
+                    html += '</div>';
+                    bracketDiv.innerHTML = html;
+                    tournamentBracket.appendChild(bracketDiv);
+                } else {
+                    console.warn('Matches is not an object or is missing:', bracketData.matches);
+                    tournamentBracket.innerHTML = '<p>Сетка пока не сформирована или данные некорректны.</p>';
                 }
-                html += '</div>';
-                bracketDiv.innerHTML = html;
-                tournamentBracket.appendChild(bracketDiv);
             } else {
                 tournamentBracket.innerHTML = '<p>Сетка пока не сформирована.</p>';
             }
-        } else {
-            tournamentBracket.innerHTML = '<p>Сетка пока не сформирована.</p>';
+        } catch (error) {
+            console.error('Error loading bracket:', error);
+            tournamentBracket.innerHTML = `<p>Ошибка загрузки сетки: ${error.message}</p>`;
         }
-    } catch (error) {
-        console.error('Error loading bracket:', error);
-        tournamentBracket.innerHTML = `<p>Ошибка загрузки сетки: ${error.message}</p>`;
     }
-}
-
-const createTournamentBtn = document.getElementById('create-tournament-btn');
-const createTournamentForm = document.getElementById('create-tournament-form');
-const submitTournament = document.getElementById('submit-tournament');
-
-createTournamentBtn.addEventListener('click', () => {
-    if (createTournamentForm.classList.contains('form-hidden')) {
-        createTournamentForm.classList.remove('form-hidden');
-    } else {
-        createTournamentForm.classList.add('form-hidden');
-    }
-});
-
-submitTournament.addEventListener('click', async () => {
-    const name = document.getElementById('tournament-name').value.trim();
-    const date = document.getElementById('tournament-date').value.trim();
-    const logo = document.getElementById('tournament-logo').value.trim();
-    const description = document.getElementById('tournament-desc').value.trim();
-    const address = document.getElementById('tournament-address').value.trim();
-    const deadline = document.getElementById('tournament-deadline').value.trim();
-
-    if (!name || !date || !address || !deadline) {
-        alert('Заполните все обязательные поля!');
-        return;
-    }
-
-    const tournament = {
-        name: name,
-        date: date,
-        logo: logo,
-        description: description,
-        address: address,
-        deadline: deadline,
-        user_id: userData.telegramUsername
-    };
-
-    try {
-        await supabaseFetch('tournaments', 'POST', tournament);
-        createTournamentForm.classList.add('form-hidden');
-        loadTournaments();
-    } catch (error) {
-        console.error('Error creating tournament:', error);
-        alert('Ошибка: ' + error.message);
-    }
-});
-
-checkProfile();
