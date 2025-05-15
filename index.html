@@ -3,31 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PKR</title>
+    <title>PKR App</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
-        <div id="registration-modal" class="modal">
-            <div class="modal-content">
-                <h2>Добро пожаловать!</h2>
-                <p>Пожалуйста, введите ваше имя для регистрации:</p>
-                <input id="reg-fullname" type="text" placeholder="Имя и фамилия">
-                <button id="submit-profile-reg-btn">Зарегистрироваться</button>
-            </div>
+    <div id="registration-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h2>Добро пожаловать!</h2>
+            <p>Пожалуйста, введите ваше имя для регистрации:</p>
+            <input id="reg-fullname" type="text" placeholder="Имя и фамилия">
+            <button id="submit-profile-reg-btn">Зарегистрироваться</button>
         </div>
+    </div>
 
-        <div id="app-container" style="display: none;">
+    <div id="app-container" style="display: none;">
+        <div class="container">
             <div class="main-content">
                 <div id="feed" class="content active">
                     <div id="new-post">
                         <textarea id="post-text" placeholder="Что нового?"></textarea>
                         <div class="new-post-actions">
                             <div class="new-post-icons">
-                                <label class="image-upload-label">
-                                    <input id="post-image" type="file" accept="image/*" style="display: none;">
-                                    📷 Добавить фото
+                                <label for="post-image" class="image-upload-label">
+                                    <span>📷</span> Добавить фото
                                 </label>
+                                <input type="file" id="post-image" accept="image/*" style="display: none;">
                             </div>
                             <button id="submit-post">Твитнуть</button>
                         </div>
@@ -40,49 +40,20 @@
                     <button id="create-tournament-btn">Создать турнир</button>
                     <div id="create-tournament-form" class="form-hidden">
                         <input id="tournament-name" type="text" placeholder="Название турнира">
-                        <input id="tournament-date" type="date" placeholder="Дата">
+                        <input id="tournament-date" type="text" placeholder="Дата (YYYY-MM-DD)">
                         <input id="tournament-logo" type="text" placeholder="URL логотипа">
                         <textarea id="tournament-desc" placeholder="Описание"></textarea>
-                        <input id="tournament-address" type="text" placeholder="Адрес (ссылка на Google Maps)">
-                        <input id="tournament-deadline" type="datetime-local" placeholder="Дедлайн регистрации">
+                        <input id="tournament-address" type="text" placeholder="Адрес (Google Maps URL)">
+                        <input id="tournament-deadline" type="text" placeholder="Дедлайн регистрации (YYYY-MM-DD)">
                         <button id="submit-tournament">Создать</button>
                     </div>
                     <div id="tournament-list"></div>
                 </div>
 
-                <div id="rating" class="content">
-                    <div id="city-section" class="rating-section active">
-                        <h2>Выберите город</h2>
-                        <div class="city-list">
-                            <div class="city-item" data-city="almaty">Алматы</div>
-                        </div>
-                    </div>
-                    <div id="year-section" class="rating-section">
-                        <h2>Выберите год</h2>
-                        <div class="year-list">
-                            <div class="year-item" data-year="2024-2025">2024-2025</div>
-                        </div>
-                    </div>
-                    <div id="ranking-section" class="rating-section">
-                        <h2>Рейтинг спикеров (Алматы, 2024-2025)</h2>
-                        <table class="ranking-table">
-                            <thead>
-                                <tr>
-                                    <th>Место</th>
-                                    <th>Имя и фамилия</th>
-                                    <th>Баллы</th>
-                                    <th>Клуб</th>
-                                </tr>
-                            </thead>
-                            <tbody id="ranking-table-body"></tbody>
-                        </table>
-                    </div>
-                </div>
-
                 <div id="tournament-details" class="content">
                     <div id="tournament-header"></div>
-                    <div id="tournament-description" class="description-hidden"></div>
                     <button id="toggle-description-btn">Развернуть описание</button>
+                    <div id="tournament-description" class="description-hidden"></div>
                     <hr class="section-divider">
                     <div class="tournament-tabs">
                         <button id="posts-tab" class="tab-btn active">Посты</button>
@@ -94,8 +65,8 @@
                         <button id="register-tournament-btn">Зарегистрироваться</button>
                         <div id="registration-form" class="form-hidden">
                             <input id="reg-faction-name" type="text" placeholder="Название фракции">
-                            <input id="reg-speaker1" type="text" placeholder="Спикер 1 (Имя и фамилия)">
-                            <input id="reg-speaker2" type="text" placeholder="Спикер 2 (Имя и фамилия)">
+                            <input id="reg-speaker1" type="text" placeholder="Спикер 1">
+                            <input id="reg-speaker2" type="text" placeholder="Спикер 2">
                             <input id="reg-club" type="text" placeholder="Клуб">
                             <input id="reg-city" type="text" placeholder="Город">
                             <input id="reg-contacts" type="text" placeholder="Контакты">
@@ -107,18 +78,25 @@
                     <div id="tournament-bracket" class="tab-content"></div>
                 </div>
 
-                <div id="profile" class="content">
-                    <h2>Профиль</h2>
-                    <p>Username: <span id="username"></span></p>
-                    <input id="fullname" type="text" placeholder="Имя и фамилия">
-                    <button id="update-profile">Изменить имя</button>
-                    <h2>PKR EDU</h2>
-                    <p>Обучающий контент скоро появится!</p>
+                <div id="rating" class="content">
+                    <div id="city-selection">
+                        <div class="city-card" data-city="Almaty">
+                            <strong>Алматы</strong>
+                        </div>
+                    </div>
+                    <div id="year-selection" style="display: none;">
+                        <div class="year-card" data-year="2024-2025">
+                            <strong>2024-2025</strong>
+                        </div>
+                    </div>
+                    <div id="rating-list" style="display: none;"></div>
                 </div>
 
                 <div id="edu" class="content">
-                    <h2>PKR EDU</h2>
-                    <p>Обучающий контент скоро появится!</p>
+                    <div id="profile">
+                        <h2>PKR EDU</h2>
+                        <p>Обучающий контент скоро появится!</p>
+                    </div>
                 </div>
             </div>
 
@@ -141,7 +119,12 @@
             </div>
         </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+        const SUPABASE_KEY = 'YOUR_SUPABASE_KEY';
+    </script>
     <script src="script.js"></script>
 </body>
 </html>
