@@ -21,14 +21,14 @@ body {
     display: flex;
     flex-direction: column;
     flex: 1;
-    height: 100vh;
+    height: 100vh; /* Устанавливаем фиксированную высоту */
 }
 
 /* Основной контент */
 .main-content {
     flex: 1;
     padding: 10px;
-    padding-bottom: 80px;
+    padding-bottom: 80px; /* Увеличено, чтобы учесть высоту .navbar */
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -36,7 +36,7 @@ body {
 
 .content {
     display: none;
-    flex: 1;
+    flex: 1; /* Растягивается на всё доступное пространство */
 }
 
 .content.active {
@@ -44,9 +44,10 @@ body {
     flex-direction: column;
 }
 
+/* Обновлено для растяжки #feed */
 #feed {
-    flex: 1;
-    height: 100%;
+    flex: 1; /* Растягивается на всё доступное пространство */
+    height: 100%; /* Занимает всю высоту родителя */
     overflow-y: auto;
     padding: 10px;
     box-sizing: border-box;
@@ -133,7 +134,7 @@ body {
 
 /* Посты */
 #posts {
-    flex-grow: 1;
+    flex-grow: 1; /* Растягивается внутри #feed */
 }
 
 .post {
@@ -182,18 +183,18 @@ body {
     margin-top: 5px;
     font-size: 15px;
     color: #d1d5db;
-    white-space: pre-wrap;
+    white-space: pre-wrap; /* Добавлено: сохраняет переносы строк и пробелы */
 }
 
 .post-content a {
-    color: #8b5cf6;
-    text-decoration: none;
-    transition: color 0.2s ease;
+    color: #8b5cf6; /* Цвет ссылок соответствует теме приложения */
+    text-decoration: none; /* Убираем подчеркивание по умолчанию */
+    transition: color 0.2s ease; /* Плавный переход цвета */
 }
 
 .post-content a:hover {
-    color: #a78bfa;
-    text-decoration: underline;
+    color: #a78bfa; /* Цвет при наведении */
+    text-decoration: underline; /* Подчеркивание при наведении */
 }
 
 .post-image {
@@ -563,13 +564,13 @@ body {
 /* Вкладки турнира */
 .tournament-tabs {
     display: flex;
-    justify-content: space-between;
-    width: 100%;
+    justify-content: space-between; /* Равномерное распределение кнопок */
+    width: 100%; /* Занимает всю ширину контейнера */
     margin-bottom: 10px;
 }
 
 .tab-btn {
-    flex: 1;
+    flex: 1; /* Каждая кнопка занимает равное пространство */
     padding: 8px 16px;
     background: #1a1a1a;
     color: #e6e6e6;
@@ -579,16 +580,16 @@ body {
     font-size: 14px;
     font-weight: 600;
     transition: background 0.2s ease, color 0.2s ease;
-    margin: 0 5px;
-    text-align: center;
+    margin: 0 5px; /* Небольшой отступ между кнопками */
+    text-align: center; /* Текст по центру кнопки */
 }
 
 .tab-btn:first-child {
-    margin-left: 0;
+    margin-left: 0; /* Убираем отступ слева у первой кнопки */
 }
 
 .tab-btn:last-child {
-    margin-right: 0;
+    margin-right: 0; /* Убираем отступ справа у последней кнопки */
 }
 
 .tab-btn:hover {
@@ -680,7 +681,7 @@ body {
     margin: 5px 0;
     border: 1px solid #333;
     border-radius: 8px;
-    background: #solemn626;
+    background: #262626;
     color: #e6e6e6;
     font-size: 14px;
 }
@@ -997,109 +998,113 @@ body {
     transform: scale(1.05);
 }
 
-/* Стили для рейтинга */
-.city-card, .year-card {
+/* Раздел рейтинга */
+#rating {
+    padding: 10px;
+}
+
+.rating-item {
     background: #1a1a1a;
     padding: 10px;
-    margin-bottom: 10px;
     border-radius: 12px;
+    margin-bottom: 10px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     cursor: pointer;
     transition: background 0.2s ease, transform 0.2s ease;
 }
 
-.city-card:hover, .year-card:hover {
+.rating-item:hover {
     background: #262626;
     transform: translateY(-2px);
 }
 
-.city-card strong, .year-card strong {
+.speaker-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #1a1a1a;
+    padding: 10px;
+    border-radius: 12px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s ease;
+}
+
+.speaker-item:hover {
+    transform: translateY(-2px);
+}
+
+.speaker-info {
+    flex: 1;
+}
+
+.speaker-name {
     font-size: 16px;
     font-weight: 600;
     color: #ffffff;
 }
 
-.rating-card {
-    background: #1a1a1a;
-    padding: 10px;
-    margin-bottom: 10px;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    display: flex;
-    align-items: center;
-    transition: transform 0.2s ease;
-}
-
-.rating-card:hover {
-    transform: translateY(-2px);
-}
-
-.rating-card.position-1 {
-    background: linear-gradient(135deg, #FFD700, #FFC107);
-    color: #1a1a1a;
-}
-
-.rating-card.position-2 {
-    background: linear-gradient(135deg, #C0C0C0, #A9A9A9);
-    color: #1a1a1a;
-}
-
-.rating-card.position-3 {
-    background: linear-gradient(135deg, #CD7F32, #A0522D);
-    color: #1a1a1a;
-}
-
-.rating-position {
-    width: 40px;
-    height: 40px;
-    background: #262626;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    font-weight: 600;
-    margin-right: 10px;
-    color: #e6e6e6;
-}
-
-.rating-card.position-1 .rating-position {
-    background: #FFC107;
-    color: #1a1a1a;
-}
-
-.rating-card.position-2 .rating-position {
-    background: #A9A9A9;
-    color: #1a1a1a;
-}
-
-.rating-card.position-3 .rating-position {
-    background: #A0522D;
-    color: #1a1a1a;
-}
-
-.rating-info {
-    flex: 1;
-}
-
-.rating-info strong {
-    font-size: 16px;
-    font-weight: 600;
-    display: block;
-    margin-bottom: 4px;
-}
-
-.rating-info span {
+.speaker-club {
     font-size: 14px;
-    display: block;
-    line-height: 1.4;
+    color: #6b7280;
 }
 
-.rating-card.position-1 .rating-info strong,
-.rating-card.position-1 .rating-info span,
-.rating-card.position-2 .rating-info strong,
-.rating-card.position-2 .rating-info span,
-.rating-card.position-3 .rating-info strong,
-.rating-card.position-3 .rating-info span {
-    color: #1a1a1a;
+.speaker-points {
+    font-size: 16px;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.speaker-rank {
+    font-size: 16px;
+    font-weight: 600;
+    width: 40px;
+    text-align: right;
+    color: #ffffff;
+}
+
+/* Стили для топ-3 рейтинга */
+.speaker-item.rank-1 {
+    background: linear-gradient(135deg, #ffd700, #e6b800);
+    color: #000;
+}
+
+.speaker-item.rank-1 .speaker-name,
+.speaker-item.rank-1 .speaker-points,
+.speaker-item.rank-1 .speaker-rank {
+    color: #000;
+}
+
+.speaker-item.rank-1 .speaker-club {
+    color: #333;
+}
+
+.speaker-item.rank-2 {
+    background: linear-gradient(135deg, #c0c0c0, #a0a0a0);
+    color: #000;
+}
+
+.speaker-item.rank-2 .speaker-name,
+.speaker-item.rank-2 .speaker-points,
+.speaker-item.rank-2 .speaker-rank {
+    color: #000;
+}
+
+.speaker-item.rank-2 .speaker-club {
+    color: #333;
+}
+
+.speaker-item.rank-3 {
+    background: linear-gradient(135deg, #cd7f32, #a66328);
+    color: #000;
+}
+
+.speaker-item.rank-3 .speaker-name,
+.speaker-item.rank-3 .speaker-points,
+.speaker-item.rank-3 .speaker-rank {
+    color: #000;
+}
+
+.speaker-item.rank-3 .speaker-club {
+    color: #333;
 }
