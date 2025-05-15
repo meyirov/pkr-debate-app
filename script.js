@@ -1,4 +1,4 @@
-console.log('script.js loaded, version: 2025-05-02');
+console.log('script.js loaded, version: 2025-05-15');
 
 const { createClient } = supabase;
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -498,7 +498,9 @@ function renderPosts() {
     postsDiv.appendChild(loadMoreBtn);
 }
 
-function renderNewPosts(newPosts, prepend = false) {
+function renderNewPosts'
+
+(newPosts, prepend = false) {
     for (const post of newPosts) {
         renderNewPost(post, prepend);
     }
@@ -1138,7 +1140,8 @@ document.getElementById('submit-tournament').addEventListener('click', async () 
 async function showTournamentDetails(tournamentId) {
     currentTournamentId = tournamentId;
     sections.forEach(section => section.classList.remove('active'));
-    document.getElementById('tournament-details').classList.add('active');
+    const tournamentDetailsSection = document.getElementById('tournament-details');
+    tournamentDetailsSection.classList.add('active');
     buttons.forEach(btn => btn.classList.remove('active'));
     document.getElementById('tournaments-btn').classList.add('active');
 
@@ -1151,7 +1154,7 @@ async function showTournamentDetails(tournamentId) {
         if (tournament && tournament.length > 0) {
             const t = tournament[0];
             tournamentHeader.innerHTML = `
-                <img src="${t.logo_url || 'https://via.placeholder.com/180'}" alt="Tournament logo">
+                <img src="${t.logo_url || 'https://via.placeholder.com/180'}" alt="Tournament logo" class="tournament-logo-large">
                 <strong>${t.name}</strong>
                 <p>📅 ${new Date(t.date).toLocaleDateString()}</p>
                 <p>📍 ${t.address || 'Не указан'}</p>
@@ -1162,21 +1165,23 @@ async function showTournamentDetails(tournamentId) {
             toggleDescriptionBtn.textContent = 'Развернуть описание';
             tournamentDescription.classList.add('description-hidden');
 
-            toggleDescriptionBtn.addEventListener('click', () => {
+            toggleDescriptionBtn.onclick = () => {
                 tournamentDescription.classList.toggle('description-hidden');
                 toggleDescriptionBtn.textContent = tournamentDescription.classList.contains('description-hidden')
                     ? 'Развернуть описание'
                     : 'Свернуть описание';
-            });
+            };
 
             setupTournamentTabs(tournamentId);
             loadTournamentPosts(tournamentId);
         } else {
             tournamentHeader.innerHTML = '<p>Турнир не найден</p>';
+            tournamentDescription.innerHTML = '';
         }
     } catch (error) {
         console.error('Error loading tournament details:', error);
         tournamentHeader.innerHTML = '<p>Ошибка загрузки турнира</p>';
+        tournamentDescription.innerHTML = '';
     }
 }
 
@@ -1192,7 +1197,7 @@ function setupTournamentTabs(tournamentId) {
     const contents = [postsContent, registrationContent, bracketContent];
 
     tabs.forEach((tab, index) => {
-        tab.addEventListener('click', () => {
+        tab.onclick = () => {
             tabs.forEach(t => t.classList.remove('active'));
             contents.forEach(c => c.classList.remove('active'));
             tab.classList.add('active');
@@ -1201,7 +1206,7 @@ function setupTournamentTabs(tournamentId) {
             if (tab.id === 'posts-tab') loadTournamentPosts(tournamentId);
             if (tab.id === 'registration-tab') loadTournamentRegistrations(tournamentId);
             if (tab.id === 'bracket-tab') loadTournamentBracket(tournamentId);
-        });
+        };
     });
 
     postsTab.click();
@@ -1221,9 +1226,13 @@ async function loadTournamentPosts(tournamentId) {
     const tournamentPostText = document.getElementById('tournament-post-text');
 
     submitTournamentPost.addEventListener('click', async () => {
+        if (submitTournamentPost.disabled) return;
+        submitTournamentPost.disabled = true;
+
         const postContent = tournamentPostText.value.trim();
         if (!postContent) {
             alert('Пожалуйста, введите текст поста!');
+            submitTournamentPost.disabled = false;
             return;
         }
 
@@ -1241,6 +1250,8 @@ async function loadTournamentPosts(tournamentId) {
         } catch (error) {
             console.error('Error posting to tournament:', error);
             alert('Ошибка: ' + error.message);
+        } finally {
+            submitTournamentPost.disabled = false;
         }
     });
 
@@ -1290,7 +1301,7 @@ async function loadTournamentRegistrations(tournamentId) {
     registrationList.innerHTML = '<div>Загрузка регистраций...</div>';
 
     try {
-        const registrations = await supabaseFetch(`tournament_registrations?tournament_id=eq.${tournamentId}`, 'GET');
+        const registrations = await supabaseFetch(`registrations?tournament_id=eq.${tournamentId}`, 'GET');
         registrationList.innerHTML = '';
 
         if (registrations && registrations.length > 0) {
@@ -1298,10 +1309,9 @@ async function loadTournamentRegistrations(tournamentId) {
                 const regCard = document.createElement('div');
                 regCard.classList.add('registration-card');
                 regCard.innerHTML = `
-                    <strong>${reg.faction_name}</strong>
+                    <strong>${reg.faction_name} (${reg.club || 'Без клуба'})</strong>
                     <p>Спикер 1: ${reg.speaker1}</p>
                     <p>Спикер 2: ${reg.speaker2}</p>
-                    <p>Клуб: ${reg.club || 'Не указан'}</p>
                     <p>Город: ${reg.city || 'Не указан'}</p>
                     <p>Контакты: ${reg.contacts || 'Не указаны'}</p>
                     <p>Дополнительно: ${reg.extra || 'Отсутствует'}</p>
@@ -1320,9 +1330,9 @@ async function loadTournamentRegistrations(tournamentId) {
     const registerBtn = document.getElementById('register-tournament-btn');
     const registrationForm = document.getElementById('registration-form');
 
-    registerBtn.addEventListener('click', () => {
+    registerBtn.onclick = () => {
         registrationForm.classList.toggle('form-hidden');
-    });
+    };
 
     document.getElementById('submit-registration-btn').addEventListener('click', async () => {
         const registrationData = {
@@ -1343,7 +1353,7 @@ async function loadTournamentRegistrations(tournamentId) {
         }
 
         try {
-            await supabaseFetch('tournament_registrations', 'POST', registrationData);
+            await supabaseFetch('registrations', 'POST', registrationData);
             registrationForm.classList.add('form-hidden');
             document.getElementById('reg-faction-name').value = '';
             document.getElementById('reg-speaker1').value = '';
@@ -1358,14 +1368,14 @@ async function loadTournamentRegistrations(tournamentId) {
             console.error('Error registering for tournament:', error);
             alert('Ошибка: ' + error.message);
         }
-    });
+    }, { once: true });
 }
 
 async function deleteRegistration(registrationId, tournamentId) {
     if (!confirm('Вы уверены, что хотите удалить регистрацию?')) return;
 
     try {
-        await supabaseFetch(`tournament_registrations?id=eq.${registrationId}`, 'DELETE');
+        await supabaseFetch(`registrations?id=eq.${registrationId}`, 'DELETE');
         loadTournamentRegistrations(tournamentId);
         alert('Регистрация удалена!');
     } catch (error) {
@@ -1379,8 +1389,8 @@ async function loadTournamentBracket(tournamentId) {
     bracketContent.innerHTML = '<div>Загрузка сетки...</div>';
 
     try {
-        const registrations = await supabaseFetch(`tournament_registrations?tournament_id=eq.${tournamentId}`, 'GET');
-        const bracket = await supabaseFetch(`brackets?tournament_id=eq.${tournamentId}`, 'GET');
+        const registrations = await supabaseFetch(`registrations?tournament_id=eq.${tournamentId}`, 'GET');
+        const brackets = await supabaseFetch(`brackets?tournament_id=eq.${tournamentId}`, 'GET');
 
         bracketContent.innerHTML = `
             <div id="bracket-form" class="form-hidden">
@@ -1398,9 +1408,9 @@ async function loadTournamentBracket(tournamentId) {
         const createBracketBtn = document.getElementById('create-bracket-btn');
         const bracketForm = document.getElementById('bracket-form');
 
-        createBracketBtn.addEventListener('click', () => {
+        createBracketBtn.onclick = () => {
             bracketForm.classList.toggle('form-hidden');
-        });
+        };
 
         document.getElementById('generate-bracket').addEventListener('click', async () => {
             const format = document.getElementById('bracket-format').value;
@@ -1429,13 +1439,13 @@ async function loadTournamentBracket(tournamentId) {
                 console.error('Error generating bracket:', error);
                 alert('Ошибка: ' + error.message);
             }
-        });
+        }, { once: true });
 
         const bracketList = document.getElementById('bracket-list');
         bracketList.innerHTML = '';
 
-        if (bracket && bracket.length > 0) {
-            for (const b of bracket) {
+        if (brackets && brackets.length > 0) {
+            for (const b of brackets) {
                 const bracketRound = document.createElement('div');
                 bracketRound.classList.add('bracket-round');
                 bracketRound.innerHTML = `<h3>${b.round_name} (${b.format})</h3>`;
@@ -1569,7 +1579,7 @@ const speakers = [
     { name: 'Дәулет Мырзакулов', points: 282, rank: 25, club: 'АС' },
     { name: 'Димаш Әшірbeck', points: 274, rank: 26, club: 'СДУ' },
     { name: 'Ерлан Бөлекбаев', points: 268, rank: 27, club: 'ТЭО' },
-    { name: 'Ахансері Амиреев', points: 263, rank: 29, club: 'СИРИУС' },
+    { name: 'Ахансері Амиреев', points: 263, rank: 28, club: 'СИРИУС' },
     { name: 'Айша Қуандық', points: 255.5, rank: 29, club: 'СДУ' },
     { name: 'Диас Мухамет', points: 254, rank: 30, club: 'ТЕХНО' }
 ];
@@ -1585,21 +1595,21 @@ function initRating() {
 
     const cityItems = cityList.querySelectorAll('.rating-item');
     cityItems.forEach(item => {
-        item.addEventListener('click', () => {
+        item.onclick = () => {
             cityList.style.display = 'none';
             yearList.style.display = 'block';
             speakersList.style.display = 'none';
-        });
+        };
     });
 
     const yearItems = yearList.querySelectorAll('.rating-item');
     yearItems.forEach(item => {
-        item.addEventListener('click', () => {
+        item.onclick = () => {
             cityList.style.display = 'none';
             yearList.style.display = 'none';
             speakersList.style.display = 'block';
             renderSpeakers();
-        });
+        };
     });
 }
 
