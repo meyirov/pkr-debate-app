@@ -1,3 +1,6 @@
+const SUPABASE_URL = 'https://dwkbptqrblyiqymnqjiv.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3a2JwdHFyYmx5aXF5bW5xaml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0MzA3NTcsImV4cCI6MjA1OTAwNjc1N30.QIHms9_kllO7SMxxUlu2U_ugICz1q_cr2-fO61092N4';
+
 console.log('script.js loaded, version: 2025-05-15');
 
 const { createClient } = supabase;
@@ -675,12 +678,12 @@ async function renderMorePosts(newPosts) {
             <div class="comment-section" id="comments-${post.id}" style="display: none;">
                 <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
                 <div class="comment-list" id="comment-list-${post.id}" style="max-height: 200px; overflow-y: auto;"></div>
-                <div class="comment-form">
-                    <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
-                    <button onclick="addComment(${post.id})">Отправить</button>
-                </div>
+            <div class="comment-form">
+                <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
+                <button onclick="addComment(${post.id})">Отправить</button>
             </div>
-        `;
+        </div>
+    `;
 
         postsDiv.appendChild(postDiv);
 
