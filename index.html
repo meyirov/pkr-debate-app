@@ -5,12 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PKR App</title>
     <link rel="stylesheet" href="styles (4).css">
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="script (5).js"></script>
 </head>
 <body>
-    <div class="modal" id="registration-modal">
+    <div id="registration-modal" class="modal">
         <div class="modal-content">
             <h2>Добро пожаловать!</h2>
             <p>Пожалуйста, введите ваше имя для регистрации:</p>
@@ -19,7 +16,7 @@
         </div>
     </div>
 
-    <div class="container" id="app-container" style="display: none;">
+    <div id="app-container" class="container" style="display: none;">
         <div class="main-content">
             <div class="content" id="feed">
                 <div id="new-post">
@@ -29,12 +26,12 @@
                             <label for="post-image" class="image-upload-label">
                                 <span>📷</span> Добавить фото
                             </label>
-                            <input type="file" id="post-image" accept="image/*" style="display: none;">
+                            <input id="post-image" type="file" accept="image/*" style="display: none;">
                         </div>
                         <button id="submit-post">Твитнуть</button>
                     </div>
                 </div>
-                <div id="posts-loading">Загрузка...</div>
+                <div id="posts-loading" style="display: none; text-align: center;">Загрузка...</div>
                 <div id="posts"></div>
             </div>
 
@@ -45,7 +42,7 @@
                     <input id="tournament-date" type="date" placeholder="Дата">
                     <input id="tournament-logo" type="text" placeholder="URL логотипа">
                     <textarea id="tournament-desc" placeholder="Описание"></textarea>
-                    <input id="tournament-address" type="text" placeholder="Адрес (Google Maps URL)">
+                    <input id="tournament-address" type="text" placeholder="Адрес">
                     <input id="tournament-deadline" type="date" placeholder="Дедлайн регистрации">
                     <button id="submit-tournament">Создать</button>
                 </div>
@@ -58,9 +55,9 @@
                 <button id="toggle-description-btn">Развернуть описание</button>
                 <hr class="section-divider">
                 <div class="tournament-tabs">
-                    <button class="tab-btn active" id="posts-tab">Посты</button>
-                    <button class="tab-btn" id="registration-tab">Регистрация</button>
-                    <button class="tab-btn" id="bracket-tab">Сетка</button>
+                    <button id="posts-tab" class="tab-btn active">Посты</button>
+                    <button id="registration-tab" class="tab-btn">Регистрация</button>
+                    <button id="bracket-tab" class="tab-btn">Сетка</button>
                 </div>
                 <div id="tournament-posts" class="tab-content active"></div>
                 <div id="tournament-registration" class="tab-content">
@@ -72,7 +69,7 @@
                         <input id="reg-club" type="text" placeholder="Клуб">
                         <input id="reg-city" type="text" placeholder="Город">
                         <input id="reg-contacts" type="text" placeholder="Контакты">
-                        <textarea id="reg-extra" placeholder="Дополнительно"></textarea>
+                        <textarea id="reg-extra" placeholder="Дополнительная информация"></textarea>
                         <button id="submit-registration-btn">Отправить</button>
                     </div>
                     <div id="registration-list"></div>
@@ -82,7 +79,9 @@
 
             <div class="content" id="rating">
                 <div id="rating-cities">
-                    <div class="city-card" data-city="Алматы">Алматы</div>
+                    <div class="city-card" data-city="Москва">Москва</div>
+                    <div class="city-card" data-city="Санкт-Петербург">Санкт-Петербург</div>
+                    <div class="city-card" data-city="Новосибирск">Новосибирск</div>
                 </div>
                 <div id="rating-years" style="display: none;"></div>
                 <div id="rating-list" style="display: none;"></div>
@@ -94,7 +93,6 @@
                 <input id="fullname" type="text" placeholder="Имя и фамилия">
                 <button id="update-profile">Изменить имя</button>
             </div>
-
             <div class="content" id="edu">
                 <h2>PKR EDU</h2>
                 <p>Обучающий контент скоро появится!</p>
@@ -102,12 +100,19 @@
         </div>
 
         <nav class="navbar">
-            <button class="nav-btn active" id="feed-btn"><span>🏠</span>Лента</button>
-            <button class="nav-btn" id="tournaments-btn"><span>🏆</span>Турниры</button>
-            <button class="nav-btn" id="rating-btn"><span>⭐</span>Рейтинг</button>
-            <button class="nav-btn" id="profile-btn"><span>👤</span>Профиль</button>
-            <button class="nav-btn" id="edu-btn"><span>📚</span>EDU</button>
+            <button id="feed-btn" class="nav-btn active"><span>🏠</span>Лента</button>
+            <button id="tournaments-btn" class="nav-btn"><span>🏆</span>Турниры</button>
+            <button id="rating-btn" class="nav-btn"><span>⭐</span>Рейтинг</button>
+            <button id="profile-btn" class="nav-btn"><span>👤</span>Профиль</button>
+            <button id="edu-btn" class="nav-btn"><span>📚</span>EDU</button>
         </nav>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+      const SUPABASE_URL = 'https://dwkbptqrblyiqymnqjiv.supabase.co';
+      const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3a2JwdHFyYmx5aXF5bW5xaml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0MzA3NTcsImV4cCI6MjA1OTAwNjc1N30.QIHms9_kllO7SMxxUlu2U_ugICz1q_cr2-fO61092N4';
+    </script>
+    <script src="script (5).js"></script>
 </body>
 </html>
