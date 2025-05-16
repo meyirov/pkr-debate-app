@@ -1065,12 +1065,12 @@ body {
 }
 
 #rating-table tr.rank-1 {
-    background: #FFD700; /* Золотой */
+    background: #FFD300; /* Золотой */
     color: #000000;
 }
 
 #rating-table tr.rank-2 {
-    background: #C0C0C0; /* Серебряный */
+    background: #808080; /* Серебряный */
     color: #000000;
 }
 
