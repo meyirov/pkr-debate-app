@@ -226,6 +226,17 @@ body {
     background: #404040;
 }
 
+Kbd {
+    background: #262626;
+    color: #e6e6e6;
+    border: none;
+    border-radius: 8px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
 .reaction-btn.active {
     background: #8b5cf6;
     color: #ffffff;
@@ -942,7 +953,7 @@ body {
     background: #1a1a1a;
     padding: 10px;
     border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0,  outright
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     margin-bottom: 10px;
 }
 
@@ -998,65 +1009,89 @@ body {
     transform: scale(1.05);
 }
 
-/* Раздел рейтинга */
-#rating-cities, #rating-years, #rating-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 10px;
-}
-
+/* Стили для рейтинга */
 .city-card, .year-card {
     background: #1a1a1a;
     padding: 10px;
     border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     cursor: pointer;
-    transition: background 0.2s ease, transform 0.2s ease;
+    transition: transform 0.2s ease, background 0.2s ease;
+    flex: 1 1 45%;
+    text-align: center;
     font-size: 16px;
     font-weight: 600;
     color: #ffffff;
 }
 
 .city-card:hover, .year-card:hover {
-    background: #262626;
     transform: translateY(-2px);
+    background: #262626;
 }
 
-.ranking-card {
+.back-btn {
+    padding: 8px 16px;
+    background: #8b5cf6;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    transition: background 0.2s ease;
+}
+
+.back-btn:hover {
+    background: #a78bfa;
+}
+
+.ranking-table {
+    width: 100%;
+    border-collapse: collapse;
     background: #1a1a1a;
-    padding: 10px;
-    border-radius: 8px;
+    border-radius: 12px;
+    overflow: hidden;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    margin-top: 10px;
 }
 
-.ranking-card span {
-    font-size: 16px;
-    color: #d1d5db;
+.ranking-table th, .ranking-table td {
+    padding: 10px;
+    text-align: left;
+    font-size: 14px;
+    color: #e6e6e6;
+    border-bottom: 1px solid #333;
 }
 
-.rank-1 {
-    background: linear-gradient(135deg, #ffd700, #e6b800);
-    color: #1a1a1a;
-    padding: 5px 10px;
-    border-radius: 8px;
+.ranking-table th {
+    background: #262626;
     font-weight: 600;
+    color: #ffffff;
 }
 
-.rank-2 {
-    background: linear-gradient(135deg, #c0c0c0, #a8a8a8);
-    color: #1a1a1a;
-    padding: 5px 10px;
-    border-radius: 8px;
-    font-weight: 600;
+.ranking-table tr:last-child td {
+    border-bottom: none;
 }
 
-.rank-3 {
-    background: linear-gradient(135deg, #cd7f32, #b87333);
-    color: #1a1a1a;
-    padding: 5px 10px;
-    border-radius: 8px;
-    font-weight: 600;
+.ranking-table tr.rank-1 {
+    background: #FFD700; /* Золотой фон для 1-го места */
+    color: #000000;
+    font-weight: bold;
+}
+
+.ranking-table tr.rank-2 {
+    background: #C0C0C0; /* Серебряный фон для 2-го места */
+    color: #000000;
+    font-weight: bold;
+}
+
+.ranking-table tr.rank-3 {
+    background: #CD7F32; /* Бронзовый фон для 3-го места */
+    color: #000000;
+    font-weight: bold;
+}
+
+.ranking-table tr:hover:not(.rank-1):not(.rank-2):not(.rank-3) {
+    background: #262626;
 }
