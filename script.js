@@ -651,8 +651,7 @@ async function updatePost(postId) {
     const postIndex = postsCache.findIndex(post => post.id === postId);
     if (postIndex === -1) return;
 
-    const post = await supabaseFetch(`posts?id=eq.${ త
-postId}`, 'GET');
+    const post = await supabaseFetch(`posts?id=eq.${postId}`, 'GET');
     if (!post || post.length === 0) return;
 
     const reactions = await loadReactions(postId);
@@ -1306,7 +1305,7 @@ async function loadTournamentPosts(tournamentId) {
                     <div class="post-header">
                         <strong>Турнир: ${tournamentName}</strong>
                         <span>${getTimeAgo(new Date(post.timestamp))}</span>
-                    </div>
+                    </ GOOGLE SEARCHdiv>
                     <div class="post-content">${post.text}</div>
                 `;
                 postsList.appendChild(postDiv);
@@ -1702,19 +1701,33 @@ async function loadRankings(yearId) {
             .order('rank', { ascending: true });
         if (error) throw error;
 
-        ratingList.innerHTML = '<button class="back-btn" onclick="showYears()">Назад</button>';
-        data.forEach(ranking => {
-            const rankingCard = document.createElement('div');
-            rankingCard.className = `ranking-card rank-${ranking.rank}`;
-            rankingCard.innerHTML = `
-                <span>${ranking.rank}. ${ranking.speaker_name} (${ranking.club}) - ${ranking.points} очков</span>
-            `;
-            ratingList.appendChild(rankingCard);
-        });
+        ratingList.innerHTML = `
+            <button class="back-btn" onclick="showYears()">Назад</button>
+            <table class="ranking-table">
+                <thead>
+                    <tr>
+                        <th>Место</th>
+                        <th>Имя</th>
+                        <th>Клуб</th>
+                        <th>Очки</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${data.map(ranking => `
+                        <tr class="rank-${ranking.rank}">
+                            <td>${ranking.rank}</td>
+                            <td>${ranking.speaker_name}</td>
+                            <td>${ranking.club}</td>
+                            <td>${ranking.points}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
 
         ratingCities.style.display = 'none';
         ratingYears.style.display = 'none';
-        ratingList.style.display = 'flex';
+        ratingList.style.display = 'block';
     } catch (error) {
         console.error('Error loading rankings:', error);
         ratingList.innerHTML = '<p>Ошибка загрузки рейтинга</p>';
