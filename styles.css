@@ -942,7 +942,7 @@ body {
     background: #1a1a1a;
     padding: 10px;
     border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 8px rgba(0,  outright
     margin-bottom: 10px;
 }
 
@@ -999,24 +999,22 @@ body {
 }
 
 /* Раздел рейтинга */
-#rating {
-    flex: 1;
-    overflow-y: auto;
+#rating-cities, #rating-years, #rating-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
     padding: 10px;
 }
 
 .city-card, .year-card {
     background: #1a1a1a;
     padding: 10px;
-    margin-bottom: 10px;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
     cursor: pointer;
     transition: background 0.2s ease, transform 0.2s ease;
     font-size: 16px;
     font-weight: 600;
     color: #ffffff;
-    text-align: center;
 }
 
 .city-card:hover, .year-card:hover {
@@ -1027,81 +1025,38 @@ body {
 .ranking-card {
     background: #1a1a1a;
     padding: 10px;
-    margin-bottom: 10px;
-    border-radius: 12px;
+    border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     display: flex;
     align-items: center;
-    transition: transform 0.2s ease;
+    gap: 10px;
 }
 
-.ranking-card:hover {
-    transform: translateY(-2px);
-}
-
-.ranking-card.rank-1 {
-    background: linear-gradient(135deg, #ffd700 0%, #ffca28 100%);
-    color: #1a1a1a;
-}
-
-.ranking-card.rank-2 {
-    background: linear-gradient(135deg, #c0c0c0 0%, #a8a8a8 100%);
-    color: #1a1a1a;
-}
-
-.ranking-card.rank-3 {
-    background: linear-gradient(135deg, #cd7f32 0%, #b87333 100%);
-    color: #1a1a1a;
-}
-
-.ranking-position {
-    width: 40px;
-    height: 40px;
-    background: #262626;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.ranking-card span {
     font-size: 16px;
+    color: #d1d5db;
+}
+
+.rank-1 {
+    background: linear-gradient(135deg, #ffd700, #e6b800);
+    color: #1a1a1a;
+    padding: 5px 10px;
+    border-radius: 8px;
     font-weight: 600;
-    margin-right: 10px;
-    flex-shrink: 0;
 }
 
-.ranking-card.rank-1 .ranking-position {
-    background: #ffca28;
+.rank-2 {
+    background: linear-gradient(135deg, #c0c0c0, #a8a8a8);
     color: #1a1a1a;
-}
-
-.ranking-card.rank-2 .ranking-position {
-    background: #a8a8a8;
-    color: #1a1a1a;
-}
-
-.ranking-card.rank-3 .ranking-position {
-    background: #b87333;
-    color: #1a1a1a;
-}
-
-.ranking-info {
-    flex: 1;
-}
-
-.ranking-info strong {
-    font-size: 16px;
+    padding: 5px 10px;
+    border-radius: 8px;
     font-weight: 600;
-    display: block;
-    margin-bottom: 4px;
 }
 
-.ranking-info span {
-    font-size: 14px;
-    color: #6b7280;
-    display: block;
-}
-
-.ranking-card.rank-1 .ranking-info span,
-.ranking-card.rank-2 .ranking-info span,
-.ranking-card.rank-3 .ranking-info span {
+.rank-3 {
+    background: linear-gradient(135deg, #cd7f32, #b87333);
     color: #1a1a1a;
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-weight: 600;
 }
