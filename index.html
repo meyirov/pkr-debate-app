@@ -4,16 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PKR App</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles (4).css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script>
-      const SUPABASE_URL = 'https://dwkbptqrblyiqymnqjiv.supabase.co';
-      const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3a2JwdHFyYmx5aXF5bW5xaml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0MzA3NTcsImV4cCI6MjA1OTAwNjc1N30.QIHms9_kllO7SMxxUlu2U_ugICz1q_cr2-fO61092N4';
-    </script>
+    <script src="script (5).js"></script>
 </head>
 <body>
-    <div class="modal" id="registration-modal" style="display: none;">
+    <div class="modal" id="registration-modal">
         <div class="modal-content">
             <h2>Добро пожаловать!</h2>
             <p>Пожалуйста, введите ваше имя для регистрации:</p>
@@ -37,7 +34,7 @@
                         <button id="submit-post">Твитнуть</button>
                     </div>
                 </div>
-                <div id="posts-loading" style="display: none;">Загрузка...</div>
+                <div id="posts-loading">Загрузка...</div>
                 <div id="posts"></div>
             </div>
 
@@ -48,7 +45,7 @@
                     <input id="tournament-date" type="date" placeholder="Дата">
                     <input id="tournament-logo" type="text" placeholder="URL логотипа">
                     <textarea id="tournament-desc" placeholder="Описание"></textarea>
-                    <input id="tournament-address" type="text" placeholder="Адрес">
+                    <input id="tournament-address" type="text" placeholder="Адрес (Google Maps URL)">
                     <input id="tournament-deadline" type="date" placeholder="Дедлайн регистрации">
                     <button id="submit-tournament">Создать</button>
                 </div>
@@ -65,8 +62,8 @@
                     <button class="tab-btn" id="registration-tab">Регистрация</button>
                     <button class="tab-btn" id="bracket-tab">Сетка</button>
                 </div>
-                <div class="tab-content active" id="tournament-posts"></div>
-                <div class="tab-content" id="tournament-registration">
+                <div id="tournament-posts" class="tab-content active"></div>
+                <div id="tournament-registration" class="tab-content">
                     <button id="register-tournament-btn">Зарегистрироваться</button>
                     <div id="registration-form" class="form-hidden">
                         <input id="reg-faction-name" type="text" placeholder="Название фракции">
@@ -80,17 +77,15 @@
                     </div>
                     <div id="registration-list"></div>
                 </div>
-                <div class="tab-content" id="tournament-bracket"></div>
+                <div id="tournament-bracket" class="tab-content"></div>
             </div>
 
             <div class="content" id="rating">
-                <div id="city-list" class="rating-list">
-                    <div class="rating-item" data-city="Алматы">Алматы</div>
+                <div id="rating-cities">
+                    <div class="city-card" data-city="Алматы">Алматы</div>
                 </div>
-                <div id="year-list" class="rating-list" style="display: none;">
-                    <div class="rating-item" data-year="2024-2025">2024-2025</div>
-                </div>
-                <div id="speakers-list" class="rating-list" style="display: none;"></div>
+                <div id="rating-years" style="display: none;"></div>
+                <div id="rating-list" style="display: none;"></div>
             </div>
 
             <div class="content" id="profile">
@@ -106,24 +101,13 @@
             </div>
         </div>
 
-        <div class="navbar">
-            <button class="nav-btn active" id="feed-btn">
-                <span>🏠</span> Лента
-            </button>
-            <button class="nav-btn" id="tournaments-btn">
-                <span>🏆</span> Турниры
-            </button>
-            <button class="nav-btn" id="rating-btn">
-                <span>⭐</span> Рейтинг
-            </button>
-            <button class="nav-btn" id="profile-btn">
-                <span>👤</span> Профиль
-            </button>
-            <button class="nav-btn" id="edu-btn">
-                <span>📚</span> EDU
-            </button>
-        </div>
+        <nav class="navbar">
+            <button class="nav-btn active" id="feed-btn"><span>🏠</span>Лента</button>
+            <button class="nav-btn" id="tournaments-btn"><span>🏆</span>Турниры</button>
+            <button class="nav-btn" id="rating-btn"><span>⭐</span>Рейтинг</button>
+            <button class="nav-btn" id="profile-btn"><span>👤</span>Профиль</button>
+            <button class="nav-btn" id="edu-btn"><span>📚</span>EDU</button>
+        </nav>
     </div>
-    <script src="script.js"></script>
 </body>
 </html>
