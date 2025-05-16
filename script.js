@@ -585,7 +585,6 @@ async function renderMorePosts(newPosts) {
                     <strong>${fullname}</strong>
                     <span>@${cleanUsername}</span>
                 </div>
-                </).
                 <div class="post-time">${timeAgo}</div>
             </div>
             <div class="post-content">${formattedContent}</div>
@@ -652,7 +651,8 @@ async function updatePost(postId) {
     const postIndex = postsCache.findIndex(post => post.id === postId);
     if (postIndex === -1) return;
 
-    const post = await supabaseFetch(`posts?id=eq.${postId}`, 'GET');
+    const post = await supabaseFetch(`posts?id=eq.${ త
+postId}`, 'GET');
     if (!post || post.length === 0) return;
 
     const reactions = await loadReactions(postId);
@@ -1639,15 +1639,18 @@ async function updateMatch(tournamentId, round, matchIdx) {
     }
 }
 
+checkProfile();
+
+// Rating functionality
 const ratingCities = document.getElementById('rating-cities');
 const ratingYears = document.getElementById('rating-years');
 const ratingList = document.getElementById('rating-list');
 
 async function loadCities() {
     try {
-        const { data, error } = await supabase.from('cities').select('id, name');
+        const { data, error } = await supabaseClient.from('cities').select('id, name');
         if (error) throw error;
-        
+
         ratingCities.innerHTML = '';
         data.forEach(city => {
             const cityCard = document.createElement('div');
@@ -1665,13 +1668,13 @@ async function loadCities() {
 
 async function loadYears(cityId) {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
             .from('years')
             .select('id, year')
             .eq('city_id', cityId);
         if (error) throw error;
 
-        ratingYears.innerHTML = '';
+        ratingYears.innerHTML = '<button class="back-btn" onclick="showCities()">Назад</button>';
         data.forEach(year => {
             const yearCard = document.createElement('div');
             yearCard.className = 'year-card';
@@ -1692,14 +1695,14 @@ async function loadYears(cityId) {
 
 async function loadRankings(yearId) {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
             .from('rankings')
             .select('speaker_name, club, points, rank')
             .eq('year_id', yearId)
             .order('rank', { ascending: true });
         if (error) throw error;
 
-        ratingList.innerHTML = '';
+        ratingList.innerHTML = '<button class="back-btn" onclick="showYears()">Назад</button>';
         data.forEach(ranking => {
             const rankingCard = document.createElement('div');
             rankingCard.className = `ranking-card rank-${ranking.rank}`;
@@ -1718,17 +1721,29 @@ async function loadRankings(yearId) {
     }
 }
 
-// Initialize rating section when rating tab is active
-document.getElementById('rating-btn').addEventListener('click', () => {
+function showCities() {
     ratingCities.style.display = 'flex';
     ratingYears.style.display = 'none';
     ratingList.style.display = 'none';
     loadCities();
-});
-
-// Load cities on page load if rating is active
-if (document.getElementById('rating').classList.contains('active')) {
-    loadCities();
 }
 
-checkProfile();
+function showYears() {
+    ratingCities.style.display = 'none';
+    ratingYears.style.display = 'flex';
+    ratingList.style.display = 'none';
+}
+
+// Update navigation to include rating section
+document.getElementById('rating-btn').addEventListener('click', () => {
+    buttons.forEach(btn => btn.classList.remove('active'));
+    document.getElementById('rating-btn').classList.add('active');
+    sections.forEach(section => section.classList.remove('active'));
+    document.getElementById('rating').classList.add('active');
+    showCities();
+});
+
+// Load cities on page load if rating section is active
+if (document.getElementById('rating').classList.contains('active')) {
+    showCities();
+}
