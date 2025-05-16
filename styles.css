@@ -1000,111 +1000,108 @@ body {
 
 /* Раздел рейтинга */
 #rating {
+    flex: 1;
+    overflow-y: auto;
     padding: 10px;
 }
 
-.rating-item {
+.city-card, .year-card {
     background: #1a1a1a;
     padding: 10px;
-    border-radius: 12px;
     margin-bottom: 10px;
+    border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     cursor: pointer;
     transition: background 0.2s ease, transform 0.2s ease;
+    font-size: 16px;
+    font-weight: 600;
+    color: #ffffff;
+    text-align: center;
 }
 
-.rating-item:hover {
+.city-card:hover, .year-card:hover {
     background: #262626;
     transform: translateY(-2px);
 }
 
-.speaker-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+.ranking-card {
     background: #1a1a1a;
     padding: 10px;
-    border-radius: 12px;
     margin-bottom: 10px;
+    border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
     transition: transform 0.2s ease;
 }
 
-.speaker-item:hover {
+.ranking-card:hover {
     transform: translateY(-2px);
 }
 
-.speaker-info {
+.ranking-card.rank-1 {
+    background: linear-gradient(135deg, #ffd700 0%, #ffca28 100%);
+    color: #1a1a1a;
+}
+
+.ranking-card.rank-2 {
+    background: linear-gradient(135deg, #c0c0c0 0%, #a8a8a8 100%);
+    color: #1a1a1a;
+}
+
+.ranking-card.rank-3 {
+    background: linear-gradient(135deg, #cd7f32 0%, #b87333 100%);
+    color: #1a1a1a;
+}
+
+.ranking-position {
+    width: 40px;
+    height: 40px;
+    background: #262626;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 600;
+    margin-right: 10px;
+    flex-shrink: 0;
+}
+
+.ranking-card.rank-1 .ranking-position {
+    background: #ffca28;
+    color: #1a1a1a;
+}
+
+.ranking-card.rank-2 .ranking-position {
+    background: #a8a8a8;
+    color: #1a1a1a;
+}
+
+.ranking-card.rank-3 .ranking-position {
+    background: #b87333;
+    color: #1a1a1a;
+}
+
+.ranking-info {
     flex: 1;
 }
 
-.speaker-name {
+.ranking-info strong {
     font-size: 16px;
     font-weight: 600;
-    color: #ffffff;
+    display: block;
+    margin-bottom: 4px;
 }
 
-.speaker-club {
+.ranking-info span {
     font-size: 14px;
     color: #6b7280;
+    display: block;
 }
 
-.speaker-points {
-    font-size: 16px;
-    color: #ffffff;
-    font-weight: 600;
-}
-
-.speaker-rank {
-    font-size: 16px;
-    font-weight: 600;
-    width: 40px;
-    text-align: right;
-    color: #ffffff;
-}
-
-/* Стили для топ-3 рейтинга */
-.speaker-item.rank-1 {
-    background: linear-gradient(135deg, #ffd700, #e6b800);
-    color: #000;
-}
-
-.speaker-item.rank-1 .speaker-name,
-.speaker-item.rank-1 .speaker-points,
-.speaker-item.rank-1 .speaker-rank {
-    color: #000;
-}
-
-.speaker-item.rank-1 .speaker-club {
-    color: #333;
-}
-
-.speaker-item.rank-2 {
-    background: linear-gradient(135deg, #c0c0c0, #a0a0a0);
-    color: #000;
-}
-
-.speaker-item.rank-2 .speaker-name,
-.speaker-item.rank-2 .speaker-points,
-.speaker-item.rank-2 .speaker-rank {
-    color: #000;
-}
-
-.speaker-item.rank-2 .speaker-club {
-    color: #333;
-}
-
-.speaker-item.rank-3 {
-    background: linear-gradient(135deg, #cd7f32, #a66328);
-    color: #000;
-}
-
-.speaker-item.rank-3 .speaker-name,
-.speaker-item.rank-3 .speaker-points,
-.speaker-item.rank-3 .speaker-rank {
-    color: #000;
-}
-
-.speaker-item.rank-3 .speaker-club {
-    color: #333;
+.ranking-card.rank-1 .ranking-info span,
+.ranking-card.rank-2 .ranking-info span,
+.ranking-card.rank-3 .ranking-info span {
+    color: #1a1a1a;
 }
