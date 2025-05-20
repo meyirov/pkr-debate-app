@@ -11,12 +11,21 @@ if (typeof supabase === 'undefined') {
     const tg = window.Telegram.WebApp;
     tg.expand();
     const user = tg.initDataUnsafe.user;
+    let userData = {};
     const postsPerPage = 20;
     let postsOffset = 0;
-    let postsCache = new Map();
+    let postsCache = [];
+    let lastPostId = null;
     let commentsCache = new Map();
-    let lastScrollTop = 0;
-    let selectedPostId = null;
+    let lastCommentIds = new Map();
+    let newCommentsCount = new Map();
+    let newPostsCount = 0;
+    let isPostsLoaded = false;
+    let isLoadingMore = false;
+    let currentTournamentId = null;
+    let channel = null;
+    let commentChannels = new Map();
+    let reactionChannels = new Map();
 
     // Элементы DOM
     const appContainer = document.getElementById('app-container');
@@ -27,7 +36,12 @@ if (typeof supabase === 'undefined') {
     const postTextInput = document.getElementById('post-text');
     const postImageInput = document.getElementById('post-image');
     const submitPostBtn = document.getElementById('submit-post');
-    const newPostsBtn = document.querySelector('.new-posts-btn');
+    const newPostsBtn = document.createElement('button');
+    newPostsBtn.id = 'new-posts-btn';
+    newPostsBtn.className = 'new-posts-btn';
+    newPostsBtn.style.display = 'none';
+    newPostsBtn.innerHTML = 'Новые посты';
+    document.getElementById('feed').prepend(newPostsBtn);
     const feedSection = document.getElementById('feed');
     const postDetailsSection = document.getElementById('post-details');
     const backToFeedBtn = document.getElementById('back-to-feed-btn');
@@ -64,23 +78,90 @@ if (typeof supabase === 'undefined') {
     const profileBtn = document.getElementById('profile-btn');
     const eduBtn = document.getElementById('edu-btn');
 
+    // Вспомогательные функции
+    async function supabaseFetch(endpoint, method, body = null, retries = 3) {
+        for (let attempt = 1; attempt <= retries; attempt++) {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, {
+                    method,
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': method === 'POST' || method === 'PATCH' ? 'return=representation' : undefined
+                    },
+                    body: body ? JSON.stringify(body) : null
+                });
+                if (!response.ok) throw new Error(`Supabase error: ${response.status}`);
+                const text = await response.text();
+                return text ? JSON.parse(text) : null;
+            } catch (error) {
+                if (attempt === retries) throw error;
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            }
+        }
+    }
+
+    async function uploadImage(file) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const { data, error } = await supabaseClient.storage.from('post-images').upload(fileName, file);
+        if (error) throw new Error(`Image upload error: ${error.message}`);
+        const { data: urlData } = supabaseClient.storage.from('post-images').getPublicUrl(fileName);
+        return urlData.publicUrl;
+    }
+
+    function getTimeAgo(date) {
+        const now = new Date();
+        const diffInSeconds = Math.floor((now - date) / 1000);
+        if (diffInSeconds < 60) return `${diffInSeconds}s`;
+        const diffInMinutes = Math.floor(diffInSeconds / 60);
+        if (diffInMinutes < 60) return `${diffInMinutes}m`;
+        const diffInHours = Math.floor(diffInMinutes / 60);
+        if (diffInHours < 24) return `${diffInHours}h`;
+        return `${Math.floor(diffInHours / 24)}d`;
+    }
+
+    function formatPostContent(content) {
+        let formatted = content.replace(/\n/g, '<br>');
+        const urlRegex = /(https?:\/\/[^\s<]+[^\s<.,:;"')\]\}])/g;
+        formatted = formatted.replace(urlRegex, url => `<a href="${url}" target="_blank">${url}</a>`);
+        const tagRegex = /@([a-zA-Z0-9_]+)/g;
+        formatted = formatted.replace(tagRegex, tag => `<span class="tag">${tag}</span>`);
+        return formatted;
+    }
+
+    function debounce(func, wait) {
+        let timeout;
+        return (...args) => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    }
+
     // Проверка профиля пользователя
     async function checkUserProfile() {
+        const telegramUsername = tg.initDataUnsafe.user?.username;
+        if (!telegramUsername) return alert('Укажите username в Telegram!');
+        userData.telegramUsername = telegramUsername;
+
         const { data: profile, error } = await supabaseClient
             .from('profiles')
             .select('*')
-            .eq('telegram_username', user.username)
+            .eq('telegram_username', userData.telegramUsername)
             .single();
 
         if (error || !profile) {
             registrationModal.style.display = 'flex';
             appContainer.style.display = 'none';
         } else {
+            userData.fullname = profile.fullname;
             registrationModal.style.display = 'none';
             appContainer.style.display = 'flex';
-            usernameSpan.textContent = profile.telegram_username;
+            usernameSpan.textContent = userData.telegramUsername;
             fullnameInput.value = profile.fullname || '';
             await loadPosts();
+            await saveChatId(profile.id);
         }
     }
 
@@ -91,13 +172,15 @@ if (typeof supabase === 'undefined') {
             alert('Пожалуйста, введите ваше имя');
             return;
         }
+        userData.fullname = fullname;
 
         const { error } = await supabaseClient
             .from('profiles')
             .insert({
-                telegram_username: user.username,
+                telegram_username: userData.telegramUsername,
                 telegram_id: user.id,
                 fullname: fullname,
+                chat_id: tg.initDataUnsafe.user?.id?.toString() || null
             });
 
         if (error) {
@@ -106,135 +189,283 @@ if (typeof supabase === 'undefined') {
         } else {
             registrationModal.style.display = 'none';
             appContainer.style.display = 'flex';
-            usernameSpan.textContent = user.username;
+            usernameSpan.textContent = userData.telegramUsername;
             fullnameInput.value = fullname;
             await loadPosts();
         }
     });
 
     // Обновление профиля
-    updateProfileBtn.addEventListener('click', async () => {
-        const fullname = fullnameInput.value.trim();
-        if (!fullname) {
-            alert('Пожалуйста, введите ваше имя');
-            return;
-        }
-
-        const { error } = await supabaseClient
-            .from('profiles')
-            .update({ fullname: fullname })
-            .eq('telegram_username', user.username);
-
-        if (error) {
-            console.error('Ошибка обновления профиля:', error);
-            alert('Ошибка обновления профиля. Попробуйте снова.');
+    async function saveChatId(userId) {
+        if (tg.initDataUnsafe.user?.id) {
+            try {
+                const { error } = await supabaseClient.from('profiles').update({ chat_id: tg.initDataUnsafe.user.id.toString() }).eq('telegram_username', userData.telegramUsername);
+                if (error) throw error;
+                showProfile();
+            } catch (error) {
+                alert('Ошибка привязки Telegram: ' + error.message);
+            }
         } else {
-            alert('Профиль успешно обновлен!');
+            tg.openTelegramLink(`https://t.me/MyPKRBot?start=${userId}`);
         }
-    });
+    }
+
+    async function showProfile() {
+        try {
+            const profiles = await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'GET');
+            if (profiles?.length > 0) {
+                const profile = profiles[0];
+                const chatIdStatus = profile.chat_id ? `Привязан (ID: ${profile.chat_id})` : 'Не привязан';
+                profileSection.innerHTML = `
+                    <h2>Профиль</h2>
+                    ${!profile.chat_id ? '<p style="color: #ff4d4d;">📢 Привяжите Telegram!</p>' : ''}
+                    <p>Username: <span>${userData.telegramUsername}</span></p>
+                    <p>Chat ID: <span>${chatIdStatus}</span></p>
+                    <input id="fullname" type="text" value="${profile.fullname || ''}">
+                    <button id="update-profile">Изменить имя</button>
+                    ${!profile.chat_id ? '<button id="link-telegram">Привязать Telegram</button>' : ''}
+                `;
+                document.getElementById('update-profile').addEventListener('click', async () => {
+                    const newFullname = document.getElementById('fullname').value.trim();
+                    if (!newFullname) return alert('Введите новое имя!');
+                    userData.fullname = newFullname;
+                    try {
+                        await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'PATCH', { fullname: newFullname });
+                        alert('Имя обновлено!');
+                    } catch (error) {
+                        alert('Ошибка: ' + error.message);
+                    }
+                });
+                if (!profile.chat_id) {
+                    document.getElementById('link-telegram').addEventListener('click', () => saveChatId(profiles[0].id));
+                }
+            }
+        } catch (error) {
+            profileSection.innerHTML += '<p>Ошибка загрузки профиля</p>';
+        }
+    }
 
     // Загрузка постов
     async function loadPosts() {
-        const { data: posts, error } = await supabaseClient
-            .from('posts')
-            .select(`
-                *,
-                profiles!posts_user_id_fkey(fullname, telegram_username)
-            `)
-            .order('created_at', { ascending: false })
-            .range(postsOffset, postsOffset + postsPerPage - 1);
-
-        if (error) {
-            console.error('Ошибка загрузки постов:', error);
+        if (isPostsLoaded) {
+            renderPosts();
             return;
         }
-
-        posts.forEach(post => {
-            postsCache.set(post.id, post);
-            renderPost(post);
-        });
-
-        postsOffset += posts.length;
-
-        if (posts.length === postsPerPage) {
-            const loadMoreBtn = document.createElement('button');
-            loadMoreBtn.className = 'load-more-btn';
-            loadMoreBtn.textContent = 'Загрузить ещё';
-            loadMoreBtn.addEventListener('click', async () => {
-                loadMoreBtn.remove();
-                await loadPosts();
-            });
-            postsContainer.appendChild(loadMoreBtn);
+        const loadingIndicator = document.getElementById('posts-loading');
+        loadingIndicator.style.display = 'block';
+        try {
+            postsCache = [];
+            const posts = await supabaseFetch('posts?order=id.desc&limit=20', 'GET');
+            if (posts) {
+                postsCache = posts;
+                sortPostsCache();
+                renderPosts();
+                if (postsCache.length > 0) lastPostId = postsCache[0].id;
+                isPostsLoaded = true;
+                const totalPosts = await supabaseFetch('posts?select=id', 'GET');
+                const loadMoreBtn = document.createElement('button');
+                loadMoreBtn.id = 'load-more-btn';
+                loadMoreBtn.className = 'load-more-btn';
+                loadMoreBtn.innerHTML = 'Загрузить ещё';
+                loadMoreBtn.style.display = totalPosts?.length > 20 ? 'block' : 'none';
+                loadMoreBtn.addEventListener('click', loadMorePosts);
+                postsContainer.appendChild(loadMoreBtn);
+                if (posts.length === 20) loadMorePosts();
+            }
+        } catch (error) {
+            alert('Ошибка загрузки постов: ' + error.message);
+        } finally {
+            loadingIndicator.style.display = 'none';
         }
+        setupInfiniteScroll();
+    }
 
-        // Подписка на новые посты
-        supabaseClient
-            .channel('posts')
+    async function loadMorePosts() {
+        if (isLoadingMore || postsCache.length === 0) return;
+        isLoadingMore = true;
+        const oldestPostId = postsCache[postsCache.length - 1].id;
+        try {
+            const morePosts = await supabaseFetch(`posts?id=lt.${oldestPostId}&order=id.desc&limit=20`, 'GET');
+            const loadMoreBtn = document.getElementById('load-more-btn');
+            if (morePosts?.length > 0) {
+                const newPosts = morePosts.filter(post => !postsCache.some(p => p.id === post.id));
+                if (newPosts.length > 0) {
+                    postsCache.push(...newPosts);
+                    sortPostsCache();
+                    renderMorePosts(newPosts);
+                    loadMoreBtn.style.display = 'block';
+                } else loadMoreBtn.style.display = 'none';
+            } else loadMoreBtn.style.display = 'none';
+        } catch (error) {
+            console.error('Error in loadMorePosts:', error);
+        } finally {
+            isLoadingMore = false;
+        }
+    }
+
+    async function loadNewPosts() {
+        try {
+            const newPosts = await supabaseFetch(`posts?id=gt.${lastPostId}&order=id.desc`, 'GET');
+            if (newPosts?.length > 0) {
+                const uniqueNewPosts = newPosts.filter(post => !postsCache.some(p => p.id === post.id));
+                if (uniqueNewPosts.length > 0) {
+                    postsCache.unshift(...uniqueNewPosts);
+                    sortPostsCache();
+                    renderNewPosts(uniqueNewPosts, true);
+                    lastPostId = postsCache[0].id;
+                }
+            }
+        } catch (error) {
+            console.error('Error loading new posts:', error);
+        }
+    }
+
+    function subscribeToNewPosts() {
+        if (channel) supabaseClient.removeChannel(channel);
+        channel = supabaseClient
+            .channel('posts-channel')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, payload => {
                 const newPost = payload.new;
-                if (!postsCache.has(newPost.id)) {
-                    supabaseClient
-                        .from('profiles')
-                        .select('fullname, telegram_username')
-                        .eq('id', newPost.user_id)
-                        .single()
-                        .then(({ data: profile }) => {
-                            newPost.profiles = profile;
-                            postsCache.set(newPost.id, newPost);
-                            renderPost(newPost, true);
-                            newPostsBtn.style.display = 'block';
-                            newPostsBtn.classList.add('visible');
-                        });
+                if (!postsCache.some(post => post.id === newPost.id)) {
+                    postsCache.unshift(newPost);
+                    sortPostsCache();
+                    if (isUserAtTop()) {
+                        renderNewPost(newPost, true);
+                        lastPostId = postsCache[0].id;
+                    } else {
+                        newPostsCount++;
+                        newPostsBtn.style.display = 'block';
+                        newPostsBtn.classList.add('visible');
+                    }
                 }
             })
             .subscribe();
     }
 
-    // Рендеринг поста
-    function renderPost(post, prepend = false) {
-        const postElement = document.createElement('div');
-        postElement.className = 'post';
-        postElement.dataset.postId = post.id;
+    function isUserAtTop() {
+        return document.getElementById('feed').scrollTop <= 50;
+    }
 
-        const createdAt = new Date(post.created_at);
-        const timeString = createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const dateString = createdAt.toLocaleDateString();
+    function setupInfiniteScroll() {
+        const feedSection = document.getElementById('feed');
+        feedSection.style.overflowY = 'auto';
+        feedSection.removeEventListener('scroll', debouncedLoadMorePosts);
+        feedSection.addEventListener('scroll', debouncedLoadMorePosts);
+    }
 
-        postElement.innerHTML = `
+    const debouncedLoadMorePosts = debounce(() => {
+        const feedSection = document.getElementById('feed');
+        const scrollBottom = feedSection.scrollHeight - feedSection.scrollTop - feedSection.clientHeight;
+        if (scrollBottom <= 200) loadMorePosts();
+    }, 300);
+
+    function sortPostsCache() {
+        postsCache.sort((a, b) => b.id - a.id);
+    }
+
+    // Рендеринг постов
+    function renderPosts() {
+        postsContainer.innerHTML = '';
+        for (const post of postsCache) renderNewPost(post, false);
+        const loadMoreBtn = document.getElementById('load-more-btn');
+        if (loadMoreBtn) postsContainer.appendChild(loadMoreBtn);
+    }
+
+    function renderNewPosts(newPosts, prepend = false) {
+        for (const post of newPosts) renderNewPost(post, prepend);
+    }
+
+    async function renderNewPost(post, prepend = false) {
+        const postDiv = document.createElement('div');
+        postDiv.classList.add('post');
+        postDiv.setAttribute('data-post-id', post.id);
+        const [userInfo, ...contentParts] = post.text.split(':\n');
+        const [fullname, username] = userInfo.split(' (@');
+        const cleanUsername = username ? username.replace(')', '') : '';
+        const content = contentParts.join(':\n');
+        const formattedContent = formatPostContent(content);
+        const timeAgo = getTimeAgo(new Date(post.timestamp));
+        postDiv.innerHTML = `
             <div class="post-header">
                 <div class="avatar-placeholder"></div>
                 <div class="post-user">
-                    <strong>${post.profiles.fullname}</strong>
-                    <span>@${post.profiles.telegram_username}</span>
+                    <strong>${fullname}</strong>
+                    <span>@${cleanUsername}</span>
                 </div>
-                <div class="post-time">${dateString} ${timeString}</div>
+                <div class="post-time">${timeAgo}</div>
             </div>
-            <div class="post-content">${processPostContent(post.content)}</div>
-            ${post.image_url ? `<img src="${post.image_url}" alt="Post image" class="post-image">` : ''}
+            <div class="post-content">${formattedContent}</div>
+            ${post.image_url ? `<img src="${post.image_url}" class="post-image">` : ''}
             <div class="post-actions">
-                <button class="reaction-btn like-btn" data-type="like">
-                    👍 <span class="reaction-count">${post.likes || 0}</span>
-                </button>
-                <button class="reaction-btn dislike-btn" data-type="dislike">
-                    👎 <span class="reaction-count">${post.dislikes || 0}</span>
-                </button>
+                <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">👍 0</button>
+                <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">👎 0</button>
+                <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (0)</button>
+            </div>
+            <div class="comment-section" id="comments-${post.id}" style="display: none;">
+                <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
+                <div class="comment-list" id="comment-list-${post.id}" style="max-height: 200px; overflow-y: auto;"></div>
+                <div class="comment-form">
+                    <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
+                    <button onclick="addComment(${post.id})">Отправить</button>
+                </div>
             </div>
         `;
-
-        postElement.addEventListener('click', (e) => {
-            if (e.target.classList.contains('reaction-btn') || e.target.closest('.reaction-btn')) return;
-            selectedPostId = post.id;
+        postDiv.addEventListener('click', (e) => {
+            if (e.target.classList.contains('reaction-btn') || e.target.closest('.reaction-btn') || e.target.classList.contains('comment-toggle-btn')) return;
             showPostDetails(post);
         });
+        if (prepend) postsContainer.prepend(postDiv);
+        else postsContainer.appendChild(postDiv);
+        await loadReactionsAndComments(post.id);
+        subscribeToReactions(post.id);
+    }
 
-        if (prepend) {
-            postsContainer.insertBefore(postElement, postsContainer.firstChild);
-        } else {
-            postsContainer.appendChild(postElement);
+    async function renderMorePosts(newPosts) {
+        for (const post of newPosts) {
+            const postDiv = document.createElement('div');
+            postDiv.classList.add('post');
+            postDiv.setAttribute('data-post-id', post.id);
+            const [userInfo, ...contentParts] = post.text.split(':\n');
+            const [fullname, username] = userInfo.split(' (@');
+            const cleanUsername = username ? username.replace(')', '') : '';
+            const content = contentParts.join(':\n');
+            const formattedContent = formatPostContent(content);
+            const timeAgo = getTimeAgo(new Date(post.timestamp));
+            postDiv.innerHTML = `
+                <div class="post-header">
+                    <div class="avatar-placeholder"></div>
+                    <div class="post-user">
+                        <strong>${fullname}</strong>
+                        <span>@${cleanUsername}</span>
+                    </div>
+                    <div class="post-time">${timeAgo}</div>
+                </div>
+                <div class="post-content">${formattedContent}</div>
+                ${post.image_url ? `<img src="${post.image_url}" class="post-image">` : ''}
+                <div class="post-actions">
+                    <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">👍 0</button>
+                    <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">👎 0</button>
+                    <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (0)</button>
+                </div>
+                <div class="comment-section" id="comments-${post.id}" style="display: none;">
+                    <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
+                    <div class="comment-list" id="comment-list-${post.id}" style="max-height: 200px; overflow-y: auto;"></div>
+                    <div class="comment-form">
+                        <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
+                        <button onclick="addComment(${post.id})">Отправить</button>
+                    </div>
+                </div>
+            `;
+            postDiv.addEventListener('click', (e) => {
+                if (e.target.classList.contains('reaction-btn') || e.target.closest('.reaction-btn') || e.target.classList.contains('comment-toggle-btn')) return;
+                showPostDetails(post);
+            });
+            postsContainer.appendChild(postDiv);
+            await loadReactionsAndComments(post.id);
+            subscribeToReactions(post.id);
         }
-
-        // Загрузка реакций
-        loadReactions(post.id, postElement);
+        const loadMoreBtn = document.getElementById('load-more-btn');
+        if (loadMoreBtn) postsContainer.appendChild(loadMoreBtn);
     }
 
     // Показ деталей поста
@@ -242,299 +473,482 @@ if (typeof supabase === 'undefined') {
         feedSection.classList.remove('active');
         postDetailsSection.classList.add('active');
 
-        const createdAt = new Date(post.created_at);
-        const timeString = createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const dateString = createdAt.toLocaleDateString();
+        const [userInfo, ...contentParts] = post.text.split(':\n');
+        const [fullname, username] = userInfo.split(' (@');
+        const cleanUsername = username ? username.replace(')', '') : '';
+        const content = contentParts.join(':\n');
+        const formattedContent = formatPostContent(content);
+        const timeAgo = getTimeAgo(new Date(post.timestamp));
 
         postDetailContent.innerHTML = `
             <div class="post-header">
                 <div class="avatar-placeholder"></div>
                 <div class="post-user">
-                    <strong>${post.profiles.fullname}</strong>
-                    <span>@${post.profiles.telegram_username}</span>
+                    <strong>${fullname}</strong>
+                    <span>@${cleanUsername}</span>
                 </div>
-                <div class="post-time">${dateString} ${timeString}</div>
+                <div class="post-time">${timeAgo}</div>
             </div>
-            <div class="post-content">${processPostContent(post.content)}</div>
+            <div class="post-content">${formattedContent}</div>
             ${post.image_url ? `<img src="${post.image_url}" alt="Post image" class="post-image">` : ''}
             <div class="post-actions">
-                <button class="reaction-btn like-btn" data-type="like">
-                    👍 <span class="reaction-count">${post.likes || 0}</span>
-                </button>
-                <button class="reaction-btn dislike-btn" data-type="dislike">
-                    👎 <span class="reaction-count">${post.dislikes || 0}</span>
-                </button>
+                <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">👍 0</button>
+                <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">👎 0</button>
             </div>
         `;
 
         postCommentsList.innerHTML = '';
         await loadComments(post.id);
         subscribeToComments(post.id);
-
-        loadReactions(post.id, postDetailContent);
+        await loadReactionsAndComments(post.id, postDetailContent);
     }
 
     // Назад к ленте
     backToFeedBtn.addEventListener('click', () => {
         postDetailsSection.classList.remove('active');
         feedSection.classList.add('active');
-        selectedPostId = null;
         supabaseClient.channel('comments').unsubscribe();
     });
 
-    // Загрузка комментариев
-    async function loadComments(postId) {
-        const { data: comments, error } = await supabaseClient
-            .from('comments')
-            .select(`
-                *,
-                profiles!comments_user_id_fkey(fullname, telegram_username)
-            `)
-            .eq('post_id', postId)
-            .order('created_at', { ascending: true });
-
-        if (error) {
-            console.error('Ошибка загрузки комментариев:', error);
-            return;
+    // Реакции и комментарии
+    async function loadReactionsAndComments(postId, container = null) {
+        try {
+            const reactions = await loadReactions(postId);
+            const likes = reactions.filter(r => r.type === 'like').length;
+            const dislikes = reactions.filter(r => r.type === 'dislike').length;
+            const userReaction = reactions.find(r => r.user_id === userData.telegramUsername);
+            const likeClass = userReaction?.type === 'like' ? 'active' : '';
+            const dislikeClass = userReaction?.type === 'dislike' ? 'active' : '';
+            const comments = await loadComments(postId);
+            const commentCount = comments?.length || 0;
+            const postDiv = container || postsContainer.querySelector(`[data-post-id="${postId}"]`);
+            if (postDiv) {
+                const likeBtn = postDiv.querySelector('.like-btn');
+                const dislikeBtn = postDiv.querySelector('.dislike-btn');
+                const commentBtn = postDiv.querySelector('.comment-toggle-btn');
+                likeBtn.className = `reaction-btn like-btn ${likeClass}`;
+                likeBtn.innerHTML = `👍 ${likes}`;
+                dislikeBtn.className = `reaction-btn dislike-btn ${dislikeClass}`;
+                dislikeBtn.innerHTML = `👎 ${dislikes}`;
+                if (commentBtn) commentBtn.innerHTML = `💬 Комментарии (${commentCount})`;
+                if (comments && !container) await renderComments(postId, comments);
+            }
+        } catch (error) {
+            console.error('Error loading reactions/comments:', error);
         }
-
-        comments.forEach(comment => {
-            commentsCache.set(comment.id, comment);
-            renderComment(comment, postCommentsList);
-        });
     }
 
-    // Подписка на комментарии
+    async function updatePost(postId) {
+        const postIndex = postsCache.findIndex(post => post.id === postId);
+        if (postIndex === -1) return;
+        const post = await supabaseFetch(`posts?id=eq.${postId}`, 'GET');
+        if (!post?.length) return;
+        const reactions = await loadReactions(postId);
+        const likes = reactions.filter(r => r.type === 'like').length;
+        const dislikes = reactions.filter(r => r.type === 'dislike').length;
+        const userReaction = reactions.find(r => r.user_id === userData.telegramUsername);
+        const likeClass = userReaction?.type === 'like' ? 'active' : '';
+        const dislikeClass = userReaction?.type === 'dislike' ? 'active' : '';
+        const comments = await loadComments(postId);
+        const commentCount = comments?.length || 0;
+        postsCache[postIndex] = post[0];
+        const postDiv = postsContainer.querySelector(`[data-post-id="${postId}"]`);
+        if (!postDiv) return;
+        const [userInfo, ...contentParts] = post[0].text.split(':\n');
+        const [fullname, username] = userInfo.split(' (@');
+        const cleanUsername = username ? username.replace(')', '') : '';
+        const content = contentParts.join(':\n');
+        const formattedContent = formatPostContent(content);
+        const timeAgo = getTimeAgo(new Date(post[0].timestamp));
+        postDiv.innerHTML = `
+            <div class="post-header">
+                <div class="avatar-placeholder"></div>
+                <div class="post-user">
+                    <strong>${fullname}</strong>
+                    <span>@${cleanUsername}</span>
+                </div>
+                <div class="post-time">${timeAgo}</div>
+            </div>
+            <div class="post-content">${formattedContent}</div>
+            ${post[0].image_url ? `<img src="${post[0].image_url}" class="post-image">` : ''}
+            <div class="post-actions">
+                <button class="reaction-btn like-btn ${likeClass}" onclick="toggleReaction(${postId}, 'like')">👍 ${likes}</button>
+                <button class="reaction-btn dislike-btn ${dislikeClass}" onclick="toggleReaction(${postId}, 'dislike')">👎 ${dislikes}</button>
+                <button class="comment-toggle-btn" onclick="toggleComments(${postId})">💬 Комментарии (${commentCount})</button>
+            </div>
+            <div class="comment-section" id="comments-${postId}" style="display: none;">
+                <button id="new-comments-btn-${postId}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
+                <div class="comment-list" id="comment-list-${postId}" style="max-height: 200px; overflow-y: auto;"></div>
+                <div class="comment-form">
+                    <textarea class="comment-input" id="comment-input-${postId}" placeholder="Написать комментарий..."></textarea>
+                    <button onclick="addComment(${postId})">Отправить</button>
+                </div>
+            </div>
+        `;
+        if (comments) await renderComments(postId, comments);
+        setupCommentInfiniteScroll(postId);
+    }
+
+    async function loadReactions(postId) {
+        try {
+            const reactions = await supabaseFetch(`reactions?post_id=eq.${postId}`, 'GET');
+            return reactions || [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    function subscribeToReactions(postId) {
+        if (reactionChannels.has(postId)) supabaseClient.removeChannel(reactionChannels.get(postId));
+        const channel = supabaseClient
+            .channel(`reactions-channel-${postId}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'reactions', filter: `post_id=eq.${postId}` }, () => updatePost(postId))
+            .subscribe();
+        reactionChannels.set(postId, channel);
+    }
+
+    async function toggleReaction(postId, type) {
+        postId = parseInt(postId);
+        try {
+            const userExists = await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'GET');
+            if (!userExists?.length) throw new Error('Пользователь не найден!');
+            const userReaction = await supabaseFetch(`reactions?post_id=eq.${postId}&user_id=eq.${userData.telegramUsername}`, 'GET');
+            if (userReaction?.length > 0) {
+                const currentReaction = userReaction[0];
+                if (currentReaction.type === type) await supabaseFetch(`reactions?id=eq.${currentReaction.id}`, 'DELETE');
+                else await supabaseFetch(`reactions?id=eq.${currentReaction.id}`, 'PATCH', { type });
+            } else {
+                await supabaseFetch('reactions', 'POST', {
+                    post_id: postId,
+                    user_id: userData.telegramUsername,
+                    type,
+                    timestamp: new Date().toISOString()
+                });
+            }
+            await updatePost(postId);
+        } catch (error) {
+            alert('Ошибка: ' + error.message);
+        }
+    }
+
+    // Комментарии
+    async function loadComments(postId) {
+        try {
+            if (!commentsCache.has(postId)) {
+                commentsCache.set(postId, []);
+                lastCommentIds.set(postId, null);
+                newCommentsCount.set(postId, 0);
+            }
+            const comments = await supabaseFetch(`comments?post_id=eq.${postId}&order=id.asc&limit=10`, 'GET');
+            if (comments?.length > 0) {
+                const currentComments = commentsCache.get(postId);
+                const newComments = comments.filter(comment => !currentComments.some(c => c.id === comment.id));
+                commentsCache.set(postId, [...newComments, ...currentComments]);
+                sortCommentsCache(postId);
+                if (newComments.length > 0) lastCommentIds.set(postId, commentsCache.get(postId)[commentsCache.get(postId).length - 1].id);
+            }
+            return commentsCache.get(postId);
+        } catch (error) {
+            return [];
+        }
+    }
+
+    async function loadMoreComments(postId) {
+        const commentList = document.getElementById(`comment-list-${postId}`) || postCommentsList;
+        if (!commentList || commentList.dataset.isLoadingMore === 'true') return;
+        commentList.dataset.isLoadingMore = 'true';
+        const oldestCommentId = commentsCache.get(postId).length > 0 ? commentsCache.get(postId)[0].id : null;
+        try {
+            const moreComments = await supabaseFetch(`comments?post_id=eq.${postId}&id=lt.${oldestCommentId}&order=id.asc&limit=10`, 'GET');
+            if (moreComments?.length > 0) {
+                const currentComments = commentsCache.get(postId);
+                const newComments = moreComments.filter(comment => !currentComments.some(c => c.id === comment.id));
+                if (newComments.length > 0) {
+                    commentsCache.set(postId, [...newComments, ...currentComments]);
+                    sortCommentsCache(postId);
+                    renderMoreComments(postId, newComments, commentList);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading more comments:', error);
+        } finally {
+            commentList.dataset.isLoadingMore = 'false';
+        }
+    }
+
+    async function loadNewComments(postId) {
+        const lastCommentId = lastCommentIds.get(postId);
+        if (!lastCommentId) return;
+        try {
+            const newComments = await supabaseFetch(`comments?post_id=eq.${postId}&id=gt.${lastCommentId}&order=id.asc`, 'GET');
+            if (newComments?.length > 0) {
+                const currentComments = commentsCache.get(postId);
+                const uniqueNewComments = newComments.filter(comment => !currentComments.some(c => c.id === comment.id));
+                if (uniqueNewComments.length > 0) {
+                    commentsCache.set(postId, [...currentComments, ...uniqueNewComments]);
+                    sortCommentsCache(postId);
+                    renderNewComments(postId, uniqueNewComments, true);
+                    lastCommentIds.set(postId, commentsCache.get(postId)[commentsCache.get(postId).length - 1].id);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading new comments:', error);
+        }
+    }
+
     function subscribeToComments(postId) {
-        supabaseClient
-            .channel('comments')
+        if (commentChannels.has(postId)) supabaseClient.removeChannel(commentChannels.get(postId));
+        const channel = supabaseClient
+            .channel(`comments-channel-${postId}`)
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments', filter: `post_id=eq.${postId}` }, payload => {
                 const newComment = payload.new;
-                if (!commentsCache.has(newComment.id)) {
-                    supabaseClient
-                        .from('profiles')
-                        .select('fullname, telegram_username')
-                        .eq('id', newComment.user_id)
-                        .single()
-                        .then(({ data: profile }) => {
-                            newComment.profiles = profile;
-                            commentsCache.set(newComment.id, newComment);
-                            renderComment(newComment, postCommentsList);
-                        });
+                const currentComments = commentsCache.get(postId) || [];
+                if (!currentComments.some(comment => comment.id === newComment.id)) {
+                    commentsCache.set(postId, [...currentComments, newComment]);
+                    sortCommentsCache(postId);
+                    if (isUserAtBottom(postId)) {
+                        renderNewComment(postId, newComment, true);
+                        lastCommentIds.set(postId, commentsCache.get(postId)[commentsCache.get(postId).length - 1].id);
+                    } else {
+                        const currentCount = newCommentsCount.get(postId) || 0;
+                        newCommentsCount.set(postId, currentCount + 1);
+                        const newCommentsBtn = document.getElementById(`new-comments-btn-${postId}`);
+                        if (newCommentsBtn) {
+                            newCommentsBtn.style.display = 'block';
+                            newCommentsBtn.textContent = `Новые комментарии (${newCommentsCount.get(postId)})`;
+                        }
+                    }
                 }
             })
             .subscribe();
+        commentChannels.set(postId, channel);
     }
 
-    // Рендеринг комментария
-    function renderComment(comment, container) {
-        const commentElement = document.createElement('div');
-        commentElement.className = 'comment';
-        commentElement.dataset.commentId = comment.id;
+    function isUserAtBottom(postId) {
+        const commentList = document.getElementById(`comment-list-${postId}`) || postCommentsList;
+        return commentList ? commentList.scrollHeight - commentList.scrollTop <= commentList.clientHeight + 50 : false;
+    }
 
-        const createdAt = new Date(comment.created_at);
-        const timeString = createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const dateString = createdAt.toLocaleDateString();
+    function setupCommentInfiniteScroll(postId) {
+        const commentList = document.getElementById(`comment-list-${postId}`) || postCommentsList;
+        if (!commentList) return;
+        if (commentChannels.has(postId)) {
+            supabaseClient.removeChannel(commentChannels.get(postId));
+            commentChannels.delete(postId);
+        }
+        const debouncedLoadMoreComments = debounce(() => {
+            if (commentList.scrollTop <= 50) loadMoreComments(postId);
+        }, 300);
+        commentList.removeEventListener('scroll', debouncedLoadMoreComments);
+        commentList.addEventListener('scroll', debouncedLoadMoreComments);
+        subscribeToComments(postId);
+        const newCommentsBtn = document.getElementById(`new-comments-btn-${postId}`);
+        if (newCommentsBtn) {
+            newCommentsBtn.onclick = () => {
+                loadNewComments(postId);
+                newCommentsBtn.style.display = 'none';
+                newCommentsCount.set(postId, 0);
+            };
+        }
+    }
 
-        commentElement.innerHTML = `
+    function sortCommentsCache(postId) {
+        const comments = commentsCache.get(postId);
+        if (comments) {
+            comments.sort((a, b) => a.id - b.id);
+            commentsCache.set(postId, comments);
+        }
+    }
+
+    async function renderComments(postId, comments) {
+        const commentList = document.getElementById(`comment-list-${postId}`) || postCommentsList;
+        if (!commentList) return;
+        commentList.innerHTML = '';
+        comments.forEach(comment => renderNewComment(postId, comment, true, commentList));
+    }
+
+    async function renderNewComments(postId, newComments, append = true) {
+        const commentList = document.getElementById(`comment-list-${postId}`) || postCommentsList;
+        for (const comment of newComments) renderNewComment(postId, comment, append, commentList);
+    }
+
+    function renderNewComment(postId, comment, append = true, container = null) {
+        const commentList = container || document.getElementById(`comment-list-${postId}`) || postCommentsList;
+        if (!commentList) return;
+        const commentDiv = document.createElement('div');
+        commentDiv.classList.add('comment');
+        const [userInfo, ...contentParts] = comment.text.split(':\n');
+        const [fullname, username] = userInfo.split(' (@');
+        const cleanUsername = username ? username.replace(')', '') : '';
+        const content = contentParts.join(':\n');
+        const formattedContent = formatPostContent(content);
+        const timeAgo = getTimeAgo(new Date(comment.timestamp));
+        commentDiv.innerHTML = `
             <div class="avatar-placeholder"></div>
             <div>
                 <div class="comment-user">
-                    <strong>${comment.profiles.fullname}</strong>
-                    <span>@${comment.profiles.telegram_username}</span> • ${dateString} ${timeString}
+                    <strong>${fullname}</strong>
+                    <span>@${cleanUsername}</span> • ${timeAgo}
                 </div>
-                <div class="comment-content">${processPostContent(comment.content)}</div>
+                <div class="comment-content">${formattedContent}</div>
             </div>
         `;
-
-        container.appendChild(commentElement);
+        if (append) {
+            commentList.appendChild(commentDiv);
+            if (isUserAtBottom(postId)) commentList.scrollTop = commentList.scrollHeight;
+        } else commentList.prepend(commentDiv);
     }
 
-    // Отправка нового комментария
-    submitCommentBtn.addEventListener('click', async () => {
-        const content = newCommentInput.value.trim();
-        if (!content) {
-            alert('Пожалуйста, введите комментарий');
-            return;
+    async function renderMoreComments(postId, newComments, container = null) {
+        const commentList = container || document.getElementById(`comment-list-${postId}`) || postCommentsList;
+        if (!commentList) return;
+        for (const comment of newComments) {
+            const commentDiv = document.createElement('div');
+            commentDiv.classList.add('comment');
+            const [userInfo, ...contentParts] = comment.text.split(':\n');
+            const [fullname, username] = userInfo.split(' (@');
+            const cleanUsername = username ? username.replace(')', '') : '';
+            const content = contentParts.join(':\n');
+            const formattedContent = formatPostContent(content);
+            const timeAgo = getTimeAgo(new Date(comment.timestamp));
+            commentDiv.innerHTML = `
+                <div class="avatar-placeholder"></div>
+                <div>
+                    <div class="comment-user">
+                        <strong>${fullname}</strong>
+                        <span>@${cleanUsername}</span> • ${timeAgo}
+                    </div>
+                    <div class="comment-content">${formattedContent}</div>
+                </div>
+            `;
+            commentList.appendChild(commentDiv);
         }
-
-        const { data: profile } = await supabaseClient
-            .from('profiles')
-            .select('id')
-            .eq('telegram_username', user.username)
-            .single();
-
-        const { error } = await supabaseClient
-            .from('comments')
-            .insert({
-                post_id: selectedPostId,
-                user_id: profile.id,
-                content: content,
-            });
-
-        if (error) {
-            console.error('Ошибка отправки комментария:', error);
-            alert('Ошибка отправки комментария. Попробуйте снова.');
-        } else {
-            newCommentInput.value = '';
-        }
-    });
-
-    // Обработка контента поста (упоминания)
-    function processPostContent(content) {
-        return content.replace(/@(\w+)/g, '<a href="#" class="mention">@$1</a>');
     }
 
-    // Загрузка реакций
-    async function loadReactions(postId, postElement) {
-        const { data: reactions, error } = await supabaseClient
-            .from('reactions')
-            .select('reaction_type')
-            .eq('post_id', postId);
-
-        if (error) {
-            console.error('Ошибка загрузки реакций:', error);
+    async function addComment(postId) {
+        postId = parseInt(postId);
+        const commentInput = document.getElementById(`comment-input-${postId}`) || newCommentInput;
+        const commentButton = commentInput.parentElement.querySelector('button') || submitCommentBtn;
+        if (!commentInput || !commentButton || commentButton.disabled) return;
+        commentButton.disabled = true;
+        const text = commentInput.value.trim();
+        if (!text) {
+            alert('Введите текст комментария!');
+            commentButton.disabled = false;
             return;
         }
-
-        const likes = reactions.filter(r => r.reaction_type === 'like').length;
-        const dislikes = reactions.filter(r => r.reaction_type === 'dislike').length;
-
-        const likeBtn = postElement.querySelector('.like-btn .reaction-count');
-        const dislikeBtn = postElement.querySelector('.dislike-btn .reaction-count');
-
-        likeBtn.textContent = likes;
-        dislikeBtn.textContent = dislikes;
-
-        const { data: userReaction } = await supabaseClient
-            .from('reactions')
-            .select('reaction_type')
-            .eq('post_id', postId)
-            .eq('user_id', (await supabaseClient.from('profiles').select('id').eq('telegram_username', user.username).single()).data.id)
-            .single();
-
-        if (userReaction) {
-            const btn = userReaction.reaction_type === 'like' ? postElement.querySelector('.like-btn') : postElement.querySelector('.dislike-btn');
-            btn.classList.add('active');
-        }
-
-        postElement.querySelectorAll('.reaction-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const type = btn.dataset.type;
-                const { data: profile } = await supabaseClient
-                    .from('profiles')
-                    .select('id')
-                    .eq('telegram_username', user.username)
-                    .single();
-
-                const { data: existingReaction } = await supabaseClient
-                    .from('reactions')
-                    .select('id, reaction_type')
-                    .eq('post_id', postId)
-                    .eq('user_id', profile.id)
-                    .single();
-
-                if (existingReaction) {
-                    if (existingReaction.reaction_type === type) {
-                        await supabaseClient
-                            .from('reactions')
-                            .delete()
-                            .eq('id', existingReaction.id);
-                        btn.classList.remove('active');
-                    } else {
-                        await supabaseClient
-                            .from('reactions')
-                            .update({ reaction_type: type })
-                            .eq('id', existingReaction.id);
-                        postElement.querySelector('.reaction-btn.active')?.classList.remove('active');
-                        btn.classList.add('active');
-                    }
+        try {
+            const postExists = await supabaseFetch(`posts?id=eq.${postId}`, 'GET');
+            if (!postExists?.length) throw new Error('Пост не найден!');
+            const userExists = await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'GET');
+            if (!userExists?.length) throw new Error('Пользователь не найден!');
+            const comment = {
+                post_id: postId,
+                user_id: userData.telegramUsername,
+                text: `${userData.fullname} (@${userData.telegramUsername}):\n${text}`,
+                timestamp: new Date().toISOString()
+            };
+            const newComment = await supabaseFetch('comments', 'POST', comment);
+            commentInput.value = '';
+            const currentComments = commentsCache.get(postId) || [];
+            if (!currentComments.some(c => c.id === newComment[0].id)) {
+                commentsCache.set(postId, [...currentComments, newComment[0]]);
+                sortCommentsCache(postId);
+                if (isUserAtBottom(postId)) {
+                    renderNewComment(postId, newComment[0], true);
+                    lastCommentIds.set(postId, commentsCache.get(postId)[commentsCache.get(postId).length - 1].id);
                 } else {
-                    await supabaseClient
-                        .from('reactions')
-                        .insert({
-                            post_id: postId,
-                            user_id: profile.id,
-                            reaction_type: type,
-                        });
-                    btn.classList.add('active');
+                    const currentCount = newCommentsCount.get(postId) || 0;
+                    newCommentsCount.set(postId, currentCount + 1);
+                    const newCommentsBtn = document.getElementById(`new-comments-btn-${postId}`);
+                    if (newCommentsBtn) {
+                        newCommentsBtn.style.display = 'block';
+                        newCommentsBtn.textContent = `Новые комментарии (${newCommentsCount.get(postId)})`;
+                    }
                 }
+                await processTags(text, null);
+            }
+            await updatePost(postId);
+        } catch (error) {
+            alert('Ошибка: ' + error.message);
+        } finally {
+            commentButton.disabled = false;
+        }
+    }
 
-                const { data: updatedReactions } = await supabaseClient
-                    .from('reactions')
-                    .select('reaction_type')
-                    .eq('post_id', postId);
-
-                const updatedLikes = updatedReactions.filter(r => r.reaction_type === 'like').length;
-                const updatedDislikes = updatedReactions.filter(r => r.reaction_type === 'dislike').length;
-
-                postElement.querySelector('.like-btn .reaction-count').textContent = updatedLikes;
-                postElement.querySelector('.dislike-btn .reaction-count').textContent = updatedDislikes;
-
-                const cachedPost = postsCache.get(postId);
-                cachedPost.likes = updatedLikes;
-                cachedPost.dislikes = updatedDislikes;
-                postsCache.set(postId, cachedPost);
-
-                if (postDetailsSection.classList.contains('active') && selectedPostId === postId) {
-                    postDetailContent.querySelector('.like-btn .reaction-count').textContent = updatedLikes;
-                    postDetailContent.querySelector('.dislike-btn .reaction-count').textContent = updatedDislikes;
-                }
-            });
-        });
+    function toggleComments(postId) {
+        const commentSection = document.getElementById(`comments-${postId}`);
+        if (commentSection) {
+            const isVisible = commentSection.style.display === 'block';
+            commentSection.style.display = isVisible ? 'none' : 'block';
+            if (!isVisible) {
+                loadComments(postId).then(comments => renderComments(postId, comments));
+                setupCommentInfiniteScroll(postId);
+            } else if (commentChannels.has(postId)) {
+                supabaseClient.removeChannel(commentChannels.get(postId));
+                commentChannels.delete(postId);
+            }
+        }
     }
 
     // Публикация нового поста
-    submitPostBtn.addEventListener('click', async () => {
-        const content = postTextInput.value.trim();
-        const imageFile = postImageInput.files[0];
+    async function processTags(text, postId) {
+        const tagRegex = /@([a-zA-Z0-9_]+)/g;
+        const tags = text.match(tagRegex) || [];
+        for (const tag of tags) {
+            const username = tag.slice(1);
+            await supabaseFetch('tag_notifications', 'POST', {
+                tagged_username: username,
+                post_id: postId,
+                user_id: userData.telegramUsername,
+                text: text,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
 
-        if (!content && !imageFile) {
-            alert('Пожалуйста, добавьте текст или изображение');
+    submitPostBtn.addEventListener('click', async () => {
+        if (submitPostBtn.disabled) return;
+        submitPostBtn.disabled = true;
+        const postContent = postTextInput.value.trim();
+        if (!postContent) {
+            alert('Введите текст поста!');
+            submitPostBtn.disabled = false;
             return;
         }
-
-        let imageUrl = null;
-        if (imageFile) {
-            const fileName = `${Date.now()}_${imageFile.name}`;
-            const { error: uploadError } = await supabaseClient.storage
-                .from('post-images')
-                .upload(fileName, imageFile);
-
-            if (uploadError) {
-                console.error('Ошибка загрузки изображения:', uploadError);
-                alert('Ошибка загрузки изображения. Попробуйте снова.');
-                return;
-            }
-
-            const { data: publicUrl } = supabaseClient.storage
-                .from('post-images')
-                .getPublicUrl(fileName);
-
-            imageUrl = publicUrl.publicUrl;
-        }
-
-        const { data: profile } = await supabaseClient
-            .from('profiles')
-            .select('id')
-            .eq('telegram_username', user.username)
-            .single();
-
-        const { error } = await supabaseClient
-            .from('posts')
-            .insert({
-                user_id: profile.id,
-                content: content,
-                image_url: imageUrl,
-            });
-
-        if (error) {
-            console.error('Ошибка публикации поста:', error);
-            alert('Ошибка публикации поста. Попробуйте снова.');
-        } else {
+        const text = `${userData.fullname} (@${userData.telegramUsername}):\n${postContent}`;
+        const post = {
+            text,
+            timestamp: new Date().toISOString(),
+            user_id: userData.telegramUsername
+        };
+        try {
+            if (postImageInput.files.length > 0) post.image_url = await uploadImage(postImageInput.files[0]);
+            const newPost = await supabaseFetch('posts', 'POST', post);
             postTextInput.value = '';
             postImageInput.value = '';
+            if (!postsCache.some(p => p.id === newPost[0].id)) {
+                postsCache.unshift(newPost[0]);
+                sortPostsCache();
+                if (isUserAtTop()) renderNewPost(newPost[0], true);
+                else {
+                    newPostsCount++;
+                    newPostsBtn.style.display = 'block';
+                }
+                lastPostId = postsCache[0].id;
+                await processTags(postContent, newPost[0].id);
+            }
+        } catch (error) {
+            alert('Ошибка: ' + error.message);
+        } finally {
+            submitPostBtn.disabled = false;
         }
+    });
+
+    newPostsBtn.addEventListener('click', () => {
+        loadNewPosts();
+        newPostsBtn.style.display = 'none';
+        newPostsCount = 0;
     });
 
     // Переключение вкладок
@@ -548,10 +962,11 @@ if (typeof supabase === 'undefined') {
 
         activeSection.classList.add('active');
         activeBtn.classList.add('active');
-        if (activeSection !== postDetailsSection) {
-            selectedPostId = null;
-            supabaseClient.channel('comments').unsubscribe();
-        }
+        if (activeSection === feedSection) loadPosts();
+        if (activeSection === tournamentsSection) loadTournaments();
+        if (activeSection === ratingSection) initRating();
+        if (activeSection === profileSection) showProfile();
+        if (activeSection !== postDetailsSection) supabaseClient.channel('comments').unsubscribe();
     }
 
     feedBtn.addEventListener('click', () => switchTab(feedSection, feedBtn));
@@ -578,12 +993,6 @@ if (typeof supabase === 'undefined') {
             return;
         }
 
-        const { data: profile } = await supabaseClient
-            .from('profiles')
-            .select('id')
-            .eq('telegram_username', user.username)
-            .single();
-
         const { error } = await supabaseClient
             .from('tournaments')
             .insert({
@@ -593,7 +1002,8 @@ if (typeof supabase === 'undefined') {
                 description,
                 address,
                 deadline,
-                creator_id: profile.id,
+                creator_id: userData.telegramUsername,
+                timestamp: new Date().toISOString()
             });
 
         if (error) {
@@ -601,6 +1011,12 @@ if (typeof supabase === 'undefined') {
             alert('Ошибка создания турнира. Попробуйте снова.');
         } else {
             createTournamentForm.classList.add('form-hidden');
+            document.getElementById('tournament-name').value = '';
+            document.getElementById('tournament-date').value = '';
+            document.getElementById('tournament-logo').value = '';
+            document.getElementById('tournament-desc').value = '';
+            document.getElementById('tournament-address').value = '';
+            document.getElementById('tournament-deadline').value = '';
             loadTournaments();
         }
     });
@@ -612,7 +1028,8 @@ if (typeof supabase === 'undefined') {
                 *,
                 profiles!tournaments_creator_id_fkey(fullname, telegram_username)
             `)
-            .order('created_at', { ascending: false });
+            .order('timestamp', { ascending: false })
+            .limit(50);
 
         if (error) {
             console.error('Ошибка загрузки турниров:', error);
@@ -620,409 +1037,497 @@ if (typeof supabase === 'undefined') {
         }
 
         tournamentList.innerHTML = '';
-        tournaments.forEach(tournament => {
-            const tournamentElement = document.createElement('div');
-            tournamentElement.className = 'tournament-card';
-            tournamentElement.dataset.tournamentId = tournament.id;
+        if (tournaments) {
+            tournaments.forEach(tournament => {
+                const tournamentElement = document.createElement('div');
+                tournamentElement.className = 'tournament-card';
+                tournamentElement.dataset.tournamentId = tournament.id;
 
-            const date = new Date(tournament.date).toLocaleDateString();
-            tournamentElement.innerHTML = `
-                <img src="${tournament.logo_url || 'https://via.placeholder.com/48'}" alt="Tournament logo" class="tournament-logo">
-                <div class="tournament-info">
-                    <strong>${tournament.name}</strong>
-                    <span>Дата: ${date}</span>
-                    <span>Город: ${tournament.address}</span>
-                </div>
+                const date = new Date(tournament.date).toLocaleDateString();
+                const city = tournament.address ? extractCityFromAddress(tournament.address) : 'Не указан';
+                tournamentElement.innerHTML = `
+                    <img src="${tournament.logo_url || 'https://via.placeholder.com/48'}" alt="Tournament logo" class="tournament-logo">
+                    <div class="tournament-info">
+                        <strong>${tournament.name}</strong>
+                        <span>Дата: ${date}</span>
+                        <span>Город: ${city}</span>
+                    </div>
+                `;
+
+                tournamentElement.addEventListener('click', () => showTournamentDetails(tournament.id));
+                tournamentList.appendChild(tournamentElement);
+            });
+        }
+    }
+
+    function extractCityFromAddress(address) {
+        return address.split('/')[3] || 'Не указан';
+    }
+
+    async function showTournamentDetails(tournamentId) {
+        try {
+            const tournament = await supabaseFetch(`tournaments?id=eq.${tournamentId}`, 'GET');
+            if (!tournament?.length) return;
+            currentTournamentId = tournamentId;
+            const data = tournament[0];
+            const city = data.address ? extractCityFromAddress(data.address) : 'Не указан';
+            const isCreator = data.creator_id === userData.telegramUsername;
+            const date = new Date(data.date).toLocaleDateString();
+            const deadline = new Date(data.deadline).toLocaleDateString();
+
+            tournamentHeader.innerHTML = `
+                <img src="${data.logo_url || 'https://via.placeholder.com/150'}" alt="Tournament logo">
+                <strong>${data.name}</strong>
+                <p>Создатель: ${data.profiles?.fullname || 'Неизвестно'} (@${data.profiles?.telegram_username || data.creator_id})</p>
+                <p>Дата: ${date}</p>
+                <p>Город: ${city}</p>
+                <p>Адрес: <a href="${data.address}" target="_blank">${data.address}</a></p>
+                <p>Дедлайн: ${deadline}</p>
             `;
 
-            tournamentElement.addEventListener('click', () => showTournamentDetails(tournament));
-            tournamentList.appendChild(tournamentElement);
+            tournamentDescription.innerHTML = `<p>Описание: ${data.description || 'Описание отсутствует'}</p>`;
+            tournamentDescription.classList.add('description-hidden');
+
+            toggleDescriptionBtn.onclick = () => {
+                if (tournamentDescription.classList.contains('description-hidden')) {
+                    tournamentDescription.classList.remove('description-hidden');
+                    toggleDescriptionBtn.textContent = 'Свернуть описание';
+                } else {
+                    tournamentDescription.classList.add('description-hidden');
+                    toggleDescriptionBtn.textContent = 'Развернуть описание';
+                }
+            };
+
+            tournamentsSection.classList.remove('active');
+            tournamentDetailsSection.classList.add('active');
+
+            initTabs();
+            initTournamentPosts(isCreator, data.name);
+            loadTournamentPosts(tournamentId);
+            initRegistration();
+            loadRegistrations(tournamentId, isCreator);
+            initBracket(isCreator);
+            loadBracket(tournamentId);
+        } catch (error) {
+            alert('Ошибка: ' + error.message);
+        }
+    }
+
+    function initTabs() {
+        postsTab.onclick = () => {
+            [postsTab, registrationTab, bracketTab].forEach(tab => tab.classList.remove('active'));
+            [tournamentPosts, tournamentRegistration, tournamentBracket].forEach(content => content.classList.remove('active'));
+            postsTab.classList.add('active');
+            tournamentPosts.classList.add('active');
+        };
+        registrationTab.onclick = () => {
+            [postsTab, registrationTab, bracketTab].forEach(tab => tab.classList.remove('active'));
+            [tournamentPosts, tournamentRegistration, tournamentBracket].forEach(content => content.classList.remove('active'));
+            registrationTab.classList.add('active');
+            tournamentRegistration.classList.add('active');
+        };
+        bracketTab.onclick = () => {
+            [postsTab, registrationTab, bracketTab].forEach(tab => tab.classList.remove('active'));
+            [tournamentPosts, tournamentRegistration, tournamentBracket].forEach(content => content.classList.remove('active'));
+            bracketTab.classList.add('active');
+            tournamentBracket.classList.add('active');
+        };
+    }
+
+    function initTournamentPosts(isCreator, tournamentName) {
+        tournamentPosts.innerHTML = '';
+        if (isCreator) {
+            tournamentPosts.innerHTML = `
+                <div id="new-tournament-post">
+                    <textarea id="tournament-post-text" placeholder="Создать пост от имени турнира"></textarea>
+                    <button id="submit-tournament-post">Опубликовать</button>
+                </div>
+                <div id="tournament-posts-list"></div>
+            `;
+            document.getElementById('submit-tournament-post').onclick = async () => {
+                const submitButton = document.getElementById('submit-tournament-post');
+                if (submitButton.disabled) return;
+                submitButton.disabled = true;
+                const text = document.getElementById('tournament-post-text').value.trim();
+                if (!text) {
+                    alert('Введите текст поста!');
+                    submitButton.disabled = false;
+                    return;
+                }
+                try {
+                    await supabaseFetch('tournament_posts', 'POST', {
+                        tournament_id: currentTournamentId,
+                        creator_id: userData.telegramUsername,
+                        text,
+                        timestamp: new Date().toISOString()
+                    });
+                    document.getElementById('tournament-post-text').value = '';
+                    loadTournamentPosts(currentTournamentId);
+                } catch (error) {
+                    alert('Ошибка: ' + error.message);
+                } finally {
+                    submitButton.disabled = false;
+                }
+            };
+        } else {
+            tournamentPosts.innerHTML = `<div id="tournament-posts-list"></div>`;
+        }
+    }
+
+    async function loadTournamentPosts(tournamentId) {
+        try {
+            const posts = await supabaseFetch(`tournament_posts?tournament_id=eq.${tournamentId}&order=timestamp.desc`, 'GET');
+            const postsList = document.getElementById('tournament-posts-list');
+            postsList.innerHTML = '';
+            if (posts?.length > 0) {
+                const tournament = await supabaseFetch(`tournaments?id=eq.${tournamentId}`, 'GET');
+                const tournamentName = tournament[0].name;
+                posts.forEach(post => {
+                    const postDiv = document.createElement('div');
+                    postDiv.classList.add('post');
+                    const timeAgo = getTimeAgo(new Date(post.timestamp));
+                    postDiv.innerHTML = `
+                        <div class="post-header">
+                            <strong>Турнир: ${tournamentName}</strong>
+                            <span>${timeAgo}</span>
+                        </div>
+                        <div class="post-content">${post.text}</div>
+                    `;
+                    postsList.appendChild(postDiv);
+                });
+            } else {
+                postsList.innerHTML = '<p>Пока нет постов от турнира.</p>';
+            }
+        } catch (error) {
+            postsList.innerHTML = '<p>Ошибка загрузки постов.</p>';
+        }
+    }
+
+    function initRegistration() {
+        registerTournamentBtn.onclick = () => registrationForm.classList.toggle('form-hidden');
+        document.getElementById('submit-registration-btn').addEventListener('click', async () => {
+            const submitRegistrationBtn = document.getElementById('submit-registration-btn');
+            if (submitRegistrationBtn.disabled) return;
+            submitRegistrationBtn.disabled = true;
+            const registration = {
+                tournament_id: currentTournamentId,
+                faction_name: document.getElementById('reg-faction-name').value.trim(),
+                speaker1: document.getElementById('reg-speaker1').value.trim(),
+                speaker2: document.getElementById('reg-speaker2').value.trim(),
+                club: document.getElementById('reg-club').value.trim(),
+                city: document.getElementById('reg-city').value.trim(),
+                contacts: document.getElementById('reg-contacts').value.trim(),
+                extra: document.getElementById('reg-extra').value.trim(),
+                timestamp: new Date().toISOString()
+            };
+            if (!registration.faction_name || !registration.club) {
+                alert('Укажите название фракции и клуба!');
+                submitRegistrationBtn.disabled = false;
+                return;
+            }
+            try {
+                await supabaseFetch('registrations', 'POST', registration);
+                alert('Регистрация отправлена!');
+                registrationForm.classList.add('form-hidden');
+                document.getElementById('reg-faction-name').value = '';
+                document.getElementById('reg-speaker1').value = '';
+                document.getElementById('reg-speaker2').value = '';
+                document.getElementById('reg-club').value = '';
+                document.getElementById('reg-city').value = '';
+                document.getElementById('reg-contacts').value = '';
+                document.getElementById('reg-extra').value = '';
+                loadRegistrations(currentTournamentId);
+            } catch (error) {
+                alert('Ошибка: ' + error.message);
+            } finally {
+                submitRegistrationBtn.disabled = false;
+            }
         });
     }
 
-    async function showTournamentDetails(tournament) {
-        tournamentsSection.classList.remove('active');
-        tournamentDetailsSection.classList.add('active');
-
-        const date = new Date(tournament.date).toLocaleDateString();
-        const deadline = new Date(tournament.deadline).toLocaleDateString();
-
-        tournamentHeader.innerHTML = `
-            <img src="${tournament.logo_url || 'https://via.placeholder.com/150'}" alt="Tournament logo">
-            <strong>${tournament.name}</strong>
-            <p>Создатель: ${tournament.profiles.fullname} (@${tournament.profiles.telegram_username})</p>
-            <p>Дата: ${date}</p>
-            <p>Город: ${tournament.address}</p>
-            <p>Дедлайн: ${deadline}</p>
-        `;
-
-        tournamentDescription.textContent = tournament.description || 'Описание отсутствует';
-        tournamentDescription.classList.add('description-hidden');
-
-        toggleDescriptionBtn.addEventListener('click', () => {
-            tournamentDescription.classList.toggle('description-hidden');
-            toggleDescriptionBtn.textContent = tournamentDescription.classList.contains('description-hidden') ? 'Развернуть описание' : 'Свернуть описание';
-        });
-
-        const { data: creatorProfile } = await supabaseClient
-            .from('profiles')
-            .select('id')
-            .eq('telegram_username', user.username)
-            .single();
-
-        const isCreator = tournament.creator_id === creatorProfile.id;
-
-        // Посты турнира
-        tournamentPosts.innerHTML = '';
-        if (isCreator) {
-            const newPostForm = document.createElement('div');
-            newPostForm.id = 'new-tournament-post';
-            newPostForm.innerHTML = `
-                <textarea id="tournament-post-text" placeholder="Написать пост от имени турнира..."></textarea>
-                <button id="submit-tournament-post">Опубликовать</button>
-            `;
-            tournamentPosts.appendChild(newPostForm);
-
-            document.getElementById('submit-tournament-post').addEventListener('click', async () => {
-                const content = document.getElementById('tournament-post-text').value.trim();
-                if (!content) {
-                    alert('Пожалуйста, введите текст поста');
-                    return;
-                }
-
-                const { error } = await supabaseClient
-                    .from('posts')
-                    .insert({
-                        user_id: tournament.creator_id,
-                        content: content,
-                        tournament_id: tournament.id,
-                    });
-
-                if (error) {
-                    console.error('Ошибка публикации поста:', error);
-                    alert('Ошибка публикации поста. Попробуйте снова.');
-                } else {
-                    document.getElementById('tournament-post-text').value = '';
-                }
+    async function loadRegistrations(tournamentId, isCreator) {
+        try {
+            const registrations = await supabaseFetch(`registrations?tournament_id=eq.${tournamentId}&order=timestamp.asc`, 'GET');
+            registrationList.innerHTML = '';
+            const seen = new Set();
+            const uniqueRegistrations = registrations.filter(reg => {
+                const key = `${reg.tournament_id}|${reg.faction_name}|${reg.club}`;
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
             });
-        }
-
-        const postsList = document.createElement('div');
-        postsList.id = 'tournament-posts-list';
-        tournamentPosts.appendChild(postsList);
-
-        const { data: tournamentPostsData } = await supabaseClient
-            .from('posts')
-            .select(`
-                *,
-                profiles!posts_user_id_fkey(fullname, telegram_username)
-            `)
-            .eq('tournament_id', tournament.id)
-            .order('created_at', { ascending: false });
-
-        tournamentPostsData.forEach(post => renderPost(post));
-
-        // Регистрация
-        registrationList.innerHTML = '';
-        const { data: registrations } = await supabaseClient
-            .from('registrations')
-            .select('*')
-            .eq('tournament_id', tournament.id);
-
-        registrations.forEach(reg => {
-            const regElement = document.createElement('div');
-            regElement.className = 'registration-card';
-            regElement.innerHTML = `
-                <strong>${reg.faction_name}</strong>
-                <p>Спикер 1: ${reg.speaker1}</p>
-                <p>Спикер 2: ${reg.speaker2}</p>
-                <p>Клуб: ${reg.club}</p>
-                <p>Город: ${reg.city}</p>
-                <p>Контакты: ${reg.contacts}</p>
-                ${reg.extra ? `<p>Дополнительно: ${reg.extra}</p>` : ''}
-                ${isCreator ? `<button class="delete-registration-btn" data-reg-id="${reg.id}">Удалить</button>` : ''}
-            `;
-            registrationList.appendChild(regElement);
-
-            if (isCreator) {
-                regElement.querySelector('.delete-registration-btn').addEventListener('click', async () => {
-                    await supabaseClient
-                        .from('registrations')
-                        .delete()
-                        .eq('id', reg.id);
-                    regElement.remove();
+            if (uniqueRegistrations.length > 0) {
+                uniqueRegistrations.forEach(reg => {
+                    const regCard = document.createElement('div');
+                    regCard.classList.add('registration-card');
+                    regCard.setAttribute('data-registration-id', reg.id);
+                    regCard.innerHTML = `
+                        <strong>${reg.faction_name || 'Не указано'}</strong>
+                        <p>Клуб: ${reg.club || 'Не указано'}</p>
+                        <p>Спикер 1: ${reg.speaker1 || 'Не указано'}</p>
+                        <p>Спикер 2: ${reg.speaker2 || 'Не указано'}</p>
+                        <p>Город: ${reg.city || 'Не указано'}</p>
+                        <p>Контакты: ${reg.contacts || 'Не указано'}</p>
+                        <p>Дополнительно: ${reg.extra || 'Нет'}</p>
+                        ${isCreator ? `<button class="delete-registration-btn" data-registration-id="${reg.id}">Удалить</button>` : ''}
+                    `;
+                    registrationList.appendChild(regCard);
                 });
+                if (isCreator) {
+                    document.querySelectorAll('.delete-registration-btn').forEach(button => {
+                        button.onclick = async () => {
+                            const registrationId = button.getAttribute('data-registration-id');
+                            if (confirm('Удалить команду?')) await deleteRegistration(registrationId, tournamentId);
+                        };
+                    });
+                }
+            } else {
+                registrationList.innerHTML = '<p>Пока нет зарегистрированных команд.</p>';
             }
-        });
+        } catch (error) {
+            alert('Ошибка загрузки регистраций: ' + error.message);
+        }
+    }
 
-        // Сетка
+    async function deleteRegistration(registrationId, tournamentId) {
+        try {
+            await supabaseFetch(`registrations?id=eq.${registrationId}`, 'DELETE');
+            alert('Команда удалена!');
+            const isCreator = (await supabaseFetch(`tournaments?id=eq.${tournamentId}`, 'GET'))[0].creator_id === userData.telegramUsername;
+            await loadRegistrations(tournamentId, isCreator);
+        } catch (error) {
+            alert('Ошибка при удалении: ' + error.message);
+        }
+    }
+
+    function initBracket(isCreator) {
         tournamentBracket.innerHTML = '';
         if (isCreator) {
-            const bracketForm = document.createElement('div');
-            bracketForm.id = 'bracket-form';
-            bracketForm.innerHTML = `
-                <select id="bracket-format">
-                    <option value="APF">АПФ (2 команды)</option>
-                    <option value="BPF">БПФ (4 команды)</option>
-                </select>
-                <input id="bracket-round" type="text" placeholder="Раунд (например, 1/8 финала)">
-                <button id="generate-bracket">Сгенерировать</button>
+            tournamentBracket.innerHTML = `
+                <div id="bracket-form">
+                    <select id="bracket-format">
+                        <option value="АПФ">АПФ</option>
+                        <option value="БПФ">БПФ</option>
+                    </select>
+                    <input id="bracket-faction-count" type="number" placeholder="Количество фракций (чётное)" min="2" step="2">
+                    <select id="bracket-round-count">
+                        <option value="1">1 раунд</option>
+                        <option value="2">2 раунда</option>
+                        <option value="3">3 раунда</option>
+                        <option value="4">4 раунда</option>
+                        <option value="5">5 раундов</option>
+                    </select>
+                    <button id="generate-bracket-btn">Сформировать сетку</button>
+                </div>
+                <div id="bracket-display"></div>
             `;
-            tournamentBracket.appendChild(bracketForm);
-
-            document.getElementById('generate-bracket').addEventListener('click', async () => {
-                const format = document.getElementById('bracket-format').value;
-                const round = document.getElementById('bracket-round').value.trim();
-
-                if (!round) {
-                    alert('Пожалуйста, укажите раунд');
-                    return;
-                }
-
-                const teams = registrations.map(reg => reg.faction_name);
-                if (format === 'APF' && teams.length < 2) {
-                    alert('Недостаточно команд для АПФ (нужно минимум 2)');
-                    return;
-                }
-                if (format === 'BPF' && teams.length < 4) {
-                    alert('Недостаточно команд для БПФ (нужно минимум 4)');
-                    return;
-                }
-
-                const shuffledTeams = teams.sort(() => Math.random() - 0.5);
-                const matches = [];
-                if (format === 'APF') {
-                    for (let i = 0; i < shuffledTeams.length; i += 2) {
-                        if (i + 1 < shuffledTeams.length) {
-                            matches.push({
-                                team1: shuffledTeams[i],
-                                team2: shuffledTeams[i + 1],
-                                role1: 'Правительство',
-                                role2: 'Оппозиция',
-                            });
-                        }
-                    }
-                } else {
-                    for (let i = 0; i < shuffledTeams.length; i += 4) {
-                        if (i + 3 < shuffledTeams.length) {
-                            matches.push({
-                                team1: shuffledTeams[i],
-                                team2: shuffledTeams[i + 1],
-                                team3: shuffledTeams[i + 2],
-                                team4: shuffledTeams[i + 3],
-                                role1: 'ОП',
-                                role2: 'ОО',
-                                role3: 'ЗП',
-                                role4: 'ЗО',
-                            });
-                        }
-                    }
-                }
-
-                const { error } = await supabaseClient
-                    .from('brackets')
-                    .insert({
-                        tournament_id: tournament.id,
-                        round: round,
-                        format: format,
-                        matches: matches,
-                    });
-
-                if (error) {
-                    console.error('Ошибка генерации сетки:', error);
-                    alert('Ошибка генерации сетки. Попробуйте снова.');
-                } else {
-                    loadBracket(tournament.id);
-                }
-            });
+            document.getElementById('generate-bracket-btn').onclick = generateBracket;
+        } else {
+            tournamentBracket.innerHTML = `<div id="bracket-display"></div>`;
         }
+    }
 
-        await loadBracket(tournament.id);
+    async function generateBracket() {
+        const format = document.getElementById('bracket-format').value;
+        const factionCount = parseInt(document.getElementById('bracket-faction-count').value);
+        const roundCount = parseInt(document.getElementById('bracket-round-count').value);
+        if (isNaN(factionCount) || factionCount < 2 || factionCount % 2 !== 0) {
+            alert('Количество фракций должно быть чётным и больше 0!');
+            return;
+        }
+        if (format === 'БПФ' && factionCount % 4 !== 0) {
+            alert('Для БПФ количество фракций должно быть кратно 4!');
+            return;
+        }
+        const registrations = await supabaseFetch(`registrations?tournament_id=eq.${currentTournamentId}&order=timestamp.asc`, 'GET');
+        if (!registrations || registrations.length < factionCount) {
+            alert('Недостаточно команд!');
+            return;
+        }
+        const teams = registrations.slice(0, factionCount).map(reg => ({
+            faction_name: reg.faction_name,
+            club: reg.club
+        }));
+        const positions = format === 'АПФ' ? ['Правительство', 'Оппозиция'] : ['ОП', 'ОО', 'ЗП', 'ЗО'];
+        const teamsPerMatch = format === 'АПФ' ? 2 : 4;
+        const matches = [];
+        const usedPairs = new Set();
+        for (let round = 0; round < roundCount; round++) {
+            const roundMatches = [];
+            const availableTeams = [...teams];
+            while (availableTeams.length >= teamsPerMatch) {
+                const matchTeams = [];
+                for (let i = 0; i < teamsPerMatch; i++) {
+                    const randomIndex = Math.floor(Math.random() * availableTeams.length);
+                    matchTeams.push(availableTeams.splice(randomIndex, 1)[0]);
+                }
+                const matchKey = matchTeams.map(team => team.faction_name).sort().join('|');
+                if (usedPairs.has(matchKey)) {
+                    availableTeams.push(...matchTeams);
+                    continue;
+                }
+                usedPairs.add(matchKey);
+                const match = {
+                    teams: matchTeams.map((team, idx) => ({
+                        faction_name: team.faction_name,
+                        club: team.club,
+                        position: positions[idx]
+                    })),
+                    room: '',
+                    judge: ''
+                };
+                roundMatches.push(match);
+            }
+            if (roundMatches.length > 0) matches.push({ round: round + 1, matches: roundMatches });
+        }
+        const bracket = {
+            tournament_id: currentTournamentId,
+            format,
+            faction_count: factionCount,
+            round_count: roundCount,
+            matches,
+            published: false,
+            timestamp: new Date().toISOString()
+        };
+        try {
+            await supabaseFetch('brackets', 'POST', bracket);
+            loadBracket(currentTournamentId);
+        } catch (error) {
+            alert('Ошибка: ' + error.message);
+        }
     }
 
     async function loadBracket(tournamentId) {
-        const { data: brackets } = await supabaseClient
-            .from('brackets')
-            .select('*')
-            .eq('tournament_id', tournamentId)
-            .order('created_at', { ascending: false });
-
-        const bracketList = document.createElement('div');
-        bracketList.id = 'bracket-list';
-        brackets.forEach(bracket => {
-            const roundElement = document.createElement('div');
-            roundElement.className = 'bracket-round';
-            roundElement.innerHTML = `<h3>${bracket.round}</h3>`;
-            bracket.matches.forEach(match => {
-                const matchElement = document.createElement('div');
-                matchElement.className = 'bracket-match';
-                if (bracket.format === 'APF') {
-                    matchElement.innerHTML = `
-                        <p>${match.role1}: ${match.team1}</p>
-                        <p>${match.role2}: ${match.team2}</p>
-                        <input type="text" placeholder="Результат" value="${match.result || ''}">
-                    `;
-                } else {
-                    matchElement.innerHTML = `
-                        <p>${match.role1}: ${match.team1}</p>
-                        <p>${match.role2}: ${match.team2}</p>
-                        <p>${match.role3}: ${match.team3}</p>
-                        <p>${match.role4}: ${match.team4}</p>
-                        <input type="text" placeholder="Результат" value="${match.result || ''}">
-                    `;
-                }
-                roundElement.appendChild(matchElement);
-            });
-            bracketList.appendChild(roundElement);
-        });
-
-        tournamentBracket.appendChild(bracketList);
-        const publishBtn = document.createElement('button');
-        publishBtn.id = 'publish-bracket-btn';
-        publishBtn.textContent = 'Опубликовать результаты';
-        publishBtn.addEventListener('click', async () => {
-            const matches = [];
-            bracketList.querySelectorAll('.bracket-match').forEach(matchElement => {
-                const inputs = matchElement.querySelectorAll('input');
-                const result = inputs[0].value.trim();
-                const match = brackets[0].matches[Array.from(matchElement.parentElement.children).indexOf(matchElement)];
-                match.result = result;
-                matches.push(match);
-            });
-
-            await supabaseClient
-                .from('brackets')
-                .update({ matches: matches })
-                .eq('id', brackets[0].id);
-        });
-        tournamentBracket.appendChild(publishBtn);
+        const bracketDisplay = document.getElementById('bracket-display');
+        try {
+            const brackets = await supabaseFetch(`brackets?tournament_id=eq.${tournamentId}&order=timestamp.desc`, 'GET');
+            bracketDisplay.innerHTML = '';
+            if (brackets?.length > 0) {
+                const bracket = brackets[0];
+                bracket.matches.forEach(round => {
+                    const roundDiv = document.createElement('div');
+                    roundDiv.classList.add('bracket-round');
+                    roundDiv.innerHTML = `<h3>Раунд ${round.round}</h3>`;
+                    round.matches.forEach(match => {
+                        const matchDiv = document.createElement('div');
+                        matchDiv.classList.add('bracket-match');
+                        matchDiv.innerHTML = `
+                            <p>Комната: ${match.room || 'Не указана'}</p>
+                            <p>Судья: ${match.judge || 'Не указан'}</p>
+                            <ul>${match.teams.map(team => `<li>${team.position}: ${team.faction_name} (${team.club})</li>`).join('')}</ul>
+                        `;
+                        roundDiv.appendChild(matchDiv);
+                    });
+                    bracketDisplay.appendChild(roundDiv);
+                });
+            } else {
+                bracketDisplay.innerHTML = '<p>Сетка не сформирована.</p>';
+            }
+        } catch (error) {
+            bracketDisplay.innerHTML = '<p>Ошибка загрузки сетки.</p>';
+        }
     }
-
-    postsTab.addEventListener('click', () => {
-        [postsTab, registrationTab, bracketTab].forEach(tab => tab.classList.remove('active'));
-        [tournamentPosts, tournamentRegistration, tournamentBracket].forEach(content => content.classList.remove('active'));
-        postsTab.classList.add('active');
-        tournamentPosts.classList.add('active');
-    });
-
-    registrationTab.addEventListener('click', () => {
-        [postsTab, registrationTab, bracketTab].forEach(tab => tab.classList.remove('active'));
-        [tournamentPosts, tournamentRegistration, tournamentBracket].forEach(content => content.classList.remove('active'));
-        registrationTab.classList.add('active');
-        tournamentRegistration.classList.add('active');
-    });
-
-    bracketTab.addEventListener('click', () => {
-        [postsTab, registrationTab, bracketTab].forEach(tab => tab.classList.remove('active'));
-        [tournamentPosts, tournamentRegistration, tournamentBracket].forEach(content => content.classList.remove('active'));
-        bracketTab.classList.add('active');
-        tournamentBracket.classList.add('active');
-    });
-
-    registerTournamentBtn.addEventListener('click', () => {
-        registrationForm.classList.toggle('form-hidden');
-    });
-
-    document.getElementById('submit-registration-btn').addEventListener('click', async () => {
-        const factionName = document.getElementById('reg-faction-name').value.trim();
-        const speaker1 = document.getElementById('reg-speaker1').value.trim();
-        const speaker2 = document.getElementById('reg-speaker2').value.trim();
-        const club = document.getElementById('reg-club').value.trim();
-        const city = document.getElementById('reg-city').value.trim();
-        const contacts = document.getElementById('reg-contacts').value.trim();
-        const extra = document.getElementById('reg-extra').value.trim();
-
-        if (!factionName || !speaker1 || !speaker2 || !club || !city || !contacts) {
-            alert('Пожалуйста, заполните все обязательные поля');
-            return;
-        }
-
-        const tournamentId = tournamentList.querySelector('.tournament-card:last-child').dataset.tournamentId;
-        const { error } = await supabaseClient
-            .from('registrations')
-            .insert({
-                tournament_id: tournamentId,
-                faction_name: factionName,
-                speaker1,
-                speaker2,
-                club,
-                city,
-                contacts,
-                extra: extra || null,
-            });
-
-        if (error) {
-            console.error('Ошибка регистрации на турнир:', error);
-            alert('Ошибка регистрации на турнир. Попробуйте снова.');
-        } else {
-            registrationForm.classList.add('form-hidden');
-            showTournamentDetails(await supabaseClient.from('tournaments').select('*').eq('id', tournamentId).single().then(res => res.data));
-        }
-    });
 
     // Рейтинг
     const ratingData = [
         { rank: 1, name: 'Олжас Сейтов', points: 948, club: 'Дербес' },
         { rank: 2, name: 'Мұхаммедәлі Әлішбаев', points: 936, club: 'TЭО' },
         { rank: 3, name: 'Нұрболат Тілеубай', points: 872, club: 'КБТУ' },
-        { name: "Темірлан Есенов", points: 785, rank: 4, club: "TЭО" },
-        { name: "Нұрхан Жакен", points: 733, rank: 5, club: "Алтын Сапа" },
-        { name: "Динара Әукенова", points: 671.5, rank: 6, club: "TЭО" },
-        { name: "Ерасыл Шаймурадов", points: 665, rank: 7, club: "SDU" },
-        { name: "Алтынай Қалдыбай", points: 600.5, rank: 8, club: "Дербес" },
-        { name: "Жандос Әмре", points: 558, rank: 9, club: "UIB" },
-        { name: "Ердаулет Қалмұрат", points: 462, rank: 10, club: "SDU" },
-        { name: "Арайлым Абдукаримова", points: 460, rank: 11, club: "TЭО" },
-        { name: "Ақылжан Итегулов", points: 440.5, rank: 12, club: "Дербес" },
-        { name: "Ерғалым Айтжанов", points: 430.5, rank: 13, club: "ТЭО" },
-        { name: "Еламан Әбдіманапов", points: 421, rank: 14, club: "Зиялы Қазақ" },
-        { name: "Жансерік Жолшыбек", points: 411, rank: 15, club: "Сириус" },
-        { name: "Регина Жардемгалиева", points: 400, rank: 16, club: "ТЭО" },
-        { name: "Айдана Мухамет", points: 396, rank: 17, club: "НЛО" },
-        { name: "Азамат Арынов", points: 377, rank: 18, club: "SDU" },
-        { name: "Адема Сералиева", points: 373.5, rank: 19, club: "ТЭО" },
-        { name: "Әлібек Сұлтанов", points: 351, rank: 20, club: "Алтын Сапа" },
-        { name: "Гаухар Төлебай", points: 345, rank: 21, club: "SDU" },
-        { name: "Әсет Оразғали", points: 336, rank: 22, club: "SDU" },
-        { name: "Ислам Аманқос", points: 326.5, rank: 23, club: "SDU" },
-        { name: "Арсен Сәуірбай", points: 322.5, rank: 24, club: "SDU" },
-        { name: "Дәулет Мырзакулов", points: 282, rank: 25, club: "Алтын Сапа" },
-        { name: "Димаш Әшірбек", points: 274, rank: 26, club: "SDU" },
-        { name: "Ерлан Бөлекбаев", points: 268, rank: 27, club: "ТЭО" },
-        { name: "Ахансері Амиреев", points: 263, rank: 28, club: "Сириус" },
-        { name: "Айша Қуандық", points: 255.5, rank: 29, club: "SDU" },
-        { name: "Диас Мухамет", points: 254, rank: 30, club: "Технократ" }
+        { rank: 4, name: 'Темірлан Есенов', points: 785, club: 'TЭО' },
+        { rank: 5, name: 'Нұрхан Жакен', points: 733, club: 'Алтын Сапа' },
+        { rank: 6, name: 'Динара Әукенова', points: 671.5, club: 'TЭО' },
+        { rank: 7, name: 'Ерасыл Шаймурадов', points: 665, club: 'SDU' },
+        { rank: 8, name: 'Алтынай Қалдыбай', points: 600.5, club: 'Дербес' },
+        { rank: 9, name: 'Жандос Әмре', points: 558, club: 'UIB' },
+        { rank: 10, name: 'Ердаулет Қалмұрат', points: 462, club: 'SDU' },
+        { rank: 11, name: 'Арайлым Абдукаримова', points: 460, club: 'TЭО' },
+        { rank: 12, name: 'Ақылжан Итегулов', points: 440.5, club: 'Дербес' },
+        { rank: 13, name: 'Ерғалым Айтжанов', points: 430.5, club: 'ТЭО' },
+        { rank: 14, name: 'Еламан Әбдіманапов', points: 421, club: 'Зиялы Қазақ' },
+        { rank: 15, name: 'Жансерік Жолшыбек', points: 411, club: 'Сириус' },
+        { rank: 16, name: 'Регина Жардемгалиева', points: 400, club: 'ТЭО' },
+        { rank: 17, name: 'Айдана Мухамет', points: 396, club: 'НЛО' },
+        { rank: 18, name: 'Азамат Арынов', points: 377, club: 'SDU' },
+        { rank: 19, name: 'Адема Сералиева', points: 373.5, club: 'ТЭО' },
+        { rank: 20, name: 'Әлібек Сұлтанов', points: 351, club: 'Алтын Сапа' },
+        { rank: 21, name: 'Гаухар Төлебай', points: 345, club: 'SDU' },
+        { rank: 22, name: 'Әсет Оразғали', points: 336, club: 'SDU' },
+        { rank: 23, name: 'Ислам Аманқос', points: 326.5, club: 'SDU' },
+        { rank: 24, name: 'Арсен Сәуірбай', points: 322.5, club: 'SDU' },
+        { rank: 25, name: 'Дәулет Мырзакулов', points: 282, club: 'Алтын Сапа' },
+        { rank: 26, name: 'Димаш Әшірбек', points: 274, club: 'SDU' },
+        { rank: 27, name: 'Ерлан Бөлекбаев', points: 268, club: 'ТЭО' },
+        { rank: 28, name: 'Ахансері Амиреев', points: 263, club: 'Сириус' },
+        { rank: 29, name: 'Айша Қуандық', points: 255.5, club: 'SDU' },
+        { rank: 30, name: 'Диас Мухамет', points: 254, club: 'Технократ' }
     ];
 
-    document.querySelectorAll('.city-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.city-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            document.getElementById('season-selector').classList.remove('selector-hidden');
-        });
-    });
-
-    document.querySelectorAll('.season-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.season-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            const tbody = document.querySelector('#rating-table tbody');
-            tbody.innerHTML = '';
-            ratingData.forEach(player => {
-                const row = document.createElement('tr');
-                row.className = `rank-${player.rank}`;
-                row.innerHTML = `
-                    <td>${player.rank}</td>
-                    <td>${player.name}</td>
-                    <td>${player.points}</td>
-                    <td>${player.club}</td>
-                `;
-                tbody.appendChild(row);
+    function initRating() {
+        const cityButtons = document.querySelectorAll('#city-selector .city-btn');
+        const seasonSelector = document.getElementById('season-selector');
+        const seasonButtons = document.querySelectorAll('#season-selector .season-btn');
+        const ratingTable = document.getElementById('rating-table');
+        seasonSelector.style.display = 'none';
+        ratingTable.style.display = 'none';
+        cityButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                cityButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                const selectedCity = button.dataset.city;
+                if (selectedCity === 'Almaty') {
+                    seasonSelector.style.display = 'flex';
+                    ratingTable.style.display = 'none';
+                } else {
+                    seasonSelector.style.display = 'none';
+                    ratingTable.style.display = 'none';
+                    ratingTable.innerHTML = '<p>Рейтинг для этого города недоступен.</p>';
+                }
             });
         });
-    });
+        seasonButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                seasonButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                const selectedSeason = button.dataset.season;
+                if (selectedSeason === '2024-2025') {
+                    renderRatingTable();
+                } else {
+                    ratingTable.style.display = 'none';
+                    ratingTable.innerHTML = '<p>Рейтинг для этого сезона недоступен.</p>';
+                }
+            });
+        });
+    }
+
+    function renderRatingTable() {
+        const ratingTable = document.getElementById('rating-table');
+        ratingTable.style.display = 'block';
+        ratingTable.innerHTML = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Место</th>
+                        <th>Имя</th>
+                        <th>Очки</th>
+                        <th>Клуб</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${ratingData.map(player => `
+                        <tr class="${player.rank === 1 ? 'rank-1' : player.rank === 2 ? 'rank-2' : player.rank === 3 ? 'rank-3' : ''}">
+                            <td>${player.rank}</td>
+                            <td>${player.name}</td>
+                            <td>${player.points}</td>
+                            <td>${player.club}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    }
 
     // Инициализация приложения
     checkUserProfile();
+    subscribeToNewPosts();
     loadTournaments();
 }
