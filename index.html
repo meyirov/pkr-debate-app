@@ -8,8 +8,8 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script>
-          const SUPABASE_URL = 'https://dwkbptqrblyiqymnqjiv.supabase.co';
-          const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3a2JwdHFyYmx5aXF5bW5xaml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0MzA3NTcsImV4cCI6MjA1OTAwNjc1N30.QIHms9_kllO7SMxxUlu2U_ugICz1q_cr2-fO61092N4';
+       const SUPABASE_URL = 'https://dwkbptqrblyiqymnqjiv.supabase.co';
+       const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3a2JwdHFyYmx5aXF5bW5xaml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0MzA3NTcsImV4cCI6MjA1OTAwNjc1N30.QIHms9_kllO7SMxxUlu2U_ugICz1q_cr2-fO61092N4';
     </script>
 </head>
 <body>
@@ -24,6 +24,7 @@
 
     <div id="app-container" class="container" style="display: none;">
         <div class="main-content">
+            <!-- Лента -->
             <div id="feed" class="content active">
                 <div id="new-post">
                     <div class="new-post-header">
@@ -44,6 +45,19 @@
                 <div id="posts"></div>
             </div>
 
+            <!-- Детали поста -->
+            <div id="post-details" class="content">
+                <button id="back-to-feed-btn">⬅ Назад</button>
+                <div id="post-detail-content"></div>
+                <div id="post-comments-list"></div>
+                <div id="new-comment-form" class="comment-form">
+                    <div class="avatar-placeholder"></div>
+                    <input id="new-comment-input" type="text" placeholder="Написать комментарий...">
+                    <button id="submit-comment-btn">Отправить</button>
+                </div>
+            </div>
+
+            <!-- Турниры -->
             <div id="tournaments" class="content">
                 <button id="create-tournament-btn">Создать турнир</button>
                 <div id="create-tournament-form" class="form-hidden">
@@ -58,6 +72,7 @@
                 <div id="tournament-list"></div>
             </div>
 
+            <!-- Детали турнира -->
             <div id="tournament-details" class="content">
                 <div id="tournament-header"></div>
                 <button id="toggle-description-btn">Развернуть описание</button>
@@ -86,6 +101,7 @@
                 <div id="tournament-bracket" class="tab-content"></div>
             </div>
 
+            <!-- Рейтинг -->
             <div id="rating" class="content">
                 <div id="city-selector">
                     <h2>Выберите город</h2>
@@ -111,6 +127,7 @@
                 </div>
             </div>
 
+            <!-- Профиль -->
             <div id="profile" class="content">
                 <div class="profile-header">
                     <div class="avatar-placeholder"></div>
@@ -121,12 +138,14 @@
                 <button id="update-profile">Изменить имя</button>
             </div>
 
+            <!-- EDU -->
             <div id="edu" class="content">
                 <h2>PKR EDU</h2>
                 <p>Обучающий контент скоро появится!</p>
             </div>
         </div>
 
+        <!-- Навигация -->
         <div class="navbar">
             <button id="feed-btn" class="nav-btn active">
                 <span>🏠</span> Лента
