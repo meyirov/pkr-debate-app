@@ -76,6 +76,7 @@ body {
     justify-content: center;
     color: #888;
     font-size: 20px;
+    flex-shrink: 0;
 }
 
 #new-post textarea {
@@ -144,7 +145,13 @@ body {
 
 .post {
     padding: 16px;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid #444;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.post:hover {
+    background: #1a1a1a;
 }
 
 .post-header {
@@ -209,8 +216,7 @@ body {
     margin-top: 8px;
 }
 
-.reaction-btn,
-.comment-toggle-btn {
+.reaction-btn {
     background: none;
     color: #888;
     border: none;
@@ -222,8 +228,7 @@ body {
     transition: color 0.2s ease;
 }
 
-.reaction-btn:hover,
-.comment-toggle-btn:hover {
+.reaction-btn:hover {
     color: #8b5cf6;
 }
 
@@ -250,20 +255,42 @@ body {
     background: #a78bfa;
 }
 
-/* Комментарии */
-.comment-section {
-    margin-top: 8px;
-    padding: 8px 0;
+/* Детали поста */
+#post-details {
+    flex: 1;
+    overflow-y: auto;
 }
 
-.comment-list {
-    margin-bottom: 8px;
-    max-height: 200px;
+#back-to-feed-btn {
+    padding: 8px 16px;
+    background: #8b5cf6;
+    color: #ffffff;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: background 0.2s ease;
+    margin-bottom: 16px;
+}
+
+#back-to-feed-btn:hover {
+    background: #a78bfa;
+}
+
+#post-detail-content {
+    padding: 16px;
+    border-bottom: 1px solid #444;
+}
+
+#post-comments-list {
+    padding: 16px;
+    flex-grow: 1;
     overflow-y: auto;
 }
 
 .comment {
-    padding: 8px 0;
+    padding: 12px 0;
     border-bottom: 1px solid #333;
     display: flex;
     gap: 12px;
@@ -290,11 +317,16 @@ body {
 
 .comment-form {
     display: flex;
-    gap: 8px;
+    gap: 12px;
     align-items: center;
+    padding: 16px;
+    border-top: 1px solid #333;
+    position: sticky;
+    bottom: 0;
+    background: #000000;
 }
 
-.comment-input {
+#new-comment-input {
     flex: 1;
     height: 40px;
     padding: 8px;
@@ -305,12 +337,12 @@ body {
     font-size: 14px;
 }
 
-.comment-input:focus {
+#new-comment-input:focus {
     outline: none;
     background: #222;
 }
 
-.comment-form button {
+#submit-comment-btn {
     padding: 8px 16px;
     background: #8b5cf6;
     color: #ffffff;
@@ -322,7 +354,7 @@ body {
     transition: background 0.2s ease;
 }
 
-.comment-form button:hover {
+#submit-comment-btn:hover {
     background: #a78bfa;
 }
 
@@ -423,7 +455,7 @@ body {
     display: flex;
     align-items: center;
     padding: 16px;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid #444;
     cursor: pointer;
     transition: background 0.2s ease;
 }
@@ -463,7 +495,7 @@ body {
 /* Заголовок турнира */
 #tournament-header {
     padding: 16px;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid #444;
 }
 
 #tournament-header img {
@@ -494,7 +526,7 @@ body {
 
 #tournament-description {
     padding: 16px;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid #444;
 }
 
 .description-hidden {
@@ -522,7 +554,7 @@ body {
 .section-divider {
     border: 0;
     height: 1px;
-    background: #333;
+    background: #444;
     margin: 10px 0;
 }
 
@@ -579,7 +611,7 @@ body {
 #new-tournament-post {
     margin-bottom: 10px;
     padding: 16px;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid #444;
 }
 
 #new-tournament-post textarea {
@@ -677,7 +709,7 @@ body {
 
 .registration-card {
     padding: 16px;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid #444;
 }
 
 .registration-card strong {
@@ -698,7 +730,7 @@ body {
 /* Форма сетки */
 #bracket-form {
     padding: 16px;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid #444;
 }
 
 #bracket-form select,
@@ -742,7 +774,7 @@ body {
 
 .bracket-match {
     padding: 16px;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid #444;
 }
 
 .bracket-match p {
@@ -784,7 +816,7 @@ body {
     justify-content: space-around;
     background: #000000;
     padding: 10px 0;
-    border-top: 1px solid #333;
+    border-top: 1px solid #444;
     position: fixed;
     bottom: 0;
     left: 0;
@@ -894,7 +926,7 @@ body {
 /* Раздел профиля */
 #profile {
     padding: 16px;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid #444;
 }
 
 .profile-header {
@@ -962,7 +994,7 @@ body {
 
 #city-selector, #season-selector, #rating-table {
     padding: 16px;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid #444;
 }
 
 #city-selector h2, #season-selector h2, #rating-table h2 {
