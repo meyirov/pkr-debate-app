@@ -424,24 +424,32 @@ function renderNewPost(post, prepend = false) {
   const content = contentParts.join(':\n');
   const formattedContent = formatPostContent(content);
   const timeAgo = getTimeAgo(new Date(post.timestamp));
+  // Генерируем инициалы из имени
+  const initials = fullname ? fullname.split(' ').map(word => word[0]).slice(0, 2).join('').toUpperCase() : '??';
+  // Генерируем цвет на основе имени (хэш)
+  const hash = fullname.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const hue = hash % 360;
   postDiv.innerHTML = `
-    <div class="post-header">
-      <div class="post-user"><strong>${fullname}</strong><span>@${cleanUsername}</span></div>
-      <div class="post-time">${timeAgo}</div>
-    </div>
-    <div class="post-content">${formattedContent}</div>
-    ${post.image_url ? `<img src="${post.image_url}" class="post-image">` : ''}
-    <div class="post-actions">
-      <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">👍 0</button>
-      <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">👎 0</button>
-      <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (0)</button>
-    </div>
-    <div class="comment-section" id="comments-${post.id}" style="display: none;">
-      <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
-      <div class="comment-list" id="comment-list-${post.id}" style="max-height: 200px; overflow-y: auto;"></div>
-      <div class="comment-form">
-        <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
-        <button onclick="addComment(${post.id})">Отправить</button>
+    <div class="avatar-placeholder" style="background-color: hsl(${hue}, 50%, 60%);">${initials}</div>
+    <div class="post-body">
+      <div class="post-header">
+        <div class="post-user"><strong>${fullname}</strong><span>@${cleanUsername}</span></div>
+        <div class="post-time">${timeAgo}</div>
+      </div>
+      <div class="post-content">${formattedContent}</div>
+      ${post.image_url ? `<img src="${post.image_url}" class="post-image">` : ''}
+      <div class="post-actions">
+        <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">👍 0</button>
+        <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">👎 0</button>
+        <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (0)</button>
+      </div>
+      <div class="comment-section" id="comments-${post.id}" style="display: none;">
+        <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
+        <div class="comment-list" id="comment-list-${post.id}" style="max-height: 200px; overflow-y: auto;"></div>
+        <div class="comment-form">
+          <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
+          <button onclick="addComment(${post.id})">Отправить</button>
+        </div>
       </div>
     </div>
   `;
@@ -767,9 +775,16 @@ function renderNewComment(postId, comment, append = true) {
   const cleanUsername = username ? username.replace(')', '') : '';
   const content = contentParts.join(':\n');
   const formattedContent = formatPostContent(content);
+  // Генерируем инициалы и цвет
+  const initials = fullname ? fullname.split(' ').map(word => word[0]).slice(0, 2).join('').toUpperCase() : '??';
+  const hash = fullname.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const hue = hash % 360;
   commentDiv.innerHTML = `
-    <div class="comment-user"><strong>${fullname}</strong><span>@${cleanUsername}</span></div>
-    <div class="comment-content">${formattedContent}</div>
+    <div class="avatar-placeholder" style="background-color: hsl(${hue}, 50%, 60%);">${initials}</div>
+    <div class="comment-body">
+      <div class="comment-user"><strong>${fullname}</strong><span>@${cleanUsername}</span></div>
+      <div class="comment-content">${formattedContent}</div>
+    </div>
   `;
   if (append) {
     commentList.appendChild(commentDiv);
