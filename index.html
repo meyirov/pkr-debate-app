@@ -3,42 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PKR - Дебаты</title>
+    <title>PKR</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Подключаем Supabase JavaScript библиотеку -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <script src="https://cdn.supabase.com/supabase-js/v2.7.0/dist/umd/supabase.min.js"></script>
     <script>
-      const SUPABASE_URL = 'https://dwkbptqrblyiqymnqjiv.supabase.co';
+    const SUPABASE_URL = 'https://dwkbptqrblyiqymnqjiv.supabase.co';
       const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3a2JwdHFyYmx5aXF5bW5xaml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0MzA3NTcsImV4cCI6MjA1OTAwNjc1N30.QIHms9_kllO7SMxxUlu2U_ugICz1q_cr2-fO61092N4';
     </script>
 </head>
 <body>
-    <div class="container">
-        <div id="registration-modal" class="modal" style="display: none;">
-            <div class="modal-content">
-                <h2>Добро пожаловать!</h2>
-                <p>Пожалуйста, введите ваше имя для регистрации:</p>
-                <input id="reg-fullname" type="text" placeholder="Введите имя">
-                <button id="submit-profile-reg-btn">Зарегистрироваться</button>
-            </div>
+    <div id="registration-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h2>Добро пожаловать!</h2>
+            <p>Пожалуйста, введите ваше имя для регистрации:</p>
+            <input id="reg-fullname" type="text" placeholder="Ваше имя">
+            <button id="submit-profile-reg-btn">Зарегистрироваться</button>
         </div>
+    </div>
 
-        <div id="app-container" class="main-content" style="display: none;">
+    <div id="app-container" class="container" style="display: none;">
+        <div class="main-content">
             <div id="feed" class="content active">
                 <div id="new-post">
-                    <textarea id="post-text" placeholder="Что нового?"></textarea>
+                    <div class="new-post-header">
+                        <div class="avatar-placeholder"></div>
+                        <textarea id="post-text" placeholder="Что нового?"></textarea>
+                    </div>
                     <div class="new-post-actions">
                         <div class="new-post-icons">
-                            <label class="image-upload-label" for="post-image">
-                                <span>📷</span> Добавить фото
+                            <label class="image-upload-label">
+                                📷 Добавить фото
                                 <input type="file" id="post-image" accept="image/*" style="display: none;">
                             </label>
                         </div>
                         <button id="submit-post">Твитнуть</button>
                     </div>
                 </div>
-                <div id="posts-loading" style="display: none;">Загрузка...</div>
+                <div id="posts-loading" style="display: none; text-align: center;">Загрузка...</div>
                 <div id="posts"></div>
             </div>
 
@@ -47,10 +49,10 @@
                 <div id="create-tournament-form" class="form-hidden">
                     <input id="tournament-name" type="text" placeholder="Название турнира">
                     <input id="tournament-date" type="date" placeholder="Дата">
-                    <input id="tournament-logo" type="url" placeholder="URL логотипа">
+                    <input id="tournament-logo" type="text" placeholder="URL логотипа">
                     <textarea id="tournament-desc" placeholder="Описание"></textarea>
-                    <input id="tournament-address" type="url" placeholder="Адрес">
-                    <input id="tournament-deadline" type="date" placeholder="Дедлайн регистрации">
+                    <input id="tournament-address" type="text" placeholder="Адрес">
+                    <input id="tournament-deadline" type="date" placeholder="Дедлайн">
                     <button id="submit-tournament">Создать</button>
                 </div>
                 <div id="tournament-list"></div>
@@ -58,8 +60,8 @@
 
             <div id="tournament-details" class="content">
                 <div id="tournament-header"></div>
-                <div id="tournament-description" class="description-hidden"></div>
                 <button id="toggle-description-btn">Развернуть описание</button>
+                <div id="tournament-description" class="description-hidden"></div>
                 <hr class="section-divider">
                 <div class="tournament-tabs">
                     <button id="posts-tab" class="tab-btn active">Посты</button>
@@ -96,20 +98,26 @@
                 <div id="rating-table">
                     <h2>Рейтинг игроков</h2>
                     <table>
-                        <tr>
-                            <th>Место</th>
-                            <th>Имя</th>
-                            <th>Очки</th>
-                            <th>Клуб</th>
-                        </tr>
+                        <thead>
+                            <tr>
+                                <th>Место</th>
+                                <th>Имя</th>
+                                <th>Очки</th>
+                                <th>Клуб</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
 
             <div id="profile" class="content">
-                <h2>Профиль</h2>
+                <div class="profile-header">
+                    <div class="avatar-placeholder"></div>
+                    <h2>Профиль</h2>
+                </div>
                 <p>Username: <span id="username"></span></p>
-                <input id="fullname" type="text" placeholder="Введите имя">
+                <input id="fullname" type="text" placeholder="Ваше имя">
                 <button id="update-profile">Изменить имя</button>
             </div>
 
@@ -137,5 +145,7 @@
             </button>
         </div>
     </div>
+
+    <script src="script.js"></script>
 </body>
 </html>
