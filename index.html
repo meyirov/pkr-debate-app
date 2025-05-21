@@ -6,58 +6,42 @@
     <title>PKR</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Подключаем Supabase JavaScript библиотеку -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script>
-       const SUPABASE_URL = 'https://dwkbptqrblyiqymnqjiv.supabase.co';
-       const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3a2JwdHFyYmx5aXF5bW5xaml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0MzA3NTcsImV4cCI6MjA1OTAwNjc1N30.QIHms9_kllO7SMxxUlu2U_ugICz1q_cr2-fO61092N4';
+      const SUPABASE_URL = 'https://dwkbptqrblyiqymnqjiv.supabase.co';
+      const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3a2JwdHFyYmx5aXF5bW5xaml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0MzA3NTcsImV4cCI6MjA1OTAwNjc1N30.QIHms9_kllO7SMxxUlu2U_ugICz1q_cr2-fO61092N4';
     </script>
 </head>
 <body>
-    <div id="registration-modal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <h2>Добро пожаловать!</h2>
-            <p>Пожалуйста, введите ваше имя для регистрации:</p>
-            <input id="reg-fullname" type="text" placeholder="Ваше имя">
-            <button id="submit-profile-reg-btn">Зарегистрироваться</button>
+    <div class="container">
+        <div id="registration-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h2>Добро пожаловать!</h2>
+                <p>Пожалуйста, введите ваше имя для регистрации:</p>
+                <input id="reg-fullname" type="text" placeholder="Ваше имя">
+                <button id="submit-profile-reg-btn">Зарегистрироваться</button>
+            </div>
         </div>
-    </div>
 
-    <div id="app-container" class="container" style="display: none;">
-        <div class="main-content">
-            <!-- Лента -->
+        <div id="app-container" class="main-content" style="display: none;">
             <div id="feed" class="content active">
                 <div id="new-post">
-                    <div class="new-post-header">
-                        <div class="avatar-placeholder"></div>
-                        <textarea id="post-text" placeholder="Что нового?"></textarea>
-                    </div>
+                    <textarea id="post-text" placeholder="Что нового?"></textarea>
                     <div class="new-post-actions">
                         <div class="new-post-icons">
-                            <label class="image-upload-label">
+                            <label for="post-image" class="image-upload-label">
                                 📷 Добавить фото
-                                <input type="file" id="post-image" accept="image/*" style="display: none;">
+                                <input id="post-image" type="file" accept="image/*" style="display: none;">
                             </label>
                         </div>
                         <button id="submit-post">Твитнуть</button>
                     </div>
                 </div>
-                <div id="posts-loading" style="display: none; text-align: center;">Загрузка...</div>
+                <div id="posts-loading" style="display: none; text-align: center; color: #6b7280;">Загрузка...</div>
                 <div id="posts"></div>
             </div>
 
-            <!-- Детали поста -->
-            <div id="post-details" class="content">
-                <button id="back-to-feed-btn">⬅ Назад</button>
-                <div id="post-detail-content"></div>
-                <div id="post-comments-list"></div>
-                <div id="new-comment-form" class="comment-form">
-                    <div class="avatar-placeholder"></div>
-                    <input id="new-comment-input" type="text" placeholder="Написать комментарий...">
-                    <button id="submit-comment-btn">Отправить</button>
-                </div>
-            </div>
-
-            <!-- Турниры -->
             <div id="tournaments" class="content">
                 <button id="create-tournament-btn">Создать турнир</button>
                 <div id="create-tournament-form" class="form-hidden">
@@ -72,12 +56,10 @@
                 <div id="tournament-list"></div>
             </div>
 
-            <!-- Детали турнира -->
             <div id="tournament-details" class="content">
                 <div id="tournament-header"></div>
-                <button id="toggle-description-btn">Развернуть описание</button>
                 <div id="tournament-description" class="description-hidden"></div>
-                <hr class="section-divider">
+                <button id="toggle-description-btn">Развернуть описание</button>
                 <div class="tournament-tabs">
                     <button id="posts-tab" class="tab-btn active">Посты</button>
                     <button id="registration-tab" class="tab-btn">Регистрация</button>
@@ -101,15 +83,14 @@
                 <div id="tournament-bracket" class="tab-content"></div>
             </div>
 
-            <!-- Рейтинг -->
             <div id="rating" class="content">
                 <div id="city-selector">
                     <h2>Выберите город</h2>
-                    <button class="city-btn" data-city="Almaty">Алматы</button>
+                    <button class="city-btn active" data-city="Almaty">Алматы</button>
                 </div>
-                <div id="season-selector" class="selector-hidden">
+                <div id="season-selector">
                     <h2>Выберите сезон</h2>
-                    <button class="season-btn" data-season="2024-2025">2024-2025</button>
+                    <button class="season-btn active" data-season="2024-2025">2024-2025</button>
                 </div>
                 <div id="rating-table">
                     <h2>Рейтинг игроков</h2>
@@ -127,25 +108,23 @@
                 </div>
             </div>
 
-            <!-- Профиль -->
             <div id="profile" class="content">
-                <div class="profile-header">
-                    <div class="avatar-placeholder"></div>
-                    <h2>Профиль</h2>
-                </div>
+                <h2>Профиль</h2>
                 <p>Username: <span id="username"></span></p>
                 <input id="fullname" type="text" placeholder="Ваше имя">
                 <button id="update-profile">Изменить имя</button>
+                <div class="edu-section">
+                    <h2>PKR EDU</h2>
+                    <p>Обучающий контент скоро появится!</p>
+                </div>
             </div>
 
-            <!-- EDU -->
             <div id="edu" class="content">
                 <h2>PKR EDU</h2>
                 <p>Обучающий контент скоро появится!</p>
             </div>
         </div>
 
-        <!-- Навигация -->
         <div class="navbar">
             <button id="feed-btn" class="nav-btn active">
                 <span>🏠</span> Лента
