@@ -6,9 +6,9 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #000000;
-    color: #ffffff;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #0f0f0f;
+    color: #e6e6e6;
     height: 100vh;
     display: flex;
     flex-direction: column;
@@ -60,7 +60,7 @@ body {
 #new-post textarea {
     width: 100%;
     background: transparent;
-    color: #ffffff;
+    color: #e6e6e6;
     border: none;
     font-size: 18px;
     resize: none;
@@ -95,7 +95,7 @@ body {
 #new-post button {
     padding: 8px 20px;
     background: #8b5cf6;
-    color: #ffffff;
+    color: #e6e6e6;
     border: none;
     border-radius: 20px;
     cursor: pointer;
@@ -124,6 +124,7 @@ body {
     align-items: center;
     justify-content: center;
     font-size: 20px;
+    color: #6b7280;
 }
 
 .post-body {
@@ -140,6 +141,7 @@ body {
 .post-user strong {
     font-weight: 600;
     font-size: 16px;
+    color: #e6e6e6;
 }
 
 .post-user span {
@@ -154,7 +156,7 @@ body {
 
 .post-content {
     font-size: 16px;
-    color: #ffffff;
+    color: #e6e6e6;
     white-space: pre-wrap;
     margin-bottom: 10px;
 }
@@ -202,7 +204,7 @@ body {
     margin: 20px auto;
     padding: 10px 20px;
     background: #8b5cf6;
-    color: #ffffff;
+    color: #e6e6e6;
     border: none;
     border-radius: 20px;
     cursor: pointer;
@@ -236,6 +238,7 @@ body {
     align-items: center;
     justify-content: center;
     font-size: 16px;
+    color: #6b7280;
 }
 
 .comment-body {
@@ -252,6 +255,7 @@ body {
 .comment-user strong {
     font-weight: 600;
     font-size: 14px;
+    color: #e6e6e6;
 }
 
 .comment-user span {
@@ -261,7 +265,7 @@ body {
 
 .comment-content {
     font-size: 14px;
-    color: #ffffff;
+    color: #e6e6e6;
     white-space: pre-wrap;
 }
 
@@ -275,11 +279,12 @@ body {
     flex: 1;
     padding: 8px;
     background: #1a1a1a;
-    color: #ffffff;
+    color: #e6e6e6;
     border: 1px solid #333;
     border-radius: 12px;
     font-size: 14px;
     resize: none;
+    min-height: 40px;
 }
 
 .comment-input:focus {
@@ -289,7 +294,7 @@ body {
 .comment-form button {
     padding: 8px 16px;
     background: #8b5cf6;
-    color: #ffffff;
+    color: #e6e6e6;
     border: none;
     border-radius: 20px;
     cursor: pointer;
@@ -304,7 +309,7 @@ body {
     top: 10px;
     z-index: 10;
     background: #8b5cf6;
-    color: #ffffff;
+    color: #e6e6e6;
     border: none;
     padding: 8px 16px;
     border-radius: 20px;
@@ -319,13 +324,15 @@ body {
 #create-tournament-btn {
     padding: 10px 20px;
     background: #8b5cf6;
-    color: #ffffff;
+    color: #e6e6e6;
     border: none;
-    border-radius: 20px;
+    border-radius: 12px;
     cursor: pointer;
     font-size: 14px;
     font-weight: 600;
     margin-bottom: 15px;
+    width: 100%;
+    text-align: center;
 }
 
 #create-tournament-form {
@@ -333,6 +340,7 @@ body {
     padding: 15px;
     border-radius: 12px;
     margin-bottom: 15px;
+    display: none;
 }
 
 #create-tournament-form input,
@@ -342,8 +350,8 @@ body {
     margin: 5px 0;
     border: 1px solid #333;
     border-radius: 12px;
-    background: #000000;
-    color: #ffffff;
+    background: #0f0f0f;
+    color: #e6e6e6;
     font-size: 14px;
 }
 
@@ -355,12 +363,14 @@ body {
 #create-tournament-form button {
     padding: 10px 20px;
     background: #8b5cf6;
-    color: #ffffff;
+    color: #e6e6e6;
     border: none;
-    border-radius: 20px;
+    border-radius: 12px;
     cursor: pointer;
     font-size: 14px;
     font-weight: 600;
+    width: 100%;
+    margin-top: 10px;
 }
 
 .tournament-card {
@@ -384,6 +394,7 @@ body {
     font-weight: 600;
     display: block;
     margin-bottom: 5px;
+    color: #e6e6e6;
 }
 
 .tournament-info span {
@@ -410,6 +421,7 @@ body {
     font-weight: 600;
     display: block;
     margin-bottom: 5px;
+    color: #e6e6e6;
 }
 
 #tournament-header p {
@@ -420,6 +432,7 @@ body {
 #tournament-description {
     padding: 15px;
     border-bottom: 1px solid #333;
+    display: none;
 }
 
 .description-hidden {
@@ -429,13 +442,15 @@ body {
 #toggle-description-btn {
     padding: 10px 20px;
     background: #8b5cf6;
-    color: #ffffff;
+    color: #e6e6e6;
     border: none;
-    border-radius: 20px;
+    border-radius: 12px;
     cursor: pointer;
     font-size: 14px;
     font-weight: 600;
     margin: 10px 0;
+    width: 100%;
+    text-align: center;
 }
 
 .tournament-tabs {
@@ -448,7 +463,7 @@ body {
     flex: 1;
     padding: 10px;
     background: #1a1a1a;
-    color: #ffffff;
+    color: #e6e6e6;
     border: 1px solid #333;
     border-radius: 12px;
     cursor: pointer;
@@ -460,6 +475,7 @@ body {
 .tab-btn.active {
     background: #8b5cf6;
     border-color: #8b5cf6;
+    color: #e6e6e6;
 }
 
 .tab-content {
@@ -478,7 +494,7 @@ body {
 #new-tournament-post textarea {
     width: 100%;
     background: transparent;
-    color: #ffffff;
+    color: #e6e6e6;
     border: none;
     font-size: 16px;
     resize: none;
@@ -489,12 +505,14 @@ body {
 #new-tournament-post button {
     padding: 10px 20px;
     background: #8b5cf6;
-    color: #ffffff;
+    color: #e6e6e6;
     border: none;
-    border-radius: 20px;
+    border-radius: 12px;
     cursor: pointer;
     font-size: 14px;
     font-weight: 600;
+    width: 100%;
+    text-align: center;
 }
 
 #tournament-posts-list .post {
@@ -505,13 +523,15 @@ body {
 #register-tournament-btn {
     padding: 10px 20px;
     background: #8b5cf6;
-    color: #ffffff;
+    color: #e6e6e6;
     border: none;
-    border-radius: 20px;
+    border-radius: 12px;
     cursor: pointer;
     font-size: 14px;
     font-weight: 600;
     margin-bottom: 15px;
+    width: 100%;
+    text-align: center;
 }
 
 #registration-form {
@@ -519,6 +539,7 @@ body {
     padding: 15px;
     border-radius: 12px;
     margin-bottom: 15px;
+    display: none;
 }
 
 #registration-form input,
@@ -528,8 +549,8 @@ body {
     margin: 5px 0;
     border: 1px solid #333;
     border-radius: 12px;
-    background: #000000;
-    color: #ffffff;
+    background: #0f0f0f;
+    color: #e6e6e6;
     font-size: 14px;
 }
 
@@ -541,12 +562,14 @@ body {
 #registration-form button {
     padding: 10px 20px;
     background: #8b5cf6;
-    color: #ffffff;
+    color: #e6e6e6;
     border: none;
-    border-radius: 20px;
+    border-radius: 12px;
     cursor: pointer;
     font-size: 14px;
     font-weight: 600;
+    width: 100%;
+    margin-top: 10px;
 }
 
 .form-hidden {
@@ -563,6 +586,7 @@ body {
     font-weight: 600;
     display: block;
     margin-bottom: 5px;
+    color: #e6e6e6;
 }
 
 .registration-card p {
@@ -574,9 +598,9 @@ body {
 .delete-registration-btn {
     padding: 8px 16px;
     background: #ef4444;
-    color: #ffffff;
+    color: #e6e6e6;
     border: none;
-    border-radius: 20px;
+    border-radius: 12px;
     cursor: pointer;
     font-size: 14px;
     font-weight: 600;
@@ -589,6 +613,7 @@ body {
     padding: 15px;
     border-radius: 12px;
     margin-bottom: 15px;
+    display: none;
 }
 
 #bracket-form select,
@@ -598,20 +623,22 @@ body {
     margin: 5px 0;
     border: 1px solid #333;
     border-radius: 12px;
-    background: #000000;
-    color: #ffffff;
+    background: #0f0f0f;
+    color: #e6e6e6;
     font-size: 14px;
 }
 
 #bracket-form button {
     padding: 10px 20px;
     background: #8b5cf6;
-    color: #ffffff;
+    color: #e6e6e6;
     border: none;
-    border-radius: 20px;
+    border-radius: 12px;
     cursor: pointer;
     font-size: 14px;
     font-weight: 600;
+    width: 100%;
+    margin-top: 10px;
 }
 
 .bracket-round {
@@ -622,6 +649,7 @@ body {
     font-size: 16px;
     font-weight: 600;
     margin-bottom: 10px;
+    color: #e6e6e6;
 }
 
 .bracket-match {
@@ -642,7 +670,7 @@ body {
 
 .bracket-match li {
     font-size: 14px;
-    color: #ffffff;
+    color: #e6e6e6;
     margin: 3px 0;
 }
 
@@ -660,13 +688,14 @@ body {
     font-size: 18px;
     font-weight: 600;
     margin-bottom: 10px;
+    color: #e6e6e6;
 }
 
 .city-btn, .season-btn {
     width: 100%;
     padding: 10px;
     background: #1a1a1a;
-    color: #ffffff;
+    color: #e6e6e6;
     border: 1px solid #333;
     border-radius: 12px;
     cursor: pointer;
@@ -678,6 +707,7 @@ body {
 .city-btn.active, .season-btn.active {
     background: #8b5cf6;
     border-color: #8b5cf6;
+    color: #e6e6e6;
 }
 
 #rating-table table {
@@ -689,30 +719,27 @@ body {
     padding: 10px;
     font-size: 14px;
     text-align: left;
+    color: #6b7280;
 }
 
 #rating-table th {
     font-weight: 600;
-    color: #ffffff;
-}
-
-#rating-table td {
-    color: #6b7280;
+    color: #e6e6e6;
 }
 
 #rating-table tr.rank-1 {
     background: #E5AA70;
-    color: #000000;
+    color: #0f0f0f;
 }
 
 #rating-table tr.rank-2 {
     background: #808080;
-    color: #000000;
+    color: #0f0f0f;
 }
 
 #rating-table tr.rank-3 {
     background: #CD7F32;
-    color: #000000;
+    color: #0f0f0f;
 }
 
 /* Профиль */
@@ -724,6 +751,7 @@ body {
     font-size: 18px;
     font-weight: 600;
     margin-bottom: 10px;
+    color: #e6e6e6;
 }
 
 #profile p {
@@ -733,7 +761,7 @@ body {
 }
 
 #profile p span {
-    color: #ffffff;
+    color: #e6e6e6;
     font-weight: 600;
 }
 
@@ -744,25 +772,28 @@ body {
     border: 1px solid #333;
     border-radius: 12px;
     background: #1a1a1a;
-    color: #ffffff;
+    color: #e6e6e6;
     font-size: 14px;
 }
 
 #profile button {
     padding: 10px 20px;
     background: #8b5cf6;
-    color: #ffffff;
+    color: #e6e6e6;
     border: none;
-    border-radius: 20px;
+    border-radius: 12px;
     cursor: pointer;
     font-size: 14px;
     font-weight: 600;
+    width: 100%;
+    text-align: center;
 }
 
 .edu-section h2 {
     font-size: 18px;
     font-weight: 600;
     margin-bottom: 10px;
+    color: #e6e6e6;
 }
 
 .edu-section p {
@@ -779,6 +810,7 @@ body {
     font-size: 18px;
     font-weight: 600;
     margin-bottom: 10px;
+    color: #e6e6e6;
 }
 
 #edu p {
@@ -790,7 +822,7 @@ body {
 .navbar {
     display: flex;
     justify-content: space-around;
-    background: #000000;
+    background: #0f0f0f;
     padding: 10px 0;
     border-top: 1px solid #333;
     position: fixed;
@@ -810,6 +842,8 @@ body {
     flex-direction: column;
     align-items: center;
     gap: 4px;
+    width: 20%;
+    text-align: center;
 }
 
 .nav-btn span {
@@ -841,7 +875,7 @@ body {
     text-align: center;
     max-width: 300px;
     width: 90%;
-    color: #ffffff;
+    color: #e6e6e6;
 }
 
 .modal-content h2 {
@@ -862,18 +896,46 @@ body {
     margin: 10px 0;
     border: 1px solid #333;
     border-radius: 12px;
-    background: #000000;
-    color: #ffffff;
+    background: #0f0f0f;
+    color: #e6e6e6;
     font-size: 14px;
 }
 
 .modal-content button {
     padding: 10px 20px;
     background: #8b5cf6;
-    color: #ffffff;
+    color: #e6e6e6;
     border: none;
-    border-radius: 20px;
+    border-radius: 12px;
     cursor: pointer;
     font-size: 14px;
     font-weight: 600;
+    width: 100%;
+}
+
+/* Новые стили для X/Threads */
+.post, .comment {
+    transition: background 0.2s;
+}
+
+.post:hover, .comment:hover {
+    background: #1a1a1a;
+}
+
+.tournament-card, .registration-card, .bracket-match {
+    transition: background 0.2s;
+}
+
+.tournament-card:hover, .registration-card:hover, .bracket-match:hover {
+    background: #1a1a1a;
+}
+
+.tab-btn:hover {
+    background: #a78bfa;
+    color: #e6e6e6;
+}
+
+.city-btn:hover, .season-btn:hover {
+    background: #a78bfa;
+    color: #e6e6e6;
 }
