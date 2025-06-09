@@ -1204,7 +1204,7 @@ function initRegistration() {
             const currentUser = userData.telegramUsername;
             const teammate = registrationData.speaker1_username === currentUser ? registrationData.speaker2_username : registrationData.speaker1_username;
 
-            const { error: invokeError } = await supabaseClient.functions.invoke('send-telegtram-notification', {
+            const { error: invokeError } = await supabaseClient.functions.invoke('send-telegram-notification', {
               body: JSON.stringify({
                 type: 'registration',
                 data: {
