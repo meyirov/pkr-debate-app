@@ -1168,111 +1168,133 @@ async function loadTournamentPosts(tournamentId) {
   }
 }
 
+// ИЗМЕНЕНО: Новая логика регистрации и загрузки регистраций
 function initRegistration() {
-  const registerBtn = document.getElementById('register-tournament-btn');
-  const registrationForm = document.getElementById('registration-form');
-  const submitRegistrationBtn = document.getElementById('submit-registration-btn');
-  registerBtn.onclick = () => registrationForm.classList.toggle('form-hidden');
-  submitRegistrationBtn.addEventListener('click', async () => {
-    if (submitRegistrationBtn.disabled) return;
-    submitRegistrationBtn.disabled = true;
-    const registration = {
-      tournament_id: currentTournamentId,
-      faction_name: document.getElementById('reg-faction-name').value,
-      speaker1: document.getElementById('reg-speaker1').value,
-      speaker2: document.getElementById('reg-speaker2').value,
-      club: document.getElementById('reg-club').value,
-      city: document.getElementById('reg-city').value,
-      contacts: document.getElementById('reg-contacts').value,
-      extra: document.getElementById('reg-extra').value,
-      timestamp: new Date().toISOString()
-    };
-    if (!registration.faction_name) {
-      alert('Укажите название фракции!');
-      submitRegistrationBtn.disabled = false;
-      return;
-    }
-    if (!registration.club) {
-      alert('Укажите название клуба!');
-      submitRegistrationBtn.disabled = false;
-      return;
-    }
-    try {
-      await supabaseFetch('registrations', 'POST', registration);
-      alert('Регистрация отправлена!');
-      registrationForm.classList.add('form-hidden');
-      document.getElementById('reg-faction-name').value = '';
-      document.getElementById('reg-speaker1').value = '';
-      document.getElementById('reg-speaker2').value = '';
-      document.getElementById('reg-club').value = '';
-      document.getElementById('reg-city').value = '';
-      document.getElementById('reg-contacts').value = '';
-      document.getElementById('reg-extra').value = '';
-      loadRegistrations(currentTournamentId);
-    } catch (error) {
-      alert('Ошибка: ' + error.message);
-    } finally {
-      submitRegistrationBtn.disabled = false;
-    }
-  });
+    const registerBtn = document.getElementById('register-tournament-btn');
+    const registrationForm = document.getElementById('registration-form');
+    const submitRegistrationBtn = document.getElementById('submit-registration-btn');
+    
+    registerBtn.onclick = () => registrationForm.classList.toggle('form-hidden');
+
+    submitRegistrationBtn.addEventListener('click', async () => {
+        if (submitRegistrationBtn.disabled) return;
+        submitRegistrationBtn.disabled = true;
+
+        const registration = {
+            tournament_id: currentTournamentId,
+            faction_name: document.getElementById('reg-faction-name').value.trim(),
+            speaker1_username: document.getElementById('reg-username1').value.trim(),
+            speaker2_username: document.getElementById('reg-username2').value.trim(),
+            club: document.getElementById('reg-club').value.trim(),
+            city: document.getElementById('reg-city').value.trim(),
+            contacts: document.getElementById('reg-contacts').value.trim(),
+            extra: document.getElementById('reg-extra').value.trim(),
+            timestamp: new Date().toISOString()
+        };
+
+        if (!registration.faction_name || !registration.speaker1_username || !registration.speaker2_username || !registration.club) {
+            alert('Пожалуйста, заполните поля: Название фракции, Username обоих спикеров и Клуб.');
+            submitRegistrationBtn.disabled = false;
+            return;
+        }
+
+        try {
+            // Перед сохранением, проверим существуют ли такие пользователи
+            const usernamesToCheck = [registration.speaker1_username, registration.speaker2_username];
+            const profiles = await supabaseFetch(`profiles?telegram_username=in.(${usernamesToCheck.join(',')})`, 'GET');
+            
+            if (profiles.length < 2) {
+                alert('Один или оба указанных username не найдены в системе. Убедитесь, что спикеры зарегистрированы в приложении.');
+                submitRegistrationBtn.disabled = false;
+                return;
+            }
+
+            await supabaseFetch('registrations', 'POST', registration);
+            alert('Регистрация отправлена!');
+            registrationForm.classList.add('form-hidden');
+            registrationForm.querySelectorAll('input, textarea').forEach(el => el.value = '');
+            const tournament = await supabaseFetch(`tournaments?id=eq.${currentTournamentId}`, 'GET');
+            const isCreator = tournament[0].creator_id === userData.telegramUsername;
+            loadRegistrations(currentTournamentId, isCreator);
+        } catch (error) {
+            alert('Ошибка: ' + error.message);
+        } finally {
+            submitRegistrationBtn.disabled = false;
+        }
+    });
 }
 
 async function loadRegistrations(tournamentId, isCreator) {
-  try {
-    const registrations = await supabaseFetch(`registrations?tournament_id=eq.${tournamentId}&order=timestamp.asc`, 'GET');
     const registrationList = document.getElementById('registration-list');
-    registrationList.innerHTML = '';
-    const seen = new Set();
-    const uniqueRegistrations = registrations.filter(reg => {
-      const key = `${reg.tournament_id}|${reg.faction_name}|${reg.club}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-    if (uniqueRegistrations.length > 0) {
-      uniqueRegistrations.forEach(reg => {
-        const regCard = document.createElement('div');
-        regCard.classList.add('registration-card');
-        regCard.setAttribute('data-registration-id', reg.id);
-        regCard.innerHTML = `
-          <strong>${reg.faction_name || 'Не указано'}</strong>
-          <p>Клуб: ${reg.club || 'Не указано'}</p>
-          <p>Спикер 1: ${reg.speaker1 || 'Не указано'}</p>
-          <p>Спикер 2: ${reg.speaker2 || 'Не указано'}</p>
-          <p>Город: ${reg.city || 'Не указано'}</p>
-          <p>Контакты: ${reg.contacts || 'Не указано'}</p>
-          <p>Дополнительно: ${reg.extra || 'Нет'}</p>
-          ${isCreator ? `<button class="delete-registration-btn" data-registration-id="${reg.id}">Удалить</button>` : ''}
-        `;
-        registrationList.appendChild(regCard);
-      });
-      if (isCreator) {
-        document.querySelectorAll('.delete-registration-btn').forEach(button => {
-          button.onclick = async () => {
-            const registrationId = button.getAttribute('data-registration-id');
-            if (confirm('Удалить команду?')) await deleteRegistration(registrationId, tournamentId);
-          };
+    registrationList.innerHTML = '<p>Загрузка регистраций...</p>';
+
+    try {
+        const registrations = await supabaseFetch(`registrations?tournament_id=eq.${tournamentId}&order=timestamp.asc`, 'GET');
+        
+        if (!registrations || registrations.length === 0) {
+            registrationList.innerHTML = '<p>Пока нет зарегистрированных команд.</p>';
+            return;
+        }
+
+        // Собираем все username для одного запроса
+        const usernames = new Set();
+        registrations.forEach(reg => {
+            usernames.add(reg.speaker1_username);
+            usernames.add(reg.speaker2_username);
         });
-      }
-    } else {
-      registrationList.innerHTML = '<p>Пока нет зарегистрированных команд.</p>';
+
+        // Получаем профили всех участников одним запросом
+        const profiles = await supabaseFetch(`profiles?telegram_username=in.(${[...usernames].join(',')})`, 'GET');
+        const profileMap = new Map(profiles.map(p => [p.telegram_username, p.fullname]));
+        
+        registrationList.innerHTML = '';
+        registrations.forEach(reg => {
+            const speaker1_fullname = profileMap.get(reg.speaker1_username) || `(${reg.speaker1_username})`;
+            const speaker2_fullname = profileMap.get(reg.speaker2_username) || `(${reg.speaker2_username})`;
+
+            const regCard = document.createElement('div');
+            regCard.classList.add('registration-card');
+            regCard.setAttribute('data-registration-id', reg.id);
+            regCard.innerHTML = `
+              <strong>${reg.faction_name || 'Не указано'}</strong>
+              <p>Клуб: ${reg.club || 'Не указано'}</p>
+              <p>Спикер 1: ${speaker1_fullname}</p>
+              <p>Спикер 2: ${speaker2_fullname}</p>
+              <p>Город: ${reg.city || 'Не указано'}</p>
+              <p>Контакты: ${reg.contacts || 'Не указано'}</p>
+              <p>Дополнительно: ${reg.extra || 'Нет'}</p>
+              ${isCreator ? `<button class="delete-registration-btn" data-registration-id="${reg.id}">Удалить</button>` : ''}
+            `;
+            registrationList.appendChild(regCard);
+        });
+
+        if (isCreator) {
+            document.querySelectorAll('.delete-registration-btn').forEach(button => {
+                button.onclick = async () => {
+                    const registrationId = button.getAttribute('data-registration-id');
+                    if (confirm('Удалить команду?')) {
+                        await deleteRegistration(registrationId, tournamentId, isCreator);
+                    }
+                };
+            });
+        }
+    } catch (error) {
+        registrationList.innerHTML = '<p>Ошибка загрузки регистраций.</p>';
+        console.error('Ошибка загрузки регистраций:', error);
     }
-  } catch (error) {
-    alert('Ошибка загрузки регистраций: ' + error.message);
-  }
 }
 
-async function deleteRegistration(registrationId, tournamentId) {
+async function deleteRegistration(registrationId, tournamentId, isCreator) {
   try {
     await supabaseFetch(`registrations?id=eq.${registrationId}`, 'DELETE');
     alert('Команда удалена!');
-    const tournament = await supabaseFetch(`tournaments?id=eq.${tournamentId}`, 'GET');
-    const isCreator = tournament[0].creator_id === userData.telegramUsername;
     await loadRegistrations(tournamentId, isCreator);
   } catch (error) {
     alert('Ошибка при удалении: ' + error.message);
   }
 }
+// КОНЕЦ ИЗМЕНЕНИЙ
+
 
 function initBracket(isCreator) {
   const bracketSection = document.getElementById('tournament-bracket');
