@@ -998,87 +998,127 @@ body {
     transform: scale(1.05);
 }
 
-/* Раздел рейтинга */
+/* === Стили для нового раздела рейтинга === */
 #rating {
     padding: 10px;
     overflow-y: auto;
 }
 
-#city-selector, #season-selector, #rating-table {
+.rating-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
     background: #1a1a1a;
     padding: 10px;
     border-radius: 12px;
-    margin-bottom: 10px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
-#city-selector h2, #season-selector h2, #rating-table h2 {
+.rating-header h2 {
     font-size: 18px;
     font-weight: 600;
     color: #ffffff;
-    margin-bottom: 10px;
+    margin: 0;
+    flex-grow: 1;
+    text-align: center;
 }
 
-.city-btn, .season-btn {
-    width: 100%;
-    padding: 8px 16px;
-    background: #262626;
-    color: #e6e6e6;
+.rating-back-btn {
+    background: none;
     border: none;
-    border-radius: 8px;
+    color: #e6e6e6;
+    font-size: 24px;
     cursor: pointer;
-    font-size: 14px;
-    font-weight: 600;
-    transition: background 0.2s ease;
-    margin: 5px 0;
-    text-align: left;
+    padding: 0 10px;
 }
 
-.city-btn:hover, .season-btn:hover {
-    background: #404040;
+#rating-city-list, #rating-season-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.rating-card {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background: #1a1a1a;
+    padding: 15px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease;
+    border-left: 4px solid #8b5cf6;
+}
+
+.rating-card:hover {
+    background: #262626;
+    transform: translateY(-2px);
+}
+
+.rating-icon {
+    font-size: 24px;
+}
+
+.rating-card span {
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.rating-placeholder {
+    text-align: center;
+    color: #6b7280;
+    padding: 20px;
+    background: #1a1a1a;
+    border-radius: 12px;
 }
 
 .selector-hidden {
-    display: none;
+    display: none !important;
 }
 
-#rating-table table {
+.table-container {
+    overflow-x: auto;
+    background: #1a1a1a;
+    padding: 5px;
+    border-radius: 12px;
+}
+
+.table-container table {
     width: 100%;
     border-collapse: collapse;
 }
 
-#rating-table th, #rating-table td {
-    padding: 8px;
+.table-container th, .table-container td {
+    padding: 12px 15px;
     font-size: 14px;
     text-align: left;
     border-bottom: 1px solid #333;
 }
 
-#rating-table th {
+.table-container th {
     font-weight: 600;
     color: #ffffff;
     background: #262626;
 }
 
-#rating-table td {
+.table-container td {
     color: #d1d5db;
 }
 
-#rating-table tr.rank-1 {
-    background: #E5AA70; /* Золотой */
-    color: #000000;
+/* Новые стили для топ-3 мест */
+.table-container tr.rank-1 td {
+    background: linear-gradient(135deg, #FFD700, #F0C040);
+    color: #1c1c1c;
+    font-weight: 700;
 }
 
-#rating-table tr.rank-2 {
-    background: #808080; /* Серебряный */
-    color: #000000;
+.table-container tr.rank-2 td {
+    background: linear-gradient(135deg, #C0C0C0, #A9A9A9);
+    color: #1c1c1c;
+    font-weight: 700;
 }
 
-#rating-table tr.rank-3 {
-    background: #CD7F32; /* Бронзовый */
-    color: #000000;
-}
-
-#rating-table tr.rank-1 td, #rating-table tr.rank-2 td, #rating-table tr.rank-3 td {
-    font-weight: 600;
+.table-container tr.rank-3 td {
+    background: linear-gradient(135deg, #CD7F32, #B87333);
+    color: #1c1c1c;
+    font-weight: 700;
 }
