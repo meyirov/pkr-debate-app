@@ -3,141 +3,141 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PKR Platform</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <title>PKR - Дебаты</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <script>
+      const SUPABASE_URL = 'https://dwkbptqrblyiqymnqjiv.supabase.co';
+      const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3a2JwdHFyYmx5aXF5bW5xaml2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0MzA3NTcsImV4cCI6MjA1OTAwNjc1N30.QIHms9_kllO7SMxxUlu2U_ugICz1q_cr2-fO61092N4';
+    </script>
 </head>
 <body>
     <div id="registration-modal" class="modal" style="display: none;">
         <div class="modal-content">
             <h2>Добро пожаловать!</h2>
             <p>Пожалуйста, введите ваше имя для регистрации:</p>
-            <input id="reg-fullname" type="text" placeholder="Ваше имя">
+            <input id="reg-fullname" type="text" placeholder="Имя и фамилия">
             <button id="submit-profile-reg-btn">Зарегистрироваться</button>
         </div>
     </div>
 
     <div id="app-container" class="container" style="display: none;">
         <div class="main-content">
-            <div id="feed" class="content active">
+            <section id="feed" class="content active">
                 <div id="new-post">
                     <textarea id="post-text" placeholder="Что нового?"></textarea>
                     <div class="new-post-actions">
                         <div class="new-post-icons">
                             <label for="post-image" class="image-upload-label">
-                                <span>📷 Добавить фото</span>
-                                <input type="file" id="post-image" accept="image/*" style="display: none;">
+                                <span>📷</span> Добавить фото
                             </label>
+                            <input id="post-image" type="file" accept="image/*" style="display: none;">
                         </div>
                         <button id="submit-post">Твитнуть</button>
                     </div>
                 </div>
-                <div id="posts-loading" style="text-align: center; padding: 10px;">
-                    Загрузка...
-                </div>
+                <div id="posts-loading" style="display: none; text-align: center; padding: 10px;">Загрузка...</div>
                 <div id="posts"></div>
-            </div>
-
-            <div id="tournaments" class="content">
+            </section>
+            <section id="tournaments" class="content">
                 <button id="create-tournament-btn">Создать турнир</button>
                 <div id="create-tournament-form" class="form-hidden">
                     <input id="tournament-name" type="text" placeholder="Название турнира">
-                    <input id="tournament-date" type="date" placeholder="Дата">
-                    <input id="tournament-logo" type="text" placeholder="URL логотипа">
+                    <input id="tournament-date" type="text" placeholder="Дата (например, 10.04.2025)">
+                    <input id="tournament-logo" type="text" placeholder="Ссылка на логотип">
                     <textarea id="tournament-desc" placeholder="Описание турнира"></textarea>
-                    <input id="tournament-address" type="text" placeholder="Адрес">
-                    <input id="tournament-deadline" type="date" placeholder="Дедлайн регистрации">
+                    <input id="tournament-address" type="text" placeholder="Ссылка на 2GIS">
+                    <input id="tournament-deadline" type="text" placeholder="Дедлайн (например, 05.04.2025)">
                     <button id="submit-tournament">Создать</button>
                 </div>
                 <div id="tournament-list"></div>
-            </div>
-
-            <div id="tournament-details" class="content">
+            </section>
+            <section id="tournament-details" class="content">
                 <div id="tournament-header"></div>
-                <button id="toggle-description-btn">Развернуть описание</button>
                 <div id="tournament-description" class="description-hidden"></div>
+                <button id="toggle-description-btn">Развернуть описание</button>
                 <hr class="section-divider">
-                <div class="tournament-tabs">
-                    <button id="posts-tab" class="tab-btn active">Посты</button>
-                    <button id="registration-tab" class="tab-btn">Регистрация</button>
-                    <button id="bracket-tab" class="tab-btn">Сетка</button>
-                </div>
-                <div id="tournament-posts" class="tab-content active"></div>
-                <div id="tournament-registration" class="tab-content">
-                    <button id="register-tournament-btn">Зарегистрироваться</button>
-                    <div id="registration-form" class="form-hidden">
-                        <input id="reg-faction-name" type="text" placeholder="Название фракции">
-                        <input id="reg-speaker1" type="text" placeholder="Спикер 1">
-                        <input id="reg-speaker2" type="text" placeholder="Спикер 2">
-                        <input id="reg-club" type="text" placeholder="Клуб">
-                        <input id="reg-city" type="text" placeholder="Город">
-                        <input id="reg-contacts" type="text" placeholder="Контакты">
-                        <textarea id="reg-extra" placeholder="Дополнительно"></textarea>
-                        <button id="submit-registration-btn">Отправить</button>
+                <div id="tournament-future-content">
+                    <div class="tournament-tabs">
+                        <button id="posts-tab" class="tab-btn active">Посты</button>
+                        <button id="registration-tab" class="tab-btn">Регистрация</button>
+                        <button id="bracket-tab" class="tab-btn">Сетка</button>
                     </div>
-                    <div id="registration-list"></div>
+                    <div id="tournament-posts" class="tab-content active"></div>
+                    <div id="tournament-registration" class="tab-content">
+                        <button id="register-tournament-btn">Зарегистрироваться</button>
+                        <div id="registration-form" class="form-hidden">
+                            <input id="reg-faction-name" type="text" placeholder="Название Фракции">
+                            <input id="reg-speaker1" type="text" placeholder="Имя и фамилия 1-го спикера">
+                            <input id="reg-speaker2" type="text" placeholder="Имя и фамилия 2-го спикера">
+                            <input id="reg-club" type="text" placeholder="Клуб">
+                            <input id="reg-city" type="text" placeholder="Город">
+                            <input id="reg-contacts" type="text" placeholder="Контакты">
+                            <textarea id="reg-extra" placeholder="Дополнительно (достижения)"></textarea>
+                            <button id="submit-registration-btn">Отправить</button>
+                        </div>
+                        <div id="registration-list"></div>
+                    </div>
+                    <div id="tournament-bracket" class="tab-content"></div>
                 </div>
-                <div id="tournament-bracket" class="tab-content"></div>
-            </div>
+            </section>
+            <section id="rating" class="content">
+                <div id="rating-city-view">
+                    <div class="rating-header">
+                        <h2>Выберите город</h2>
+                    </div>
+                    <div id="rating-city-list"></div>
+                </div>
 
-            <div id="rating" class="content">
-                <div id="city-selector">
-                    <h2>Выберите город</h2>
-                    <button class="city-btn" data-city="Almaty">Алматы</button>
+                <div id="rating-season-view" class="selector-hidden">
+                    <div class="rating-header">
+                        <button id="rating-back-to-cities" class="rating-back-btn">←</button>
+                        <h2 id="rating-season-title">Выберите сезон</h2>
+                    </div>
+                    <div id="rating-season-list"></div>
                 </div>
-                <div id="season-selector" class="selector-hidden">
-                    <h2>Выберите сезон</h2>
-                    <button class="season-btn" data-season="2024-2025">2024-2025</button>
-                </div>
-                <div id="rating-table">
-                    <h2>Рейтинг игроков</h2>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Место</th>
-                                <th>Имя</th>
-                                <th>Очки</th>
-                                <th>Клуб</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            </div>
 
-            <div id="profile" class="content">
+                <div id="rating-table-view" class="selector-hidden">
+                    <div class="rating-header">
+                        <button id="rating-back-to-seasons" class="rating-back-btn">←</button>
+                        <h2 id="rating-table-title">Рейтинг игроков</h2>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Место</th>
+                                    <th>Имя</th>
+                                    <th>Очки</th>
+                                    <th>Клуб</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rating-list-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+            <section id="profile" class="content">
                 <h2>Профиль</h2>
                 <p>Username: <span id="username"></span></p>
-                <input id="fullname" type="text">
+                <input id="fullname" type="text" placeholder="Имя и фамилия">
                 <button id="update-profile">Изменить имя</button>
-            </div>
-
-            <div id="edu" class="content">
+            </section>
+            <section id="edu" class="content">
                 <h2>PKR EDU</h2>
                 <p>Обучающий контент скоро появится!</p>
-            </div>
+            </section>
         </div>
-
-        <div class="navbar">
-            <button id="feed-btn" class="nav-btn active">
-                <span>🏠</span> Лента
-            </button>
-            <button id="tournaments-btn" class="nav-btn">
-                <span>🏆</span> Турниры
-            </button>
-            <button id="rating-btn" class="nav-btn">
-                <span>⭐</span> Рейтинг
-            </button>
-            <button id="profile-btn" class="nav-btn">
-                <span>👤</span> Профиль
-            </button>
-            <button id="edu-btn" class="nav-btn">
-                <span>📚</span> EDU
-            </button>
-        </div>
+        <nav class="navbar">
+            <button id="feed-btn" class="nav-btn active"><span>🏠</span> Лента</button>
+            <button id="tournaments-btn" class="nav-btn"><span>🏆</span> Турниры</button>
+            <button id="rating-btn" class="nav-btn"><span>⭐</span> Рейтинг</button>
+            <button id="profile-btn" class="nav-btn"><span>👤</span> Профиль</button>
+            <button id="edu-btn" class="nav-btn"><span>📚</span> EDU</button>
+        </nav>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script src="script.js"></script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'937f34e8dc411363',t:'MTc0NTkzMzk3OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
 </body>
 </html>
