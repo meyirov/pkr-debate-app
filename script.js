@@ -1,5 +1,3 @@
-// Код script.js с одним дополнением
-
 console.log('script.js loaded, version: 2025-05-02');
 
 const { createClient } = supabase;
@@ -183,7 +181,7 @@ function showApp() {
   loadPosts();
   subscribeToNewPosts();
   initRating();
-  initTournaments(); // Инициализируем турниры при старте приложения
+  initTournaments();
 }
 
 const sections = document.querySelectorAll('.content');
@@ -205,7 +203,7 @@ buttons.forEach(button => {
     const targetSection = document.getElementById(button.id.replace('-btn', ''));
     targetSection.classList.add('active');
     if (button.id === 'feed-btn') debouncedLoadPosts();
-    if (button.id === 'tournaments-btn') loadTournaments(); // Загружаем при клике
+    if (button.id === 'tournaments-btn') loadTournaments();
     if (button.id === 'rating-btn') initRating();
     if (button.id === 'profile-btn') showProfile();
   });
@@ -908,7 +906,7 @@ function initTournaments() {
             createTournamentForm.querySelectorAll('input, textarea, select').forEach(el => el.value = '');
             document.getElementById('tournament-city').selectedIndex = 0;
             document.getElementById('tournament-scale').selectedIndex = 0;
-            loadTournaments(true); // Перезагружаем турниры с флагом принудительного обновления
+            loadTournaments(true);
         } catch (error) {
             alert('Ошибка: ' + error.message);
         }
@@ -960,28 +958,24 @@ function renderFilteredTournaments() {
     const isArchive = document.getElementById('archive-tournaments-tab').classList.contains('active');
 
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Устанавливаем время на начало дня для корректного сравнения
+    today.setHours(0, 0, 0, 0);
 
     let filtered = allTournaments;
 
-    // 1. Фильтрация по дате (Активные/Архив)
     filtered = filtered.filter(t => {
         const tournamentDate = parseDate(t.date);
-        if (!tournamentDate) return false; // Исключаем турниры с неверным форматом даты
+        if (!tournamentDate) return false;
         return isArchive ? tournamentDate < today : tournamentDate >= today;
     });
 
-    // 2. Фильтрация по городу
     if (selectedCity !== 'all') {
         filtered = filtered.filter(t => t.city === selectedCity);
     }
 
-    // 3. Фильтрация по масштабу
     if (selectedScale !== 'all') {
         filtered = filtered.filter(t => t.scale === selectedScale);
     }
     
-    // Сортировка: для активных - от ближайшей даты к далекой, для архива - от недавней к старой
     filtered.sort((a, b) => {
         const dateA = parseDate(a.date);
         const dateB = parseDate(b.date);
@@ -1060,10 +1054,6 @@ async function showTournamentDetails(tournamentId) {
   } catch (error) {
     alert('Ошибка: ' + error.message);
   }
-}
-
-function extractCityFromAddress(address) {
-  return address.split('/')[3] || 'Не указан';
 }
 
 function initTabs() {
@@ -1181,7 +1171,7 @@ function initRegistration() {
         if (submitRegistrationBtn.disabled) return;
         submitRegistrationBtn.disabled = true;
 
-        const registration = {
+        const registrationData = {
             tournament_id: currentTournamentId,
             faction_name: document.getElementById('reg-faction-name').value.trim(),
             speaker1_username: document.getElementById('reg-username1').value.trim(),
@@ -1190,19 +1180,17 @@ function initRegistration() {
             city: document.getElementById('reg-city').value.trim(),
             contacts: document.getElementById('reg-contacts').value.trim(),
             extra: document.getElementById('reg-extra').value.trim(),
-            // ДОБАВЛЕНО: Сохраняем, кто произвел регистрацию
-            registered_by: userData.telegramUsername,
             timestamp: new Date().toISOString()
         };
 
-        if (!registration.faction_name || !registration.speaker1_username || !registration.speaker2_username || !registration.club) {
+        if (!registrationData.faction_name || !registrationData.speaker1_username || !registrationData.speaker2_username || !registrationData.club) {
             alert('Пожалуйста, заполните поля: Название фракции, Username обоих спикеров и Клуб.');
             submitRegistrationBtn.disabled = false;
             return;
         }
 
         try {
-            const usernamesToCheck = [registration.speaker1_username, registration.speaker2_username];
+            const usernamesToCheck = [registrationData.speaker1_username, registrationData.speaker2_username];
             const profiles = await supabaseFetch(`profiles?telegram_username=in.(${usernamesToCheck.join(',')})`, 'GET');
             
             if (profiles.length < 2) {
@@ -1211,7 +1199,25 @@ function initRegistration() {
                 return;
             }
 
-            await supabaseFetch('registrations', 'POST', registration);
+            await supabaseFetch('registrations', 'POST', registrationData);
+
+            const currentUser = userData.telegramUsername;
+            const teammate = registrationData.speaker1_username === currentUser ? registrationData.speaker2_username : registrationData.speaker1_username;
+
+            const { error: invokeError } = await supabaseClient.functions.invoke('send-telegtram-notification', {
+              body: JSON.stringify({
+                type: 'registration',
+                data: {
+                  registered_by: currentUser,
+                  teammate_username: teammate,
+                  faction_name: registrationData.faction_name,
+                  tournament_id: currentTournamentId
+                }
+              })
+            });
+
+            if (invokeError) throw new Error(`Ошибка вызова функции уведомлений: ${invokeError.message}`);
+
             alert('Регистрация отправлена! Ваш напарник получит уведомление.');
             registrationForm.classList.add('form-hidden');
             registrationForm.querySelectorAll('input, textarea').forEach(el => el.value = '');
@@ -1229,29 +1235,23 @@ function initRegistration() {
 async function loadRegistrations(tournamentId, isCreator) {
     const registrationList = document.getElementById('registration-list');
     registrationList.innerHTML = '<p>Загрузка регистраций...</p>';
-
     try {
         const registrations = await supabaseFetch(`registrations?tournament_id=eq.${tournamentId}&order=timestamp.asc`, 'GET');
-        
         if (!registrations || registrations.length === 0) {
             registrationList.innerHTML = '<p>Пока нет зарегистрированных команд.</p>';
             return;
         }
-
         const usernames = new Set();
         registrations.forEach(reg => {
             if(reg.speaker1_username) usernames.add(reg.speaker1_username);
             if(reg.speaker2_username) usernames.add(reg.speaker2_username);
         });
-
         const profiles = await supabaseFetch(`profiles?telegram_username=in.(${[...usernames].join(',')})`, 'GET');
         const profileMap = new Map(profiles.map(p => [p.telegram_username, p.fullname]));
-        
         registrationList.innerHTML = '';
         registrations.forEach(reg => {
             const speaker1_fullname = profileMap.get(reg.speaker1_username) || `(${reg.speaker1_username})`;
             const speaker2_fullname = profileMap.get(reg.speaker2_username) || `(${reg.speaker2_username})`;
-
             const regCard = document.createElement('div');
             regCard.classList.add('registration-card');
             regCard.setAttribute('data-registration-id', reg.id);
@@ -1267,7 +1267,6 @@ async function loadRegistrations(tournamentId, isCreator) {
             `;
             registrationList.appendChild(regCard);
         });
-
         if (isCreator) {
             document.querySelectorAll('.delete-registration-btn').forEach(button => {
                 button.onclick = async () => {
@@ -1293,7 +1292,6 @@ async function deleteRegistration(registrationId, tournamentId, isCreator) {
     alert('Ошибка при удалении: ' + error.message);
   }
 }
-
 
 function initBracket(isCreator) {
   const bracketSection = document.getElementById('tournament-bracket');
@@ -1424,7 +1422,6 @@ async function loadBracket(tournamentId) {
   }
 }
 
-// === НОВАЯ ЛОГИКА ДЛЯ РАЗДЕЛА РЕЙТИНГА ===
 function initRating() {
     const cityView = document.getElementById('rating-city-view');
     const seasonView = document.getElementById('rating-season-view');
@@ -1484,12 +1481,12 @@ function initRating() {
     backToCitiesBtn.onclick = () => showView(cityView);
     backToSeasonsBtn.onclick = () => showView(seasonView);
 
-    renderCities(); // Initial render
+    renderCities();
 }
 
 function renderRatingTable() {
     const tableBody = document.getElementById('rating-list-tbody');
-    tableBody.innerHTML = ''; // Clear previous data
+    tableBody.innerHTML = '';
     tableBody.innerHTML = ratingData.map(player => `
         <tr class="rank-${player.rank}">
             <td>${player.rank}</td>
@@ -1499,6 +1496,5 @@ function renderRatingTable() {
         </tr>
     `).join('');
 }
-
 
 checkProfile();
