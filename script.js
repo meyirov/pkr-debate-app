@@ -1,3 +1,5 @@
+// Код script.js с одним дополнением
+
 console.log('script.js loaded, version: 2025-05-02');
 
 const { createClient } = supabase;
@@ -1168,7 +1170,6 @@ async function loadTournamentPosts(tournamentId) {
   }
 }
 
-// ИЗМЕНЕНО: Новая логика регистрации и загрузки регистраций
 function initRegistration() {
     const registerBtn = document.getElementById('register-tournament-btn');
     const registrationForm = document.getElementById('registration-form');
@@ -1189,6 +1190,8 @@ function initRegistration() {
             city: document.getElementById('reg-city').value.trim(),
             contacts: document.getElementById('reg-contacts').value.trim(),
             extra: document.getElementById('reg-extra').value.trim(),
+            // ДОБАВЛЕНО: Сохраняем, кто произвел регистрацию
+            registered_by: userData.telegramUsername,
             timestamp: new Date().toISOString()
         };
 
@@ -1199,7 +1202,6 @@ function initRegistration() {
         }
 
         try {
-            // Перед сохранением, проверим существуют ли такие пользователи
             const usernamesToCheck = [registration.speaker1_username, registration.speaker2_username];
             const profiles = await supabaseFetch(`profiles?telegram_username=in.(${usernamesToCheck.join(',')})`, 'GET');
             
@@ -1210,7 +1212,7 @@ function initRegistration() {
             }
 
             await supabaseFetch('registrations', 'POST', registration);
-            alert('Регистрация отправлена!');
+            alert('Регистрация отправлена! Ваш напарник получит уведомление.');
             registrationForm.classList.add('form-hidden');
             registrationForm.querySelectorAll('input, textarea').forEach(el => el.value = '');
             const tournament = await supabaseFetch(`tournaments?id=eq.${currentTournamentId}`, 'GET');
@@ -1236,14 +1238,12 @@ async function loadRegistrations(tournamentId, isCreator) {
             return;
         }
 
-        // Собираем все username для одного запроса
         const usernames = new Set();
         registrations.forEach(reg => {
-            usernames.add(reg.speaker1_username);
-            usernames.add(reg.speaker2_username);
+            if(reg.speaker1_username) usernames.add(reg.speaker1_username);
+            if(reg.speaker2_username) usernames.add(reg.speaker2_username);
         });
 
-        // Получаем профили всех участников одним запросом
         const profiles = await supabaseFetch(`profiles?telegram_username=in.(${[...usernames].join(',')})`, 'GET');
         const profileMap = new Map(profiles.map(p => [p.telegram_username, p.fullname]));
         
@@ -1293,7 +1293,6 @@ async function deleteRegistration(registrationId, tournamentId, isCreator) {
     alert('Ошибка при удалении: ' + error.message);
   }
 }
-// КОНЕЦ ИЗМЕНЕНИЙ
 
 
 function initBracket(isCreator) {
