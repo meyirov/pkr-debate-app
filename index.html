@@ -23,18 +23,23 @@
     </div>
 
     <div id="app-container" class="container" style="display: none;">
+        <header class="app-header">
+            <h1 class="app-title">PKR</h1>
+        </header>
         <div class="main-content">
             <section id="feed" class="content active">
                 <div id="new-post">
-                    <textarea id="post-text" placeholder="Что нового?"></textarea>
-                    <div class="new-post-actions">
-                        <div class="new-post-icons">
-                            <label for="post-image" class="image-upload-label">
-                                <span>📷</span> Добавить фото
-                            </label>
-                            <input id="post-image" type="file" accept="image/*" style="display: none;">
+                    <div class="post-avatar-placeholder">👤</div>
+                    <div class="new-post-content">
+                        <textarea id="post-text" placeholder="Что нового?"></textarea>
+                        <div class="new-post-actions">
+                            <div class="new-post-icons">
+                                <label for="post-image" class="image-upload-label">
+                                    <span>🖼️</span> </label>
+                                <input id="post-image" type="file" accept="image/*" style="display: none;">
+                            </div>
+                            <button id="submit-post">Пост</button>
                         </div>
-                        <button id="submit-post">Твитнуть</button>
                     </div>
                 </div>
                 <div id="posts-loading" style="display: none; text-align: center; padding: 10px;">Загрузка...</div>
@@ -130,11 +135,11 @@
             </section>
         </div>
         <nav class="navbar">
-            <button id="feed-btn" class="nav-btn active"><span>🏠</span> Лента</button>
-            <button id="tournaments-btn" class="nav-btn"><span>🏆</span> Турниры</button>
-            <button id="rating-btn" class="nav-btn"><span>⭐</span> Рейтинг</button>
-            <button id="profile-btn" class="nav-btn"><span>👤</span> Профиль</button>
-            <button id="edu-btn" class="nav-btn"><span>📚</span> EDU</button>
+            <button id="feed-btn" class="nav-btn active"><span>🏠</span></button>
+            <button id="tournaments-btn" class="nav-btn"><span>🏆</span></button>
+            <button id="rating-btn" class="nav-btn"><span>⭐</span></button>
+            <button id="profile-btn" class="nav-btn"><span>👤</span></button>
+            <button id="edu-btn" class="nav-btn"><span>📚</span></button>
         </nav>
     </div>
     <script src="script.js"></script>
