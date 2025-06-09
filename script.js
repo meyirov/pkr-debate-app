@@ -1,4 +1,4 @@
-console.log('script.js loaded, version: 2025-05-02');
+console.log('script.js loaded, version: 2025-05-02_twitter_design');
 
 const { createClient } = supabase;
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -112,12 +112,14 @@ async function showProfile() {
       const chatIdStatus = profile.chat_id ? `Привязан (ID: ${profile.chat_id})` : 'Не привязан';
       profileSection.innerHTML = `
         <h2>Профиль</h2>
+        <div style="padding: 15px;">
         ${!profile.chat_id ? '<p style="color: #ff4d4d;">📢 Привяжите Telegram!</p>' : ''}
         <p>Username: <span>${userData.telegramUsername}</span></p>
         <p>Chat ID: <span>${chatIdStatus}</span></p>
         <input id="fullname" type="text" value="${profile.fullname || ''}">
-        <button id="update-profile">Изменить имя</button>
-        ${!profile.chat_id ? '<button id="link-telegram">Привязать Telegram</button>' : ''}
+        <button id="update-profile" class="primary-button">Изменить имя</button>
+        ${!profile.chat_id ? '<button id="link-telegram" class="primary-button">Привязать Telegram</button>' : ''}
+        </div>
       `;
       document.getElementById('update-profile').addEventListener('click', async () => {
         const newFullname = document.getElementById('fullname').value.trim();
@@ -150,10 +152,10 @@ async function checkProfile() {
       showApp();
       await saveChatId(profiles[0].id);
     } else {
-      registrationModal.style.display = 'block';
+      registrationModal.style.display = 'flex';
     }
   } catch (error) {
-    registrationModal.style.display = 'block';
+    registrationModal.style.display = 'flex';
   }
 }
 
@@ -174,7 +176,7 @@ submitProfileRegBtn.addEventListener('click', async () => {
 });
 
 function showApp() {
-  appContainer.style.display = 'block';
+  appContainer.style.display = 'flex';
   document.getElementById('username').textContent = userData.telegramUsername;
   document.getElementById('fullname').value = userData.fullname;
   loadPosts();
@@ -414,104 +416,94 @@ function formatPostContent(content) {
   return formatted;
 }
 
-function renderNewPost(post, prepend = false) {
-  const postDiv = document.createElement('div');
-  postDiv.classList.add('post');
-  postDiv.setAttribute('data-post-id', post.id);
-  const [userInfo, ...contentParts] = post.text.split(':\n');
-  const [fullname, username] = userInfo.split(' (@');
-  const cleanUsername = username ? username.replace(')', '') : '';
-  const content = contentParts.join(':\n');
-  const formattedContent = formatPostContent(content);
-  const timeAgo = getTimeAgo(new Date(post.timestamp));
-  postDiv.innerHTML = `
-    <div class="post-header">
-      <div class="post-user"><strong>${fullname}</strong><span>@${cleanUsername}</span></div>
-      <div class="post-time">${timeAgo}</div>
-    </div>
-    <div class="post-content">${formattedContent}</div>
-    ${post.image_url ? `<img src="${post.image_url}" class="post-image">` : ''}
-    <div class="post-actions">
-      <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">👍 0</button>
-      <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">👎 0</button>
-      <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (0)</button>
-    </div>
-    <div class="comment-section" id="comments-${post.id}" style="display: none;">
-      <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
-      <div class="comment-list" id="comment-list-${post.id}" style="max-height: 200px; overflow-y: auto;"></div>
-      <div class="comment-form">
-        <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
-        <button onclick="addComment(${post.id})">Отправить</button>
-      </div>
-    </div>
-  `;
-  if (prepend) postsDiv.prepend(postDiv);
-  else postsDiv.appendChild(postDiv);
-  loadReactionsAndComments(post.id);
-  subscribeToReactions(post.id);
+// Функция для создания аватара-заглушки
+function createAvatar(name) {
+    const firstLetter = name ? name.charAt(0).toUpperCase() : '👤';
+    return `<div class="post-avatar-placeholder">${firstLetter}</div>`;
 }
 
-async function renderMorePosts(newPosts) {
-  for (const post of newPosts) {
+function renderNewPost(post, prepend = false) {
     const postDiv = document.createElement('div');
-    postDiv.classList.add('post');
+    postDiv.className = 'post';
     postDiv.setAttribute('data-post-id', post.id);
+
     const [userInfo, ...contentParts] = post.text.split(':\n');
     const [fullname, username] = userInfo.split(' (@');
     const cleanUsername = username ? username.replace(')', '') : '';
     const content = contentParts.join(':\n');
     const formattedContent = formatPostContent(content);
     const timeAgo = getTimeAgo(new Date(post.timestamp));
+
     postDiv.innerHTML = `
-      <div class="post-header">
-        <div class="post-user"><strong>${fullname}</strong><span>@${cleanUsername}</span></div>
-        <div class="post-time">${timeAgo}</div>
-      </div>
-      <div class="post-content">${formattedContent}</div>
-      ${post.image_url ? `<img src="${post.image_url}" class="post-image">` : ''}
-      <div class="post-actions">
-        <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">👍 0</button>
-        <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">👎 0</button>
-        <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (0)</button>
-      </div>
-      <div class="comment-section" id="comments-${post.id}" style="display: none;">
-        <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
-        <div class="comment-list" id="comment-list-${post.id}" style="max-height: 200px; overflow-y: auto;"></div>
-        <div class="comment-form">
-          <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
-          <button onclick="addComment(${post.id})">Отправить</button>
+        ${createAvatar(fullname)}
+        <div class="post-main">
+            <div class="post-header">
+                <span class="post-user"><strong>${fullname}</strong></span>
+                <span class="post-user-info">@${cleanUsername} · ${timeAgo}</span>
+            </div>
+            <div class="post-content">${formattedContent}</div>
+            ${post.image_url ? `<img src="${post.image_url}" class="post-image">` : ''}
+            <div class="post-actions">
+                <button class="action-btn comment-btn" onclick="toggleComments(${post.id})">
+                    <span class="icon">💬</span>
+                    <span class="count" id="comment-count-${post.id}">0</span>
+                </button>
+                <button class="action-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">
+                    <span class="icon">❤️</span>
+                    <span class="count" id="like-count-${post.id}">0</span>
+                </button>
+            </div>
+            <div class="comment-section" id="comments-${post.id}" style="display: none;">
+                <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
+                <div class="comment-list" id="comment-list-${post.id}"></div>
+                <div class="comment-form">
+                    <input class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий...">
+                    <button onclick="addComment(${post.id})">Отправить</button>
+                </div>
+            </div>
         </div>
-      </div>
     `;
-    postsDiv.appendChild(postDiv);
+
+    if (prepend) {
+        postsDiv.prepend(postDiv);
+    } else {
+        // Вставляем перед кнопкой "Загрузить ещё"
+        const loadMoreButton = document.getElementById('load-more-btn');
+        postsDiv.insertBefore(postDiv, loadMoreButton);
+    }
+    
     loadReactionsAndComments(post.id);
     subscribeToReactions(post.id);
-  }
-  postsDiv.appendChild(loadMoreBtn);
+}
+
+// renderMorePosts должна использовать ту же логику, что и renderNewPost
+async function renderMorePosts(newPosts) {
+    for (const post of newPosts) {
+        renderNewPost(post, false);
+    }
 }
 
 async function loadReactionsAndComments(postId) {
   try {
     const reactions = await loadReactions(postId);
     const likes = reactions.filter(r => r.type === 'like').length;
-    const dislikes = reactions.filter(r => r.type === 'dislike').length;
     const userReaction = reactions.find(r => r.user_id === userData.telegramUsername);
-    const likeClass = userReaction?.type === 'like' ? 'active' : '';
-    const dislikeClass = userReaction?.type === 'dislike' ? 'active' : '';
+    
     const comments = await loadComments(postId);
     const commentCount = comments?.length || 0;
+
     const postDiv = postsDiv.querySelector(`[data-post-id="${postId}"]`);
     if (postDiv) {
-      const likeBtn = postDiv.querySelector('.like-btn');
-      const dislikeBtn = postDiv.querySelector('.dislike-btn');
-      const commentBtn = postDiv.querySelector('.comment-toggle-btn');
-      likeBtn.className = `reaction-btn like-btn ${likeClass}`;
-      likeBtn.innerHTML = `👍 ${likes}`;
-      dislikeBtn.className = `reaction-btn dislike-btn ${dislikeClass}`;
-      dislikeBtn.innerHTML = `👎 ${dislikes}`;
-      commentBtn.innerHTML = `💬 Комментарии (${commentCount})`;
-      if (comments) await renderComments(postId, comments);
-      setupCommentInfiniteScroll(postId);
+        const likeBtn = postDiv.querySelector('.like-btn');
+        const likeCountSpan = postDiv.querySelector(`#like-count-${postId}`);
+        const commentCountSpan = postDiv.querySelector(`#comment-count-${postId}`);
+
+        likeBtn.classList.toggle('active', !!userReaction);
+        likeCountSpan.textContent = likes;
+        commentCountSpan.textContent = commentCount;
+        
+        if (comments) await renderComments(postId, comments);
+        setupCommentInfiniteScroll(postId);
     }
   } catch (error) {
     console.error('Error loading reactions/comments:', error);
@@ -519,50 +511,8 @@ async function loadReactionsAndComments(postId) {
 }
 
 async function updatePost(postId) {
-  const postIndex = postsCache.findIndex(post => post.id === postId);
-  if (postIndex === -1) return;
-  const post = await supabaseFetch(`posts?id=eq.${postId}`, 'GET');
-  if (!post?.length) return;
-  const reactions = await loadReactions(postId);
-  const likes = reactions.filter(r => r.type === 'like').length;
-  const dislikes = reactions.filter(r => r.type === 'dislike').length;
-  const userReaction = reactions.find(r => r.user_id === userData.telegramUsername);
-  const likeClass = userReaction?.type === 'like' ? 'active' : '';
-  const dislikeClass = userReaction?.type === 'dislike' ? 'active' : '';
-  const comments = await loadComments(postId);
-  const commentCount = comments?.length || 0;
-  postsCache[postIndex] = post[0];
-  const postDiv = postsDiv.querySelector(`[data-post-id="${postId}"]`);
-  if (!postDiv) return;
-  const [userInfo, ...contentParts] = post[0].text.split(':\n');
-  const [fullname, username] = userInfo.split(' (@');
-  const cleanUsername = username ? username.replace(')', '') : '';
-  const content = contentParts.join(':\n');
-  const formattedContent = formatPostContent(content);
-  const timeAgo = getTimeAgo(new Date(post[0].timestamp));
-  postDiv.innerHTML = `
-    <div class="post-header">
-      <div class="post-user"><strong>${fullname}</strong><span>@${cleanUsername}</span></div>
-      <div class="post-time">${timeAgo}</div>
-    </div>
-    <div class="post-content">${formattedContent}</div>
-    ${post[0].image_url ? `<img src="${post[0].image_url}" class="post-image">` : ''}
-    <div class="post-actions">
-      <button class="reaction-btn like-btn ${likeClass}" onclick="toggleReaction(${postId}, 'like')">👍 ${likes}</button>
-      <button class="reaction-btn dislike-btn ${dislikeClass}" onclick="toggleReaction(${postId}, 'dislike')">👎 ${dislikes}</button>
-      <button class="comment-toggle-btn" onclick="toggleComments(${postId})">💬 Комментарии (${commentCount})</button>
-    </div>
-    <div class="comment-section" id="comments-${postId}" style="display: none;">
-      <button id="new-comments-btn-${postId}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
-      <div class="comment-list" id="comment-list-${postId}" style="max-height: 200px; overflow-y: auto;"></div>
-      <div class="comment-form">
-        <textarea class="comment-input" id="comment-input-${postId}" placeholder="Написать комментарий..."></textarea>
-        <button onclick="addComment(${postId})">Отправить</button>
-      </div>
-    </div>
-  `;
-  if (comments) await renderComments(postId, comments);
-  setupCommentInfiniteScroll(postId);
+    // This function can be simplified as real-time updates will trigger loadReactionsAndComments
+    await loadReactionsAndComments(postId);
 }
 
 function getTimeAgo(date) {
@@ -594,28 +544,32 @@ function subscribeToReactions(postId) {
   reactionChannels.set(postId, channel);
 }
 
+// Упрощенная функция для лайков
 async function toggleReaction(postId, type) {
-  postId = parseInt(postId);
-  try {
-    const userExists = await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'GET');
-    if (!userExists?.length) throw new Error('Пользователь не найден!');
-    const userReaction = await supabaseFetch(`reactions?post_id=eq.${postId}&user_id=eq.${userData.telegramUsername}`, 'GET');
-    if (userReaction?.length > 0) {
-      const currentReaction = userReaction[0];
-      if (currentReaction.type === type) await supabaseFetch(`reactions?id=eq.${currentReaction.id}`, 'DELETE');
-      else await supabaseFetch(`reactions?id=eq.${currentReaction.id}`, 'PATCH', { type });
-    } else {
-      await supabaseFetch('reactions', 'POST', {
-        post_id: postId,
-        user_id: userData.telegramUsername,
-        type,
-        timestamp: new Date().toISOString()
-      });
+    if (type !== 'like') return; // Работаем только с лайками
+    postId = parseInt(postId);
+    try {
+        const userExists = await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'GET');
+        if (!userExists?.length) throw new Error('Пользователь не найден!');
+
+        const userReaction = await supabaseFetch(`reactions?post_id=eq.${postId}&user_id=eq.${userData.telegramUsername}`, 'GET');
+
+        if (userReaction?.length > 0) {
+            // Лайк есть, удаляем его
+            await supabaseFetch(`reactions?id=eq.${userReaction[0].id}`, 'DELETE');
+        } else {
+            // Лайка нет, добавляем его
+            await supabaseFetch('reactions', 'POST', {
+                post_id: postId,
+                user_id: userData.telegramUsername,
+                type: 'like',
+                timestamp: new Date().toISOString()
+            });
+        }
+        await updatePost(postId);
+    } catch (error) {
+        alert('Ошибка: ' + error.message);
     }
-    await updatePost(postId);
-  } catch (error) {
-    alert('Ошибка: ' + error.message);
-  }
 }
 
 async function loadComments(postId) {
@@ -761,15 +715,21 @@ function renderNewComment(postId, comment, append = true) {
   const commentList = document.getElementById(`comment-list-${postId}`);
   if (!commentList) return;
   const commentDiv = document.createElement('div');
-  commentDiv.classList.add('comment');
+  commentDiv.classList.add('post'); // Используем тот же стиль, что и для постов
   const [userInfo, ...contentParts] = comment.text.split(':\n');
   const [fullname, username] = userInfo.split(' (@');
   const cleanUsername = username ? username.replace(')', '') : '';
   const content = contentParts.join(':\n');
   const formattedContent = formatPostContent(content);
   commentDiv.innerHTML = `
-    <div class="comment-user"><strong>${fullname}</strong><span>@${cleanUsername}</span></div>
-    <div class="comment-content">${formattedContent}</div>
+    ${createAvatar(fullname)}
+    <div class="post-main">
+        <div class="post-header">
+            <span class="post-user"><strong>${fullname}</strong></span>
+            <span class="post-user-info">@${cleanUsername}</span>
+        </div>
+        <div class="post-content">${formattedContent}</div>
+    </div>
   `;
   if (append) {
     commentList.appendChild(commentDiv);
@@ -778,21 +738,8 @@ function renderNewComment(postId, comment, append = true) {
 }
 
 async function renderMoreComments(postId, newComments) {
-  const commentList = document.getElementById(`comment-list-${postId}`);
-  if (!commentList) return;
   for (const comment of newComments) {
-    const commentDiv = document.createElement('div');
-    commentDiv.classList.add('comment');
-    const [userInfo, ...contentParts] = comment.text.split(':\n');
-    const [fullname, username] = userInfo.split(' (@');
-    const cleanUsername = username ? username.replace(')', '') : '';
-    const content = contentParts.join(':\n');
-    const formattedContent = formatPostContent(content);
-    commentDiv.innerHTML = `
-      <div class="comment-user"><strong>${fullname}</strong><span>@${cleanUsername}</span></div>
-      <div class="comment-content">${formattedContent}</div>
-    `;
-    commentList.appendChild(commentDiv);
+    renderNewComment(postId, comment, false); // Добавляем старые комментарии в начало
   }
 }
 
@@ -853,8 +800,9 @@ function toggleComments(postId) {
     const isVisible = commentSection.style.display === 'block';
     commentSection.style.display = isVisible ? 'none' : 'block';
     if (!isVisible) {
-      loadComments(postId).then(comments => renderComments(postId, comments));
-      setupCommentInfiniteScroll(postId);
+        commentSection.style.display = 'flex';
+        loadComments(postId).then(comments => renderComments(postId, comments));
+        setupCommentInfiniteScroll(postId);
     } else if (commentChannels.has(postId)) {
       supabaseClient.removeChannel(commentChannels.get(postId));
       commentChannels.delete(postId);
@@ -1310,7 +1258,6 @@ async function loadBracket(tournamentId) {
   }
 }
 
-// === НОВАЯ ЛОГИКА ДЛЯ РАЗДЕЛА РЕЙТИНГА ===
 function initRating() {
     const cityView = document.getElementById('rating-city-view');
     const seasonView = document.getElementById('rating-season-view');
@@ -1370,12 +1317,12 @@ function initRating() {
     backToCitiesBtn.onclick = () => showView(cityView);
     backToSeasonsBtn.onclick = () => showView(seasonView);
 
-    renderCities(); // Initial render
+    renderCities();
 }
 
 function renderRatingTable() {
     const tableBody = document.getElementById('rating-list-tbody');
-    tableBody.innerHTML = ''; // Clear previous data
+    tableBody.innerHTML = '';
     tableBody.innerHTML = ratingData.map(player => `
         <tr class="rank-${player.rank}">
             <td>${player.rank}</td>
@@ -1385,6 +1332,5 @@ function renderRatingTable() {
         </tr>
     `).join('');
 }
-
 
 checkProfile();
