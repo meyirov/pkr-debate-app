@@ -1531,6 +1531,7 @@ async function generateBracket() {
   }
 }
 
+// ЗАМЕНИТЕ ЭТУ ФУНКЦИЮ ПОЛНОСТЬЮ
 async function generateNextRound() {
     const bracket = window.currentBracketData;
     if (!bracket) return;
@@ -1590,10 +1591,16 @@ async function generateNextRound() {
                     newRoundMatches.push({ teams: matchTeams, room:'', judge:'', winner: null });
                     bucket.splice(j, 1); 
                     bucket.splice(i, 1);
-                    i = 0; j = 1; // reset
+                    i = 0; j = 1; 
                 } else {
                     j++;
                 }
+            }
+             if (j >= bucket.length && i < bucket.length -1) {
+                i++;
+                j = i + 1;
+            } else if (i >= bucket.length - 1) {
+                break;
             }
         }
     }
@@ -1605,8 +1612,15 @@ async function generateNextRound() {
 
     bracket.matches.push({ round: currentRoundNumber + 1, matches: newRoundMatches });
     
+    // --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
+    // Переводим сетку обратно в режим черновика для заполнения кабинетов/судей
+    bracket.published = false;
+
     try {
-        await supabaseFetch(`brackets?id=eq.${bracket.id}`, 'PATCH', { matches: bracket.matches });
+        await supabaseFetch(`brackets?id=eq.${bracket.id}`, 'PATCH', { 
+            matches: bracket.matches,
+            published: bracket.published 
+        });
         loadBracket(bracket.tournament_id, true);
     } catch (error) {
         alert('Ошибка при генерации следующего раунда: ' + error.message);
