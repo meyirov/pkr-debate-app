@@ -1249,13 +1249,12 @@ async function loadRegistrations(tournamentId, isCreator) {
             return;
         }
         const usernames = new Set(registrations.flatMap(r => [r.speaker1_username, r.speaker2_username].filter(Boolean)));
-        const profiles = usernames.size > 0 ? await supabaseFetch(`profiles?telegram_username=in.(${[...usernames].join(',')})`, 'GET') : [];
-        const profileMap = new Map(profiles.map(p => [p.telegram_username, p.fullname]));
+        await getSpeakerFullNames([...usernames]); // Заполняем кэш
         
         registrationList.innerHTML = '';
         registrations.forEach(reg => {
-            const speaker1_fullname = profileMap.get(reg.speaker1_username) || `(${reg.speaker1_username})`;
-            const speaker2_fullname = profileMap.get(reg.speaker2_username) || `(${reg.speaker2_username})`;
+            const speaker1_fullname = profilesCache.get(reg.speaker1_username) || `(${reg.speaker1_username})`;
+            const speaker2_fullname = profilesCache.get(reg.speaker2_username) || `(${reg.speaker2_username})`;
             
             const card = document.createElement('div');
             card.className = `registration-card status-${reg.status}`;
@@ -1352,8 +1351,7 @@ async function loadTabManagement(tournamentId, isCreator) {
     publishBtn.onclick = () => publishTab(tournamentId, !isPublished);
     
     const usernames = new Set(registrations.flatMap(r => [r.speaker1_username, r.speaker2_username].filter(Boolean)));
-    const profiles = usernames.size > 0 ? await supabaseFetch(`profiles?telegram_username=in.(${[...usernames].join(',')})`, 'GET') : [];
-    const profileMap = new Map(profiles.map(p => [p.telegram_username, p.fullname]));
+    await getSpeakerFullNames([...usernames]);
 
     const renderList = (list, teams) => {
         list.innerHTML = '';
@@ -1362,8 +1360,8 @@ async function loadTabManagement(tournamentId, isCreator) {
             return;
         }
         teams.forEach(reg => {
-            const speaker1_fullname = profileMap.get(reg.speaker1_username) || `(${reg.speaker1_username})`;
-            const speaker2_fullname = profileMap.get(reg.speaker2_username) || `(${reg.speaker2_username})`;
+            const speaker1_fullname = profilesCache.get(reg.speaker1_username) || `(${reg.speaker1_username})`;
+            const speaker2_fullname = profilesCache.get(reg.speaker2_username) || `(${reg.speaker2_username})`;
             const card = document.createElement('div');
             card.className = `registration-card status-${reg.status}`;
             let actionsHtml = '<div class="registration-actions">';
@@ -1406,8 +1404,7 @@ async function loadParticipants(tournamentId) {
         const reserveTeams = registrations.filter(r => r.status === 'reserve');
         
         const usernames = new Set(registrations.flatMap(r => [r.speaker1_username, r.speaker2_username].filter(Boolean)));
-        const profiles = usernames.size > 0 ? await supabaseFetch(`profiles?telegram_username=in.(${[...usernames].join(',')})`, 'GET') : [];
-        const profileMap = new Map(profiles.map(p => [p.telegram_username, p.fullname]));
+        await getSpeakerFullNames([...usernames]);
 
         const renderReadonlyList = (list, teams, title) => {
             list.innerHTML = '';
@@ -1416,8 +1413,8 @@ async function loadParticipants(tournamentId) {
                 return;
             }
             teams.forEach(reg => {
-                const speaker1_fullname = profileMap.get(reg.speaker1_username) || `(${reg.speaker1_username})`;
-                const speaker2_fullname = profileMap.get(reg.speaker2_username) || `(${reg.speaker2_username})`;
+                const speaker1_fullname = profilesCache.get(reg.speaker1_username) || `(${reg.speaker1_username})`;
+                const speaker2_fullname = profilesCache.get(reg.speaker2_username) || `(${reg.speaker2_username})`;
                 const card = document.createElement('div');
                 card.className = `registration-card status-${reg.status}`;
                 card.innerHTML = `<div class="registration-card-header"><strong>${reg.faction_name}</strong></div>
@@ -1481,7 +1478,6 @@ async function generateBracket() {
     return;
   }
   
-  // НОВОЕ: Формируем команды с полными данными о спикерах
   const teams = registrations.slice(0, factionCount).map(reg => ({
     faction_name: reg.faction_name,
     club: reg.club,
@@ -1526,15 +1522,14 @@ async function generateBracket() {
       usedPairs.add(matchKey);
       attempts = 0;
       
-      // НОВОЕ: Сохраняем расширенную структуру команды в матч
       const match = {
         teams: matchTeams.map((team, idx) => ({
-          ...team, // Копируем все данные команды, включая спикеров
+          ...team,
           position: positions[idx]
         })),
         room: '',
         judge: '',
-        winner: null // Победитель пока не определен
+        winner: null
       };
       roundMatches.push(match);
     }
@@ -1558,31 +1553,15 @@ async function generateBracket() {
   }
 }
 
-// НОВОЕ: Функция для получения имен спикеров (с кэшированием)
 async function getSpeakerFullNames(usernames) {
-    const names = new Map();
-    const usernamesToFetch = [];
-
-    for (const username of usernames) {
-        if (profilesCache.has(username)) {
-            names.set(username, profilesCache.get(username));
-        } else {
-            usernamesToFetch.push(username);
-        }
-    }
-
+    const usernamesToFetch = usernames.filter(u => !profilesCache.has(u));
     if (usernamesToFetch.length > 0) {
         const fetchedProfiles = await supabaseFetch(`profiles?telegram_username=in.(${usernamesToFetch.join(',')})`, 'GET');
         if (fetchedProfiles) {
-            fetchedProfiles.forEach(p => {
-                profilesCache.set(p.telegram_username, p.fullname);
-                names.set(p.telegram_username, p.fullname);
-            });
+            fetchedProfiles.forEach(p => profilesCache.set(p.telegram_username, p.fullname));
         }
     }
-    return names;
 }
-
 
 async function openResultsModal(roundIndex, matchIndex) {
     const modal = document.getElementById('results-modal');
@@ -1594,15 +1573,15 @@ async function openResultsModal(roundIndex, matchIndex) {
     const match = bracket.matches[roundIndex].matches[matchIndex];
 
     const allUsernames = match.teams.flatMap(team => team.speakers.map(s => s.username));
-    const speakerNames = await getSpeakerFullNames(allUsernames);
+    await getSpeakerFullNames(allUsernames);
 
     let modalHtml = '<h4>Выберите победителя:</h4>';
     match.teams.forEach(team => {
         const isChecked = match.winner === team.faction_name ? 'checked' : '';
         modalHtml += `
             <div class="team-header">
-                <input type="radio" id="winner-${team.faction_name}" name="winner" value="${team.faction_name}" ${isChecked}>
-                <label for="winner-${team.faction_name}"><strong>${team.faction_name}</strong></label>
+                <input type="radio" id="winner-${team.faction_name.replace(/\s+/g, '-')}" name="winner" value="${team.faction_name}" ${isChecked}>
+                <label for="winner-${team.faction_name.replace(/\s+/g, '-')}"><strong>${team.faction_name}</strong></label>
             </div>
         `;
     });
@@ -1611,8 +1590,8 @@ async function openResultsModal(roundIndex, matchIndex) {
 
     match.teams.forEach(team => {
         modalHtml += `<div class="team-block"><h5>${team.faction_name}</h5>`;
-        team.speakers.forEach((speaker, speakerIndex) => {
-            const fullName = speakerNames.get(speaker.username) || speaker.username;
+        team.speakers.forEach(speaker => {
+            const fullName = profilesCache.get(speaker.username) || speaker.username;
             modalHtml += `
                 <div class="speaker-score">
                     <label for="score-${speaker.username}">${fullName}</label>
@@ -1636,7 +1615,6 @@ async function saveMatchResults(roundIndex, matchIndex) {
     const bracket = window.currentBracketData;
     const match = bracket.matches[roundIndex].matches[matchIndex];
 
-    // Обновляем баллы спикеров
     match.teams.forEach(team => {
         team.speakers.forEach(speaker => {
             const input = document.getElementById(`score-${speaker.username}`);
@@ -1644,18 +1622,56 @@ async function saveMatchResults(roundIndex, matchIndex) {
         });
     });
 
-    // Обновляем победителя
     const winnerInput = document.querySelector('input[name="winner"]:checked');
     match.winner = winnerInput ? winnerInput.value : null;
 
+    await saveBracketSetup(true); // Сохраняем и закрываем модалку
+    modal.style.display = 'none';
+}
+
+
+async function saveBracketSetup(isCalledFromModal = false) {
+    const bracket = window.currentBracketData;
+    if (!bracket) return;
+
+    // Если функция вызвана не из модалки, значит, обновляем кабинеты и судей
+    if (!isCalledFromModal) {
+         bracket.matches.forEach((round, roundIndex) => {
+            round.matches.forEach((match, matchIndex) => {
+                const roomInput = document.querySelector(`input[data-round-index="${roundIndex}"][data-match-index="${matchIndex}"][data-field="room"]`);
+                const judgeInput = document.querySelector(`input[data-round-index="${roundIndex}"][data-match-index="${matchIndex}"][data-field="judge"]`);
+                if(roomInput) match.room = roomInput.value;
+                if(judgeInput) match.judge = judgeInput.value;
+            });
+        });
+    }
+    
     try {
         await supabaseFetch(`brackets?id=eq.${bracket.id}`, 'PATCH', {
             matches: bracket.matches
         });
-        modal.style.display = 'none';
+        if (!isCalledFromModal) alert('Изменения сохранены!');
         loadBracket(bracket.tournament_id, true);
     } catch (error) {
         alert('Ошибка сохранения: ' + error.message);
+    }
+}
+
+async function toggleBracketPublication(publishState) {
+    const bracket = window.currentBracketData;
+    if (!bracket) return;
+    
+    const action = publishState ? "опубликовать" : "снять с публикации";
+    if (!confirm(`Вы уверены, что хотите ${action} сетку?`)) return;
+
+    try {
+        await supabaseFetch(`brackets?id=eq.${bracket.id}`, 'PATCH', {
+            published: publishState
+        });
+        alert(`Сетка успешно ${publishState ? "опубликована" : "скрыта"}.`);
+        loadBracket(bracket.tournament_id, true);
+    } catch (error) {
+        alert('Ошибка: ' + error.message);
     }
 }
 
@@ -1670,6 +1686,23 @@ async function loadBracket(tournamentId, isCreator) {
       const bracket = brackets[0];
       window.currentBracketData = bracket;
 
+      // Панель управления сеткой для организатора
+      if(isCreator) {
+        const controlsDiv = document.createElement('div');
+        controlsDiv.className = 'bracket-controls';
+        if (!bracket.published) {
+            controlsDiv.innerHTML = `
+                <button id="save-bracket-setup-btn" onclick="saveBracketSetup()">Сохранить изменения</button>
+                <button id="publish-bracket-btn" onclick="toggleBracketPublication(true)">Опубликовать сетку</button>
+            `;
+        } else {
+             controlsDiv.innerHTML = `
+                <button id="unpublish-bracket-btn" onclick="toggleBracketPublication(false)">Снять с публикации</button>
+            `;
+        }
+        bracketDisplay.appendChild(controlsDiv);
+      }
+
       bracket.matches.forEach((round, roundIndex) => {
         const roundDiv = document.createElement('div');
         roundDiv.classList.add('bracket-round');
@@ -1679,10 +1712,17 @@ async function loadBracket(tournamentId, isCreator) {
           const matchDiv = document.createElement('div');
           matchDiv.classList.add('bracket-match');
           
+          const roomInfo = (!bracket.published && isCreator)
+            ? `<input type="text" class="inline-bracket-input" data-round-index="${roundIndex}" data-match-index="${matchIndex}" data-field="room" value="${match.room || ''}" placeholder="Кабинет">`
+            : `<span>Кабинет: ${match.room || 'Не указан'}</span>`;
+
+          const judgeInfo = (!bracket.published && isCreator)
+            ? `<input type="text" class="inline-bracket-input" data-round-index="${roundIndex}" data-match-index="${matchIndex}" data-field="judge" value="${match.judge || ''}" placeholder="Судья">`
+            : `<span>Судья: ${match.judge || 'Не указан'}</span>`;
+
           let teamsHtml = match.teams.map(team => {
             const isWinner = match.winner === team.faction_name;
             const winnerClass = isWinner ? 'class="match-winner"' : '';
-            
             const totalScore = team.speakers.reduce((sum, s) => sum + (s.points || 0), 0);
             const scoreHtml = totalScore > 0 ? `<span class="team-total-score">(${totalScore})</span>` : '';
 
@@ -1694,12 +1734,11 @@ async function loadBracket(tournamentId, isCreator) {
                     </li>`;
           }).join('');
 
-          const resultButton = isCreator ? `<button class="result-btn" onclick="openResultsModal(${roundIndex}, ${matchIndex})">Ввести результат</button>` : '';
+          const resultButton = (isCreator && bracket.published) ? `<button class="result-btn" onclick="openResultsModal(${roundIndex}, ${matchIndex})">Ввести результат</button>` : '';
 
           matchDiv.innerHTML = `
             <h4>Матч ${matchIndex + 1}</h4>
-            <p>Комната: ${match.room || 'Не указана'}</p>
-            <p>Судья: ${match.judge || 'Не указан'}</p>
+            <div class="match-details">${roomInfo} ${judgeInfo}</div>
             <ul>${teamsHtml}</ul>
             ${resultButton}
           `;
@@ -1715,7 +1754,6 @@ async function loadBracket(tournamentId, isCreator) {
     console.error("Error loading bracket:", error);
   }
 }
-
 
 function initRating() {
     const cityView = document.getElementById('rating-city-view');
