@@ -894,10 +894,10 @@ body {
 
 .bracket-match {
     background: #1a1a1a;
-    padding: 10px;
+    padding: 15px;
     margin-bottom: 10px;
     border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
 .bracket-match p {
@@ -909,36 +909,66 @@ body {
 .bracket-match ul {
     list-style-type: none;
     padding: 0;
+    margin-top: 8px;
 }
 
 .bracket-match li {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4px 0;
+    padding: 8px;
+    border-radius: 6px;
+    transition: background-color 0.2s ease;
+    border: 1px solid #262626;
+    margin-bottom: 5px;
+}
+
+.bracket-match li strong {
+    color: #e6e6e6;
+}
+
+.bracket-match li .team-name-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.bracket-match li .team-total-score {
+    font-size: 12px;
+    font-weight: bold;
+    color: #8b5cf6;
+    background-color: #262626;
+    padding: 2px 6px;
+    border-radius: 6px;
 }
 
 .match-winner {
-    font-weight: bold;
-    color: #FFD700;
+    background-color: rgba(139, 92, 246, 0.15); /* Фиолетовый фон */
+    border-left: 3px solid #8b5cf6;
 }
 
-.winner-btn {
-    background: none;
-    border: 1px solid #444;
-    color: #888;
-    cursor: pointer;
-    font-size: 12px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    margin-left: 8px;
-    transition: all 0.2s ease;
+.match-winner strong {
+    color: #a78bfa;
+    font-weight: 700;
 }
 
-.winner-btn:hover {
-    background: #333;
+.result-btn {
+    display: block;
+    width: 100%;
+    margin-top: 10px;
+    padding: 8px;
+    background: #8b5cf6;
     color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
 }
+
+.result-btn:hover {
+    background: #a78bfa;
+}
+
 
 .navbar {
     display: flex;
@@ -984,25 +1014,27 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.85);
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 1000;
+    z-index: 2000;
+    padding: 10px;
 }
 
 .modal-content {
     background: #1a1a1a;
     padding: 20px;
     border-radius: 12px;
-    text-align: center;
-    max-width: 300px;
-    width: 90%;
+    text-align: left;
+    max-width: 400px;
+    width: 100%;
     color: #e6e6e6;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
-.modal-content input {
+.modal-content input[type="text"],
+.modal-content input[type="number"] {
     width: 100%;
     padding: 10px;
     margin: 10px 0;
@@ -1013,16 +1045,77 @@ body {
     font-size: 14px;
 }
 
-.modal-content button {
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.modal-actions button {
     padding: 8px 16px;
-    background: #8b5cf6;
-    color: #ffffff;
     border: none;
     border-radius: 8px;
     cursor: pointer;
     font-size: 14px;
     font-weight: 600;
     transition: background 0.2s ease;
+}
+
+#save-results-btn {
+    background: #8b5cf6;
+    color: #ffffff;
+}
+#save-results-btn:hover {
+    background: #a78bfa;
+}
+#cancel-results-btn {
+    background: #444;
+    color: #e6e6e6;
+}
+#cancel-results-btn:hover {
+    background: #555;
+}
+
+
+#results-modal-body .team-block {
+    margin-bottom: 20px;
+    padding: 10px;
+    background: #222;
+    border-radius: 8px;
+}
+#results-modal-body .team-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+#results-modal-body .team-header strong {
+    font-size: 16px;
+}
+#results-modal-body .speaker-score {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+#results-modal-body .speaker-score label {
+    flex-basis: 70%;
+    color: #ccc;
+}
+#results-modal-body .speaker-score input {
+    flex-basis: 25%;
+    padding: 6px;
+    text-align: center;
+}
+#results-modal-body hr {
+    border: 0;
+    height: 1px;
+    background: #333;
+    margin: 15px 0;
+}
+#results-modal-body h4 {
+    margin-bottom: 10px;
 }
 
 #profile {
