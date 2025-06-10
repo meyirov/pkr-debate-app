@@ -900,11 +900,30 @@ body {
     box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
-.bracket-match p {
-    margin: 3px 0;
-    font-size: 14px;
-    color: #d1d5db;
+.bracket-match .match-details {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 10px;
 }
+
+.bracket-match .match-details p {
+    margin: 0;
+    font-size: 14px;
+    color: #a0a0a0;
+}
+
+.bracket-match .inline-bracket-input {
+    background: #262626;
+    border: 1px solid #444;
+    color: #e6e6e6;
+    padding: 4px 8px;
+    border-radius: 6px;
+    width: 120px;
+}
+.bracket-match .inline-bracket-input:focus {
+    outline: 1px solid #8b5cf6;
+}
+
 
 .bracket-match ul {
     list-style-type: none;
@@ -969,6 +988,36 @@ body {
     background: #a78bfa;
 }
 
+.bracket-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+.bracket-controls button {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+#publish-bracket-btn {
+    background-color: #22c55e;
+    color: #fff;
+}
+
+#unpublish-bracket-btn {
+    background-color: #ef4444;
+    color: #fff;
+}
+
+#save-bracket-setup-btn {
+    background-color: #3b82f6;
+    color: #fff;
+}
 
 .navbar {
     display: flex;
@@ -1031,13 +1080,15 @@ body {
     width: 100%;
     color: #e6e6e6;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
 .modal-content input[type="text"],
 .modal-content input[type="number"] {
     width: 100%;
     padding: 10px;
-    margin: 10px 0;
+    margin-top: 5px;
     border: 1px solid #333;
     border-radius: 8px;
     background: #262626;
