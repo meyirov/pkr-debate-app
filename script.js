@@ -484,7 +484,7 @@ async function renderMorePosts(newPosts) {
       ${post.image_url ? `<img src="${post.image_url}" class="post-image">` : ''}
       <div class="post-actions">
         <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">👍 0</button>
-        <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">👎 0</button>
+        <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">� 0</button>
         <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (0)</button>
       </div>
       <div class="comment-section" id="comments-${post.id}" style="display: none;">
@@ -996,7 +996,6 @@ function renderFilteredTournaments() {
 }
 
 async function showTournamentDetails(tournamentId) {
-    const sections = document.querySelectorAll('.content');
     try {
         const tournamentData = await supabaseFetch(`tournaments?id=eq.${tournamentId}&select=*`, 'GET');
         if (!tournamentData || tournamentData.length === 0) return;
@@ -1018,7 +1017,8 @@ async function showTournamentDetails(tournamentId) {
         document.getElementById('toggle-description-btn').onclick = () => {
             document.getElementById('tournament-description').classList.toggle('description-hidden');
         };
-
+        
+        const sections = document.querySelectorAll('.content'); // Эта переменная нужна здесь
         sections.forEach(section => section.classList.remove('active'));
         document.getElementById('tournament-details').classList.add('active');
 
