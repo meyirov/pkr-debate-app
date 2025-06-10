@@ -445,10 +445,10 @@ function renderNewPost(post, prepend = false) {
     <div class="comment-section" id="comments-${post.id}" style="display: none;">
       <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
       <div class="comment-list" id="comment-list-${post.id}" style="max-height: 200px; overflow-y: auto;"></div>
-      <div class="comment-form">
+      <form class="comment-form">
         <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
-        <button onclick="addComment(${post.id})">Отправить</button>
-      </div>
+        <button type="submit" onclick="addComment(event, ${post.id})">Отправить</button>
+      </form>
     </div>
   `;
   if (prepend) postsDiv.prepend(postDiv);
@@ -484,16 +484,16 @@ async function renderMorePosts(newPosts) {
       ${post.image_url ? `<img src="${post.image_url}" class="post-image">` : ''}
       <div class="post-actions">
         <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">👍 0</button>
-        <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">� 0</button>
+        <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">👎 0</button>
         <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (0)</button>
       </div>
       <div class="comment-section" id="comments-${post.id}" style="display: none;">
         <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
         <div class="comment-list" id="comment-list-${post.id}" style="max-height: 200px; overflow-y: auto;"></div>
-        <div class="comment-form">
+        <form class="comment-form">
           <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
-          <button onclick="addComment(${post.id})">Отправить</button>
-        </div>
+          <button type="submit" onclick="addComment(event, ${post.id})">Отправить</button>
+        </form>
       </div>
     `;
     const loadMoreContainer = postsDiv.querySelector('#load-more-btn');
@@ -803,7 +803,8 @@ async function renderMoreComments(postId, newComments) {
   }
 }
 
-async function addComment(postId) {
+async function addComment(event, postId) {
+  event.preventDefault(); // ИСПРАВЛЕНО: Предотвращаем стандартное поведение формы
   postId = parseInt(postId);
   const commentInput = document.getElementById(`comment-input-${postId}`);
   const commentButton = commentInput.parentElement.querySelector('button');
@@ -874,7 +875,6 @@ function toggleComments(postId) {
 function initTournaments() {
     const createTournamentBtn = document.getElementById('create-tournament-btn');
     const createTournamentForm = document.getElementById('create-tournament-form');
-    const submitTournamentBtn = document.getElementById('submit-tournament');
     const activeTab = document.getElementById('active-tournaments-tab');
     const archiveTab = document.getElementById('archive-tournaments-tab');
     const filterCity = document.getElementById('filter-city');
@@ -884,7 +884,11 @@ function initTournaments() {
         createTournamentForm.classList.toggle('form-hidden');
     });
 
-    submitTournamentBtn.addEventListener('click', async () => {
+    createTournamentForm.addEventListener('submit', async (e) => {
+        e.preventDefault(); // ИСПРАВЛЕНО: предотвращаем перезагрузку страницы
+        const submitTournamentBtn = document.getElementById('submit-tournament');
+        submitTournamentBtn.disabled = true;
+
         const tournament = {
             name: document.getElementById('tournament-name').value.trim(),
             date: document.getElementById('tournament-date').value.trim(),
@@ -901,6 +905,7 @@ function initTournaments() {
 
         if (!tournament.name || !tournament.date || !tournament.city || !tournament.scale) {
             alert('Пожалуйста, заполните все обязательные поля: Название, Дата, Город и Масштаб.');
+            submitTournamentBtn.disabled = false;
             return;
         }
 
@@ -908,10 +913,12 @@ function initTournaments() {
             await supabaseFetch('tournaments', 'POST', tournament);
             alert('Турнир создан!');
             createTournamentForm.classList.add('form-hidden');
-            createTournamentForm.reset();
+            createTournamentForm.reset(); // ИСПРАВЛЕНО: корректно сбрасываем форму
             loadTournaments(true);
         } catch (error) {
             alert('Ошибка создания турнира: ' + error.message);
+        } finally {
+            submitTournamentBtn.disabled = false;
         }
     });
 
@@ -1018,8 +1025,7 @@ async function showTournamentDetails(tournamentId) {
             document.getElementById('tournament-description').classList.toggle('description-hidden');
         };
         
-        const sections = document.querySelectorAll('.content'); // Эта переменная нужна здесь
-        sections.forEach(section => section.classList.remove('active'));
+        document.querySelectorAll('.content').forEach(section => section.classList.remove('active'));
         document.getElementById('tournament-details').classList.add('active');
 
         const tabsContainer = document.getElementById('tournament-nav-tabs');
@@ -1089,52 +1095,76 @@ async function showTournamentDetails(tournamentId) {
 }
 
 async function loadTournamentPosts(tournamentId, isCreator, tournamentName) {
-  const postsSection = document.getElementById('tournament-posts');
-  postsSection.innerHTML = '';
-  if (isCreator) {
-    postsSection.innerHTML = `
-      <div id="new-tournament-post">
-        <textarea id="tournament-post-text" placeholder="Создать пост от имени турнира"></textarea>
-        <button id="submit-tournament-post">Опубликовать</button>
-      </div>
-      <div id="tournament-posts-list"></div>
-    `;
-    document.getElementById('submit-tournament-post').onclick = async () => {
-        // Логика отправки поста от имени турнира
-    };
-  } else {
-    postsSection.innerHTML = `<div id="tournament-posts-list"></div>`;
-  }
-  const postsList = document.getElementById('tournament-posts-list');
-  postsList.innerHTML = '<p>Загрузка постов...</p>';
-  try {
-    const posts = await supabaseFetch(`tournament_posts?tournament_id=eq.${tournamentId}&order=timestamp.desc`, 'GET');
-    postsList.innerHTML = '';
-    if (posts?.length > 0) {
-      posts.forEach(post => {
-        const postDiv = document.createElement('div');
-        postDiv.classList.add('post');
-        postDiv.innerHTML = `
-          <div class="post-header"><strong>Турнир: ${tournamentName}</strong></div>
-          <div class="post-content">${post.text}</div>`;
-        postsList.appendChild(postDiv);
-      });
+    const postsSection = document.getElementById('tournament-posts');
+    postsSection.innerHTML = '';
+    if (isCreator) {
+        postsSection.innerHTML = `
+            <div id="new-tournament-post">
+                <textarea id="tournament-post-text" placeholder="Создать пост от имени турнира"></textarea>
+                <button id="submit-tournament-post">Опубликовать</button>
+            </div>
+            <div id="tournament-posts-list"></div>
+        `;
+        document.getElementById('submit-tournament-post').onclick = async () => {
+            // ИСПРАВЛЕНО: Добавлена логика отправки поста от имени турнира
+            const postText = document.getElementById('tournament-post-text').value.trim();
+            if (!postText) {
+                alert('Введите текст поста!');
+                return;
+            }
+            const post = {
+                tournament_id: tournamentId,
+                text: postText,
+                timestamp: new Date().toISOString()
+            };
+            try {
+                await supabaseFetch('tournament_posts', 'POST', post);
+                document.getElementById('tournament-post-text').value = '';
+                loadTournamentPosts(tournamentId, isCreator, tournamentName); // Перезагружаем посты
+            } catch (error) {
+                alert('Ошибка при публикации поста: ' + error.message);
+            }
+        };
     } else {
-      postsList.innerHTML = '<p>Пока нет постов от турнира.</p>';
+        postsSection.innerHTML = `<div id="tournament-posts-list"></div>`;
     }
-  } catch (error) {
-    postsList.innerHTML = '<p>Ошибка загрузки постов.</p>';
-  }
+    const postsList = document.getElementById('tournament-posts-list');
+    postsList.innerHTML = '<p>Загрузка постов...</p>';
+    try {
+        const posts = await supabaseFetch(`tournament_posts?tournament_id=eq.${tournamentId}&order=timestamp.desc`, 'GET');
+        postsList.innerHTML = '';
+        if (posts?.length > 0) {
+            posts.forEach(post => {
+                const postDiv = document.createElement('div');
+                postDiv.classList.add('post'); // Используем существующий класс для стилизации
+                const formattedContent = formatPostContent(post.text);
+                const timeAgo = getTimeAgo(new Date(post.timestamp));
+                postDiv.innerHTML = `
+                    <div class="post-header">
+                        <div class="post-user"><strong>Турнир: ${tournamentName}</strong></div>
+                        <div class="post-time">${timeAgo}</div>
+                    </div>
+                    <div class="post-content">${formattedContent}</div>`;
+                postsList.appendChild(postDiv);
+            });
+        } else {
+            postsList.innerHTML = '<p>Пока нет постов от турнира.</p>';
+        }
+    } catch (error) {
+        postsList.innerHTML = '<p>Ошибка загрузки постов.</p>';
+    }
 }
+
 
 function initRegistration() {
     const registerBtn = document.getElementById('register-tournament-btn');
     const registrationForm = document.getElementById('registration-form');
-    const submitRegistrationBtn = document.getElementById('submit-registration-btn');
     
     registerBtn.onclick = () => registrationForm.classList.toggle('form-hidden');
 
-    submitRegistrationBtn.addEventListener('click', async () => {
+    registrationForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitRegistrationBtn = document.getElementById('submit-registration-btn');
         if (submitRegistrationBtn.disabled) return;
         submitRegistrationBtn.disabled = true;
 
@@ -1149,7 +1179,7 @@ function initRegistration() {
             extra: document.getElementById('reg-extra').value.trim(),
             timestamp: new Date().toISOString()
         };
-
+        
         if (!registrationData.faction_name || !registrationData.speaker1_username || !registrationData.speaker2_username || !registrationData.club) {
             alert('Пожалуйста, заполните поля: Название фракции, Username обоих спикеров и Клуб.');
             submitRegistrationBtn.disabled = false;
@@ -1170,7 +1200,9 @@ function initRegistration() {
 
             const currentUser = userData.telegramUsername;
             const teammate = registrationData.speaker1_username === currentUser ? registrationData.speaker2_username : registrationData.speaker1_username;
+            const tournamentInfo = allTournaments.find(t => t.id === currentTournamentId);
 
+            // ИСПРАВЛЕНО: Добавляем название турнира в уведомление
             const { error: invokeError } = await supabaseClient.functions.invoke('send-telegram-notification', {
               body: JSON.stringify({
                 type: 'registration',
@@ -1178,7 +1210,8 @@ function initRegistration() {
                   registered_by: currentUser,
                   teammate_username: teammate,
                   faction_name: registrationData.faction_name,
-                  tournament_id: currentTournamentId
+                  tournament_id: currentTournamentId,
+                  tournament_name: tournamentInfo ? tournamentInfo.name : 'Неизвестный турнир'
                 }
               })
             });
@@ -1244,18 +1277,16 @@ async function loadRegistrations(tournamentId, isCreator) {
         });
 
         if (isCreator) {
-            registrationList.querySelectorAll('.action-btn').forEach(button => {
+            registrationList.querySelectorAll('.action-btn, .delete-registration-btn').forEach(button => {
                 button.addEventListener('click', (e) => {
                     const regId = e.target.dataset.id;
-                    const newStatus = e.target.dataset.status;
-                    updateRegistrationStatus(regId, newStatus);
-                });
-            });
-            registrationList.querySelectorAll('.delete-registration-btn').forEach(button => {
-                button.addEventListener('click', (e) => {
-                    const regId = e.target.dataset.id;
-                    if (confirm('Вы уверены, что хотите удалить эту регистрацию?')) {
-                        deleteRegistration(regId, tournamentId, isCreator);
+                    if (e.target.classList.contains('delete-registration-btn')) {
+                        if (confirm('Вы уверены, что хотите удалить эту регистрацию?')) {
+                            deleteRegistration(regId, tournamentId, isCreator);
+                        }
+                    } else {
+                        const newStatus = e.target.dataset.status;
+                        updateRegistrationStatus(regId, newStatus);
                     }
                 });
             });
@@ -1433,34 +1464,57 @@ async function generateBracket() {
     alert('Для БПФ количество фракций должно быть кратно 4!');
     return;
   }
-  const registrations = await supabaseFetch(`registrations?tournament_id=eq.${currentTournamentId}&order=timestamp.asc`, 'GET');
+  
+  // ИСПРАВЛЕНО: Загружаем только принятые ("accepted") команды для генерации сетки.
+  const registrations = await supabaseFetch(`registrations?tournament_id=eq.${currentTournamentId}&status=eq.accepted&order=timestamp.asc`, 'GET');
+  
   if (!registrations || registrations.length < factionCount) {
-    alert('Недостаточно команд!');
+    alert(`Недостаточно принятых команд для формирования сетки! В ТЭБе ${registrations.length}, а требуется ${factionCount}.`);
     return;
   }
+
   const teams = registrations.slice(0, factionCount).map(reg => ({
     faction_name: reg.faction_name,
     club: reg.club
   }));
+
   const positions = format === 'АПФ' ? ['Правительство', 'Оппозиция'] : ['ОП', 'ОО', 'ЗП', 'ЗО'];
   const teamsPerMatch = format === 'АПФ' ? 2 : 4;
   const matches = [];
   const usedPairs = new Set();
+  
   for (let round = 0; round < roundCount; round++) {
     const roundMatches = [];
-    const availableTeams = [...teams];
+    let availableTeams = [...teams];
+    let attempts = 0;
+    
     while (availableTeams.length >= teamsPerMatch) {
-      const matchTeams = [];
+      if (attempts > 500) { // Защита от бесконечного цикла
+          alert(`Не удалось сформировать уникальные пары для раунда ${round + 1}. Попробуйте снова.`);
+          return;
+      }
+      
+      let matchTeams = [];
+      // Создаем временную копию для извлечения команд
+      let tempAvailable = [...availableTeams]; 
       for (let i = 0; i < teamsPerMatch; i++) {
-        const randomIndex = Math.floor(Math.random() * availableTeams.length);
-        matchTeams.push(availableTeams.splice(randomIndex, 1)[0]);
+        const randomIndex = Math.floor(Math.random() * tempAvailable.length);
+        matchTeams.push(tempAvailable.splice(randomIndex, 1)[0]);
       }
+
       const matchKey = matchTeams.map(team => team.faction_name).sort().join('|');
+      
       if (usedPairs.has(matchKey)) {
-        availableTeams.push(...matchTeams);
-        continue;
+        attempts++;
+        continue; // Повторяем попытку сгенерировать матч, не меняя availableTeams
       }
+      
+      // Если пара уникальна, удаляем команды из основного списка доступных
+      availableTeams = availableTeams.filter(team => !matchTeams.find(mt => mt.faction_name === team.faction_name));
+      
       usedPairs.add(matchKey);
+      attempts = 0;
+      
       const match = {
         teams: matchTeams.map((team, idx) => ({
           faction_name: team.faction_name,
@@ -1474,6 +1528,7 @@ async function generateBracket() {
     }
     if (roundMatches.length > 0) matches.push({ round: round + 1, matches: roundMatches });
   }
+
   const bracket = {
     tournament_id: currentTournamentId,
     format,
@@ -1485,7 +1540,7 @@ async function generateBracket() {
   };
   try {
     await supabaseFetch('brackets', 'POST', bracket);
-    loadBracket(currentTournamentId);
+    loadBracket(currentTournamentId, true);
   } catch (error) {
     alert('Ошибка: ' + error.message);
   }
@@ -1502,13 +1557,14 @@ async function loadBracket(tournamentId, isCreator) {
         const roundDiv = document.createElement('div');
         roundDiv.classList.add('bracket-round');
         roundDiv.innerHTML = `<h3>Раунд ${round.round}</h3>`;
-        round.matches.forEach(match => {
+        round.matches.forEach((match, index) => {
           const matchDiv = document.createElement('div');
           matchDiv.classList.add('bracket-match');
           matchDiv.innerHTML = `
+            <h4>Матч ${index + 1}</h4>
             <p>Комната: ${match.room || 'Не указана'}</p>
             <p>Судья: ${match.judge || 'Не указан'}</p>
-            <ul>${match.teams.map(team => `<li>${team.position}: ${team.faction_name} (${team.club})</li>`).join('')}</ul>
+            <ul>${match.teams.map(team => `<li><span>${team.position}:</span> <strong>${team.faction_name}</strong> (${team.club})</li>`).join('')}</ul>
           `;
           roundDiv.appendChild(matchDiv);
         });
