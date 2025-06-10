@@ -484,7 +484,7 @@ async function renderMorePosts(newPosts) {
       ${post.image_url ? `<img src="${post.image_url}" class="post-image">` : ''}
       <div class="post-actions">
         <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">👍 0</button>
-        <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">� 0</button>
+        <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">👎 0</button>
         <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (0)</button>
       </div>
       <div class="comment-section" id="comments-${post.id}" style="display: none;">
@@ -1033,7 +1033,7 @@ async function showTournamentDetails(tournamentId) {
         regTabBtn.className = 'tab-btn';
         regTabBtn.textContent = 'Регистрация';
         tabsContainer.appendChild(regTabBtn);
-        initRegistration(isCreator);
+        initRegistration();
         loadRegistrations(tournamentId, isCreator);
         
         if (isCreator) {
@@ -1068,6 +1068,7 @@ async function showTournamentDetails(tournamentId) {
                 const tabId = e.target.id.replace('-tab', '');
                 let activeContentId = `tournament-${tabId}`;
                 if (tabId === 'tab-management') activeContentId = 'tournament-tab-management';
+                if (tabId === 'participants') activeContentId = 'tournament-participants';
 
                 allContent.forEach(el => el.classList.remove('active'));
                 allTabs.forEach(el => el.classList.remove('active'));
@@ -1110,7 +1111,7 @@ async function loadTournamentPosts(tournamentId) {
     }
 }
 
-function initRegistration(isCreator) {
+function initRegistration() {
     const registerBtn = document.getElementById('register-tournament-btn');
     const registrationForm = document.getElementById('registration-form');
     const submitRegistrationBtn = document.getElementById('submit-registration-btn');
@@ -1171,7 +1172,7 @@ function initRegistration(isCreator) {
             alert('Регистрация отправлена! Ваш напарник получит уведомление.');
             registrationForm.classList.add('form-hidden');
             registrationForm.reset();
-            loadRegistrations(currentTournamentId, isCreator);
+            loadRegistrations(currentTournamentId, true);
         } catch (error) {
             alert('Ошибка: ' + error.message);
         } finally {
@@ -1261,9 +1262,9 @@ async function deleteRegistration(registrationId, tournamentId, isCreator) {
 }
 
 async function updateRegistrationStatus(registrationId, newStatus) {
+    const isCreator = true; 
     try {
         await supabaseFetch(`registrations?id=eq.${registrationId}`, 'PATCH', { status: newStatus });
-        const isCreator = true; 
         loadRegistrations(currentTournamentId, isCreator);
         loadTabManagement(currentTournamentId, isCreator);
     } catch (error) {
@@ -1474,7 +1475,7 @@ async function generateBracket() {
   }
 }
 
-async function loadBracket(tournamentId) {
+async function loadBracket(tournamentId, isCreator) {
   const bracketDisplay = document.getElementById('bracket-display');
   try {
     const brackets = await supabaseFetch(`brackets?tournament_id=eq.${tournamentId}&order=timestamp.desc`, 'GET');
