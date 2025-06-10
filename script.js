@@ -1029,7 +1029,19 @@ async function showTournamentDetails(tournamentId) {
         document.getElementById('tournament-details').classList.add('active');
 
         const tabsContainer = document.getElementById('tournament-nav-tabs');
-        const contentContainer = document.querySelector('#tournament-details .tournament-future-content');
+        
+        // --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
+        // Раньше было: document.querySelector('#tournament-details .tournament-future-content')
+        // Это неверно, т.к. искало элемент с КЛАССОМ .tournament-future-content
+        // Правильно искать по ID.
+        const contentContainer = document.getElementById('tournament-future-content');
+        
+        if (!contentContainer) {
+            console.error('Critical error: contentContainer not found!');
+            return;
+        }
+        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
         tabsContainer.innerHTML = '<button id="posts-tab" class="tab-btn">Посты</button>';
         
         contentContainer.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -1081,7 +1093,10 @@ async function showTournamentDetails(tournamentId) {
                 allContent.forEach(el => el.classList.remove('active'));
                 allTabs.forEach(el => el.classList.remove('active'));
                 
-                document.getElementById(activeContentId).classList.add('active');
+                const activeContentElement = document.getElementById(activeContentId);
+                if (activeContentElement) {
+                    activeContentElement.classList.add('active');
+                }
                 e.target.classList.add('active');
             });
         });
