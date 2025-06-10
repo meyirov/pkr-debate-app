@@ -24,6 +24,7 @@ let commentsCache = new Map();
 let lastCommentIds = new Map();
 let newCommentsCount = new Map();
 let allTournaments = []; // Кэш для всех турниров
+let profilesCache = new Map(); // Кэш для профилей
 
 const ratingData = [
   { name: "Олжас Сейтов", points: 948, rank: 1, club: "Дербес" },
@@ -148,6 +149,7 @@ async function checkProfile() {
     const profiles = await supabaseFetch(`profiles?telegram_username=eq.${telegramUsername}`, 'GET');
     if (profiles?.length > 0) {
       userData.fullname = profiles[0].fullname;
+      profilesCache.set(profiles[0].telegram_username, profiles[0].fullname);
       showApp();
       await saveChatId(profiles[0].id);
     } else {
@@ -804,7 +806,7 @@ async function renderMoreComments(postId, newComments) {
 }
 
 async function addComment(event, postId) {
-  event.preventDefault(); // ИСПРАВЛЕНО: Предотвращаем стандартное поведение формы
+  event.preventDefault(); 
   postId = parseInt(postId);
   const commentInput = document.getElementById(`comment-input-${postId}`);
   const commentButton = commentInput.parentElement.querySelector('button');
@@ -885,7 +887,7 @@ function initTournaments() {
     });
 
     createTournamentForm.addEventListener('submit', async (e) => {
-        e.preventDefault(); // ИСПРАВЛЕНО: предотвращаем перезагрузку страницы
+        e.preventDefault(); 
         const submitTournamentBtn = document.getElementById('submit-tournament');
         submitTournamentBtn.disabled = true;
 
@@ -913,7 +915,7 @@ function initTournaments() {
             await supabaseFetch('tournaments', 'POST', tournament);
             alert('Турнир создан!');
             createTournamentForm.classList.add('form-hidden');
-            createTournamentForm.reset(); // ИСПРАВЛЕНО: корректно сбрасываем форму
+            createTournamentForm.reset(); 
             loadTournaments(true);
         } catch (error) {
             alert('Ошибка создания турнира: ' + error.message);
@@ -1029,18 +1031,12 @@ async function showTournamentDetails(tournamentId) {
         document.getElementById('tournament-details').classList.add('active');
 
         const tabsContainer = document.getElementById('tournament-nav-tabs');
-        
-        // --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
-        // Раньше было: document.querySelector('#tournament-details .tournament-future-content')
-        // Это неверно, т.к. искало элемент с КЛАССОМ .tournament-future-content
-        // Правильно искать по ID.
         const contentContainer = document.getElementById('tournament-future-content');
         
         if (!contentContainer) {
             console.error('Critical error: contentContainer not found!');
             return;
         }
-        // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
         tabsContainer.innerHTML = '<button id="posts-tab" class="tab-btn">Посты</button>';
         
@@ -1121,7 +1117,6 @@ async function loadTournamentPosts(tournamentId, isCreator, tournamentName) {
             <div id="tournament-posts-list"></div>
         `;
         document.getElementById('submit-tournament-post').onclick = async () => {
-            // ИСПРАВЛЕНО: Добавлена логика отправки поста от имени турнира
             const postText = document.getElementById('tournament-post-text').value.trim();
             if (!postText) {
                 alert('Введите текст поста!');
@@ -1135,7 +1130,7 @@ async function loadTournamentPosts(tournamentId, isCreator, tournamentName) {
             try {
                 await supabaseFetch('tournament_posts', 'POST', post);
                 document.getElementById('tournament-post-text').value = '';
-                loadTournamentPosts(tournamentId, isCreator, tournamentName); // Перезагружаем посты
+                loadTournamentPosts(tournamentId, isCreator, tournamentName); 
             } catch (error) {
                 alert('Ошибка при публикации поста: ' + error.message);
             }
@@ -1151,7 +1146,7 @@ async function loadTournamentPosts(tournamentId, isCreator, tournamentName) {
         if (posts?.length > 0) {
             posts.forEach(post => {
                 const postDiv = document.createElement('div');
-                postDiv.classList.add('post'); // Используем существующий класс для стилизации
+                postDiv.classList.add('post'); 
                 const formattedContent = formatPostContent(post.text);
                 const timeAgo = getTimeAgo(new Date(post.timestamp));
                 postDiv.innerHTML = `
@@ -1217,7 +1212,6 @@ function initRegistration() {
             const teammate = registrationData.speaker1_username === currentUser ? registrationData.speaker2_username : registrationData.speaker1_username;
             const tournamentInfo = allTournaments.find(t => t.id === currentTournamentId);
 
-            // ИСПРАВЛЕНО: Добавляем название турнира в уведомление
             const { error: invokeError } = await supabaseClient.functions.invoke('send-telegram-notification', {
               body: JSON.stringify({
                 type: 'registration',
@@ -1480,17 +1474,21 @@ async function generateBracket() {
     return;
   }
   
-  // ИСПРАВЛЕНО: Загружаем только принятые ("accepted") команды для генерации сетки.
   const registrations = await supabaseFetch(`registrations?tournament_id=eq.${currentTournamentId}&status=eq.accepted&order=timestamp.asc`, 'GET');
   
   if (!registrations || registrations.length < factionCount) {
     alert(`Недостаточно принятых команд для формирования сетки! В ТЭБе ${registrations.length}, а требуется ${factionCount}.`);
     return;
   }
-
+  
+  // НОВОЕ: Формируем команды с полными данными о спикерах
   const teams = registrations.slice(0, factionCount).map(reg => ({
     faction_name: reg.faction_name,
-    club: reg.club
+    club: reg.club,
+    speakers: [
+        { username: reg.speaker1_username, points: 0 },
+        { username: reg.speaker2_username, points: 0 }
+    ]
   }));
 
   const positions = format === 'АПФ' ? ['Правительство', 'Оппозиция'] : ['ОП', 'ОО', 'ЗП', 'ЗО'];
@@ -1504,13 +1502,12 @@ async function generateBracket() {
     let attempts = 0;
     
     while (availableTeams.length >= teamsPerMatch) {
-      if (attempts > 500) { // Защита от бесконечного цикла
+      if (attempts > 500) { 
           alert(`Не удалось сформировать уникальные пары для раунда ${round + 1}. Попробуйте снова.`);
           return;
       }
       
       let matchTeams = [];
-      // Создаем временную копию для извлечения команд
       let tempAvailable = [...availableTeams]; 
       for (let i = 0; i < teamsPerMatch; i++) {
         const randomIndex = Math.floor(Math.random() * tempAvailable.length);
@@ -1521,23 +1518,23 @@ async function generateBracket() {
       
       if (usedPairs.has(matchKey)) {
         attempts++;
-        continue; // Повторяем попытку сгенерировать матч, не меняя availableTeams
+        continue;
       }
       
-      // Если пара уникальна, удаляем команды из основного списка доступных
       availableTeams = availableTeams.filter(team => !matchTeams.find(mt => mt.faction_name === team.faction_name));
       
       usedPairs.add(matchKey);
       attempts = 0;
       
+      // НОВОЕ: Сохраняем расширенную структуру команды в матч
       const match = {
         teams: matchTeams.map((team, idx) => ({
-          faction_name: team.faction_name,
-          club: team.club,
+          ...team, // Копируем все данные команды, включая спикеров
           position: positions[idx]
         })),
         room: '',
-        judge: ''
+        judge: '',
+        winner: null // Победитель пока не определен
       };
       roundMatches.push(match);
     }
@@ -1561,25 +1558,150 @@ async function generateBracket() {
   }
 }
 
+// НОВОЕ: Функция для получения имен спикеров (с кэшированием)
+async function getSpeakerFullNames(usernames) {
+    const names = new Map();
+    const usernamesToFetch = [];
+
+    for (const username of usernames) {
+        if (profilesCache.has(username)) {
+            names.set(username, profilesCache.get(username));
+        } else {
+            usernamesToFetch.push(username);
+        }
+    }
+
+    if (usernamesToFetch.length > 0) {
+        const fetchedProfiles = await supabaseFetch(`profiles?telegram_username=in.(${usernamesToFetch.join(',')})`, 'GET');
+        if (fetchedProfiles) {
+            fetchedProfiles.forEach(p => {
+                profilesCache.set(p.telegram_username, p.fullname);
+                names.set(p.telegram_username, p.fullname);
+            });
+        }
+    }
+    return names;
+}
+
+
+async function openResultsModal(roundIndex, matchIndex) {
+    const modal = document.getElementById('results-modal');
+    const modalBody = document.getElementById('results-modal-body');
+    const saveBtn = document.getElementById('save-results-btn');
+    const cancelBtn = document.getElementById('cancel-results-btn');
+
+    const bracket = window.currentBracketData;
+    const match = bracket.matches[roundIndex].matches[matchIndex];
+
+    const allUsernames = match.teams.flatMap(team => team.speakers.map(s => s.username));
+    const speakerNames = await getSpeakerFullNames(allUsernames);
+
+    let modalHtml = '<h4>Выберите победителя:</h4>';
+    match.teams.forEach(team => {
+        const isChecked = match.winner === team.faction_name ? 'checked' : '';
+        modalHtml += `
+            <div class="team-header">
+                <input type="radio" id="winner-${team.faction_name}" name="winner" value="${team.faction_name}" ${isChecked}>
+                <label for="winner-${team.faction_name}"><strong>${team.faction_name}</strong></label>
+            </div>
+        `;
+    });
+
+    modalHtml += '<hr><h4>Введите баллы спикеров:</h4>';
+
+    match.teams.forEach(team => {
+        modalHtml += `<div class="team-block"><h5>${team.faction_name}</h5>`;
+        team.speakers.forEach((speaker, speakerIndex) => {
+            const fullName = speakerNames.get(speaker.username) || speaker.username;
+            modalHtml += `
+                <div class="speaker-score">
+                    <label for="score-${speaker.username}">${fullName}</label>
+                    <input type="number" id="score-${speaker.username}" value="${speaker.points || 0}" min="0">
+                </div>
+            `;
+        });
+        modalHtml += '</div>';
+    });
+
+    modalBody.innerHTML = modalHtml;
+
+    saveBtn.onclick = () => saveMatchResults(roundIndex, matchIndex);
+    cancelBtn.onclick = () => modal.style.display = 'none';
+
+    modal.style.display = 'flex';
+}
+
+async function saveMatchResults(roundIndex, matchIndex) {
+    const modal = document.getElementById('results-modal');
+    const bracket = window.currentBracketData;
+    const match = bracket.matches[roundIndex].matches[matchIndex];
+
+    // Обновляем баллы спикеров
+    match.teams.forEach(team => {
+        team.speakers.forEach(speaker => {
+            const input = document.getElementById(`score-${speaker.username}`);
+            speaker.points = parseInt(input.value) || 0;
+        });
+    });
+
+    // Обновляем победителя
+    const winnerInput = document.querySelector('input[name="winner"]:checked');
+    match.winner = winnerInput ? winnerInput.value : null;
+
+    try {
+        await supabaseFetch(`brackets?id=eq.${bracket.id}`, 'PATCH', {
+            matches: bracket.matches
+        });
+        modal.style.display = 'none';
+        loadBracket(bracket.tournament_id, true);
+    } catch (error) {
+        alert('Ошибка сохранения: ' + error.message);
+    }
+}
+
+
 async function loadBracket(tournamentId, isCreator) {
   const bracketDisplay = document.getElementById('bracket-display');
   try {
-    const brackets = await supabaseFetch(`brackets?tournament_id=eq.${tournamentId}&order=timestamp.desc`, 'GET');
+    const brackets = await supabaseFetch(`brackets?tournament_id=eq.${tournamentId}&order=timestamp.desc&limit=1`, 'GET');
     bracketDisplay.innerHTML = '';
+
     if (brackets?.length > 0) {
       const bracket = brackets[0];
-      bracket.matches.forEach(round => {
+      window.currentBracketData = bracket;
+
+      bracket.matches.forEach((round, roundIndex) => {
         const roundDiv = document.createElement('div');
         roundDiv.classList.add('bracket-round');
         roundDiv.innerHTML = `<h3>Раунд ${round.round}</h3>`;
-        round.matches.forEach((match, index) => {
+
+        round.matches.forEach((match, matchIndex) => {
           const matchDiv = document.createElement('div');
           matchDiv.classList.add('bracket-match');
+          
+          let teamsHtml = match.teams.map(team => {
+            const isWinner = match.winner === team.faction_name;
+            const winnerClass = isWinner ? 'class="match-winner"' : '';
+            
+            const totalScore = team.speakers.reduce((sum, s) => sum + (s.points || 0), 0);
+            const scoreHtml = totalScore > 0 ? `<span class="team-total-score">(${totalScore})</span>` : '';
+
+            return `<li ${winnerClass}>
+                        <div class="team-name-wrapper">
+                            <span>${team.position}: <strong>${team.faction_name}</strong></span>
+                            ${scoreHtml}
+                        </div>
+                    </li>`;
+          }).join('');
+
+          const resultButton = isCreator ? `<button class="result-btn" onclick="openResultsModal(${roundIndex}, ${matchIndex})">Ввести результат</button>` : '';
+
           matchDiv.innerHTML = `
-            <h4>Матч ${index + 1}</h4>
+            <h4>Матч ${matchIndex + 1}</h4>
             <p>Комната: ${match.room || 'Не указана'}</p>
             <p>Судья: ${match.judge || 'Не указан'}</p>
-            <ul>${match.teams.map(team => `<li><span>${team.position}:</span> <strong>${team.faction_name}</strong> (${team.club})</li>`).join('')}</ul>
+            <ul>${teamsHtml}</ul>
+            ${resultButton}
           `;
           roundDiv.appendChild(matchDiv);
         });
@@ -1590,8 +1712,10 @@ async function loadBracket(tournamentId, isCreator) {
     }
   } catch (error) {
     bracketDisplay.innerHTML = '<p>Ошибка загрузки сетки.</p>';
+    console.error("Error loading bracket:", error);
   }
 }
+
 
 function initRating() {
     const cityView = document.getElementById('rating-city-view');
