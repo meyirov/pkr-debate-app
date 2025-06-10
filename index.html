@@ -95,12 +95,12 @@
                 <button id="toggle-description-btn">Развернуть описание</button>
                 <hr class="section-divider">
                 <div id="tournament-future-content">
-                    <div class="tournament-tabs">
+                    <div id="tournament-nav-tabs" class="tournament-tabs">
                         <button id="posts-tab" class="tab-btn active">Посты</button>
-                        <button id="registration-tab" class="tab-btn">Регистрация</button>
-                        <button id="bracket-tab" class="tab-btn">Сетка</button>
-                    </div>
+                        </div>
+                    
                     <div id="tournament-posts" class="tab-content active"></div>
+                    
                     <div id="tournament-registration" class="tab-content">
                         <button id="register-tournament-btn">Зарегистрироваться</button>
                         <div id="registration-form" class="form-hidden">
@@ -115,6 +115,25 @@
                         </div>
                         <div id="registration-list"></div>
                     </div>
+
+                    <div id="tournament-tab-management" class="tab-content">
+                        <div class="tab-stats" id="tab-stats"></div>
+                        <button id="publish-tab-btn" class="publish-btn"></button>
+                        <h3>Основной состав</h3>
+                        <div id="tab-main-list"></div>
+                        <hr class="section-divider">
+                        <h3>Резерв</h3>
+                        <div id="tab-reserve-list"></div>
+                    </div>
+                    
+                    <div id="tournament-participants" class="tab-content">
+                        <h3>Основной состав</h3>
+                        <div id="participants-main-list"></div>
+                        <hr class="section-divider">
+                        <h3>Резерв</h3>
+                        <div id="participants-reserve-list"></div>
+                    </div>
+
                     <div id="tournament-bracket" class="tab-content"></div>
                 </div>
             </section>
