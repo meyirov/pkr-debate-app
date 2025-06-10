@@ -904,10 +904,11 @@ body {
     display: flex;
     gap: 15px;
     margin-bottom: 10px;
+    flex-wrap: wrap;
 }
 
-.bracket-match .match-details p {
-    margin: 0;
+.bracket-match .match-details span,
+.bracket-match .match-details .inline-bracket-input {
     font-size: 14px;
     color: #a0a0a0;
 }
@@ -990,26 +991,36 @@ body {
 
 .bracket-controls {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
     margin-bottom: 15px;
+    padding: 10px;
+    background-color: #1a1a1a;
+    border-radius: 12px;
 }
 .bracket-controls button {
-    flex: 1;
-    padding: 8px 12px;
+    flex-grow: 1;
+    padding: 10px 12px;
     font-size: 14px;
     font-weight: 600;
     border-radius: 8px;
     border: none;
     cursor: pointer;
-    transition: background-color 0.2s ease;
+    transition: background-color 0.2s ease, opacity 0.2s ease;
 }
 
-#publish-bracket-btn {
+.bracket-controls button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+
+#publish-bracket-btn, #generate-next-round-btn {
     background-color: #22c55e;
     color: #fff;
 }
 
-#unpublish-bracket-btn {
+#unpublish-bracket-btn, #publish-results-btn {
     background-color: #ef4444;
     color: #fff;
 }
