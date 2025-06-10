@@ -1181,8 +1181,10 @@ function initRegistration() {
         const registrationData = {
             tournament_id: currentTournamentId,
             faction_name: document.getElementById('reg-faction-name').value.trim(),
+            // --- ИЗМЕНЕНИЯ ЗДЕСЬ ---
             speaker1_username: document.getElementById('reg-username1').value.trim(),
             speaker2_username: document.getElementById('reg-username2').value.trim(),
+            // -------------------------
             club: document.getElementById('reg-club').value.trim(),
             city: document.getElementById('reg-city').value.trim(),
             contacts: document.getElementById('reg-contacts').value.trim(),
