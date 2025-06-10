@@ -180,10 +180,10 @@ function showApp() {
   document.getElementById('feed-btn').click();
 }
 
-function initAppEventListeners() {
-    const sections = document.querySelectorAll('.content');
-    const buttons = document.querySelectorAll('.nav-btn');
+const sections = document.querySelectorAll('.content');
+const buttons = document.querySelectorAll('.nav-btn');
 
+function initAppEventListeners() {
     buttons.forEach(button => {
         button.addEventListener('click', () => {
             buttons.forEach(btn => btn.classList.remove('active'));
@@ -483,7 +483,7 @@ async function renderMorePosts(newPosts) {
       <div class="post-content">${formattedContent}</div>
       ${post.image_url ? `<img src="${post.image_url}" class="post-image">` : ''}
       <div class="post-actions">
-        <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">� 0</button>
+        <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">👍 0</button>
         <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">👎 0</button>
         <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (0)</button>
       </div>
@@ -534,19 +534,19 @@ async function loadReactionsAndComments(postId) {
 async function updatePost(postId) {
     const postIndex = postsCache.findIndex(post => post.id === postId);
     if (postIndex === -1) return;
-    const { data: postData, error } = await supabaseClient.from('posts').select('*').eq('id', postId).single();
-    if (error || !postData) return;
+    const postData = await supabaseFetch(`posts?id=eq.${postId}&select=*`, 'GET');
+    if (!postData || postData.length === 0) return;
 
-    postsCache[postIndex] = postData;
+    postsCache[postIndex] = postData[0];
     const postDiv = document.querySelector(`.post[data-post-id="${postId}"]`);
     if (!postDiv) return;
 
-    const [userInfo, ...contentParts] = postData.text.split(':\n');
+    const [userInfo, ...contentParts] = postData[0].text.split(':\n');
     const [fullname, username] = userInfo.split(' (@');
     const cleanUsername = username ? username.replace(')', '') : '';
     const content = contentParts.join(':\n');
     const formattedContent = formatPostContent(content);
-    const timeAgo = getTimeAgo(new Date(postData.timestamp));
+    const timeAgo = getTimeAgo(new Date(postData[0].timestamp));
 
     const reactions = await loadReactions(postId);
     const likes = reactions.filter(r => r.type === 'like').length;
@@ -896,7 +896,7 @@ function initTournaments() {
             deadline: document.getElementById('tournament-deadline').value.trim(),
             creator_id: userData.telegramUsername,
             timestamp: new Date().toISOString(),
-            tab_published: false // Новое поле
+            tab_published: false
         };
 
         if (!tournament.name || !tournament.date || !tournament.city || !tournament.scale) {
@@ -996,6 +996,7 @@ function renderFilteredTournaments() {
 }
 
 async function showTournamentDetails(tournamentId) {
+    const sections = document.querySelectorAll('.content');
     try {
         const tournamentData = await supabaseFetch(`tournaments?id=eq.${tournamentId}&select=*`, 'GET');
         if (!tournamentData || tournamentData.length === 0) return;
@@ -1034,7 +1035,7 @@ async function showTournamentDetails(tournamentId) {
         regTabBtn.className = 'tab-btn';
         regTabBtn.textContent = 'Регистрация';
         tabsContainer.appendChild(regTabBtn);
-        initRegistration(isCreator);
+        initRegistration();
         loadRegistrations(tournamentId, isCreator);
         
         if (isCreator) {
@@ -1099,7 +1100,7 @@ async function loadTournamentPosts(tournamentId, isCreator, tournamentName) {
       <div id="tournament-posts-list"></div>
     `;
     document.getElementById('submit-tournament-post').onclick = async () => {
-      // ... (логика публикации поста)
+        // Логика отправки поста от имени турнира
     };
   } else {
     postsSection.innerHTML = `<div id="tournament-posts-list"></div>`;
@@ -1490,7 +1491,7 @@ async function generateBracket() {
   }
 }
 
-async function loadBracket(tournamentId) {
+async function loadBracket(tournamentId, isCreator) {
   const bracketDisplay = document.getElementById('bracket-display');
   try {
     const brackets = await supabaseFetch(`brackets?tournament_id=eq.${tournamentId}&order=timestamp.desc`, 'GET');
