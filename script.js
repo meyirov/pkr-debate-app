@@ -1455,6 +1455,7 @@ function initBracket(isCreator) {
   }
 }
 
+// Найдите эту функцию в script.js
 async function generateBracket() {
   if (!confirm("Вы уверены, что хотите сгенерировать новую сетку? Это действие удалит существующую сетку для этого турнира.")) {
       return;
@@ -1488,7 +1489,6 @@ async function generateBracket() {
     speakers: [{ username: reg.speaker1_username, points: 0 }, { username: reg.speaker2_username, points: 0 }]
   }));
   
-  // Перемешиваем команды для случайного первого раунда
   teams.sort(() => Math.random() - 0.5);
 
   const positions = format === 'АПФ' ? ['Правительство', 'Оппозиция'] : ['ОП', 'ОО', 'ЗП', 'ЗО'];
@@ -1512,6 +1512,9 @@ async function generateBracket() {
     results_published: false,
     timestamp: new Date().toISOString()
   };
+
+  // --- ДОБАВЬТЕ СТРОКУ НИЖЕ ---
+  console.log("Отправка в Supabase:", JSON.stringify(bracket, null, 2));
 
   try {
     const existingBrackets = await supabaseFetch(`brackets?tournament_id=eq.${currentTournamentId}`, 'GET');
