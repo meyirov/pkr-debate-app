@@ -778,7 +778,7 @@ body {
     margin-top: 10px;
 }
 
-.action-btn {
+.action-btn, .delete-registration-btn {
     background: #262626;
     border: 1px solid #444;
     color: #e6e6e6;
@@ -789,7 +789,7 @@ body {
     transition: all 0.2s ease;
 }
 
-.action-btn:hover {
+.action-btn:hover, .delete-registration-btn:hover {
     background-color: #333;
 }
 
@@ -802,6 +802,12 @@ body {
 .action-btn.remove {
     color: #ef4444;
 }
+
+.delete-registration-btn {
+    color: #ef4444;
+    margin-left: auto;
+}
+
 
 .tab-stats {
     background: #1a1a1a;
