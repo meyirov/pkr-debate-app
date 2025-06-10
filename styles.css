@@ -879,6 +879,7 @@ body {
     font-size: 14px;
     font-weight: 600;
     transition: background 0.2s ease;
+    margin-top: 10px;
 }
 
 .bracket-round {
@@ -1013,7 +1014,6 @@ body {
     opacity: 0.5;
     cursor: not-allowed;
 }
-
 
 #publish-bracket-btn, #generate-next-round-btn {
     background-color: #22c55e;
