@@ -483,7 +483,7 @@ async function renderMorePosts(newPosts) {
       <div class="post-content">${formattedContent}</div>
       ${post.image_url ? `<img src="${post.image_url}" class="post-image">` : ''}
       <div class="post-actions">
-        <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">👍 0</button>
+        <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">� 0</button>
         <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">👎 0</button>
         <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (0)</button>
       </div>
@@ -895,7 +895,8 @@ function initTournaments() {
             address: document.getElementById('tournament-address').value.trim(),
             deadline: document.getElementById('tournament-deadline').value.trim(),
             creator_id: userData.telegramUsername,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            tab_published: false // Новое поле
         };
 
         if (!tournament.name || !tournament.date || !tournament.city || !tournament.scale) {
@@ -1026,14 +1027,14 @@ async function showTournamentDetails(tournamentId) {
         
         contentContainer.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
         
-        loadTournamentPosts(tournamentId);
+        loadTournamentPosts(tournamentId, isCreator, tournament.name);
 
         const regTabBtn = document.createElement('button');
         regTabBtn.id = 'registration-tab';
         regTabBtn.className = 'tab-btn';
         regTabBtn.textContent = 'Регистрация';
         tabsContainer.appendChild(regTabBtn);
-        initRegistration();
+        initRegistration(isCreator);
         loadRegistrations(tournamentId, isCreator);
         
         if (isCreator) {
@@ -1086,29 +1087,43 @@ async function showTournamentDetails(tournamentId) {
     }
 }
 
-async function loadTournamentPosts(tournamentId) {
-    const postsList = document.getElementById('tournament-posts');
-    if(!postsList) return;
-    postsList.innerHTML = '<p>Загрузка постов...</p>';
-    try {
-        const posts = await supabaseFetch(`tournament_posts?tournament_id=eq.${tournamentId}&order=timestamp.desc`, 'GET');
-        postsList.innerHTML = '';
-        if (posts?.length > 0) {
-            const tournament = (await supabaseFetch(`tournaments?id=eq.${tournamentId}`, 'GET'))[0];
-            posts.forEach(post => {
-                const postDiv = document.createElement('div');
-                postDiv.classList.add('post');
-                postDiv.innerHTML = `
-                    <div class="post-header"><strong>Турнир: ${tournament.name}</strong></div>
-                    <div class="post-content">${post.text}</div>`;
-                postsList.appendChild(postDiv);
-            });
-        } else {
-            postsList.innerHTML = '<p>Пока нет постов от турнира.</p>';
-        }
-    } catch (error) {
-        postsList.innerHTML = '<p>Ошибка загрузки постов.</p>';
+async function loadTournamentPosts(tournamentId, isCreator, tournamentName) {
+  const postsSection = document.getElementById('tournament-posts');
+  postsSection.innerHTML = '';
+  if (isCreator) {
+    postsSection.innerHTML = `
+      <div id="new-tournament-post">
+        <textarea id="tournament-post-text" placeholder="Создать пост от имени турнира"></textarea>
+        <button id="submit-tournament-post">Опубликовать</button>
+      </div>
+      <div id="tournament-posts-list"></div>
+    `;
+    document.getElementById('submit-tournament-post').onclick = async () => {
+      // ... (логика публикации поста)
+    };
+  } else {
+    postsSection.innerHTML = `<div id="tournament-posts-list"></div>`;
+  }
+  const postsList = document.getElementById('tournament-posts-list');
+  postsList.innerHTML = '<p>Загрузка постов...</p>';
+  try {
+    const posts = await supabaseFetch(`tournament_posts?tournament_id=eq.${tournamentId}&order=timestamp.desc`, 'GET');
+    postsList.innerHTML = '';
+    if (posts?.length > 0) {
+      posts.forEach(post => {
+        const postDiv = document.createElement('div');
+        postDiv.classList.add('post');
+        postDiv.innerHTML = `
+          <div class="post-header"><strong>Турнир: ${tournamentName}</strong></div>
+          <div class="post-content">${post.text}</div>`;
+        postsList.appendChild(postDiv);
+      });
+    } else {
+      postsList.innerHTML = '<p>Пока нет постов от турнира.</p>';
     }
+  } catch (error) {
+    postsList.innerHTML = '<p>Ошибка загрузки постов.</p>';
+  }
 }
 
 function initRegistration() {
@@ -1475,7 +1490,7 @@ async function generateBracket() {
   }
 }
 
-async function loadBracket(tournamentId, isCreator) {
+async function loadBracket(tournamentId) {
   const bracketDisplay = document.getElementById('bracket-display');
   try {
     const brackets = await supabaseFetch(`brackets?tournament_id=eq.${tournamentId}&order=timestamp.desc`, 'GET');
