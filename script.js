@@ -1438,13 +1438,13 @@ function initBracket(isCreator) {
   if (isCreator) {
     bracketSection.innerHTML = `
       <div id="bracket-form">
-        <h4>Новая сетка</h4>
+        <h4>Управление сеткой отборочных раундов</h4>
         <select id="bracket-format">
           <option value="АПФ">АПФ</option>
           <option value="БПФ">БПФ</option>
         </select>
-        <input id="bracket-faction-count" type="number" placeholder="Количество фракций" min="2" step="2">
-        <input id="bracket-round-count" type="number" placeholder="Количество раундов" min="1" max="5">
+        <input id="bracket-faction-count" type="number" placeholder="Количество фракций" required>
+        <input id="bracket-round-count" type="number" placeholder="Количество раундов" required>
         <button id="generate-bracket-btn">Сгенерировать 1-й раунд</button>
       </div>
       <div id="bracket-display"></div>
@@ -1462,14 +1462,16 @@ async function generateBracket() {
 
   const format = document.getElementById('bracket-format').value;
   const factionCount = parseInt(document.getElementById('bracket-faction-count').value);
-  const roundCount = parseInt(document.getElementById('bracket-round-count').value);
+  const roundCountValue = document.getElementById('bracket-round-count').value;
+
+  if (!roundCountValue || isNaN(parseInt(roundCountValue)) || parseInt(roundCountValue) < 1) {
+    alert('Пожалуйста, введите корректное количество раундов (целое число больше 0).');
+    return;
+  }
+  const roundCount = parseInt(roundCountValue);
 
   if (isNaN(factionCount) || factionCount < 2 || (format === 'АПФ' && factionCount % 2 !== 0) || (format === 'БПФ' && factionCount % 4 !== 0)) {
     alert('Количество фракций не соответствует требованиям формата!');
-    return;
-  }
-  if (isNaN(roundCount) || roundCount < 1) {
-    alert('Введите корректное количество раундов.');
     return;
   }
   
@@ -1480,18 +1482,21 @@ async function generateBracket() {
     return;
   }
   
-  const teams = registrations.slice(0, factionCount).map(reg => ({
+  let teams = registrations.slice(0, factionCount).map(reg => ({
     faction_name: reg.faction_name,
     club: reg.club,
     speakers: [{ username: reg.speaker1_username, points: 0 }, { username: reg.speaker2_username, points: 0 }]
   }));
   
+  // Перемешиваем команды для случайного первого раунда
+  teams.sort(() => Math.random() - 0.5);
+
   const positions = format === 'АПФ' ? ['Правительство', 'Оппозиция'] : ['ОП', 'ОО', 'ЗП', 'ЗО'];
   const teamsPerMatch = format === 'АПФ' ? 2 : 4;
   
-  let availableTeams = [...teams];
   const roundMatches = [];
-  while(availableTeams.length > 0) {
+  let availableTeams = [...teams];
+  while(availableTeams.length >= teamsPerMatch) {
       const matchTeams = availableTeams.splice(0, teamsPerMatch);
       roundMatches.push({
           teams: matchTeams.map((team, idx) => ({ ...team, position: positions[idx] })),
@@ -1509,7 +1514,6 @@ async function generateBracket() {
   };
 
   try {
-    // Удаляем старую сетку перед созданием новой
     const existingBrackets = await supabaseFetch(`brackets?tournament_id=eq.${currentTournamentId}`, 'GET');
     if (existingBrackets && existingBrackets.length > 0) {
       await supabaseFetch(`brackets?id=eq.${existingBrackets[0].id}`, 'DELETE');
@@ -1518,6 +1522,7 @@ async function generateBracket() {
     loadBracket(currentTournamentId, true);
   } catch (error) {
     alert('Ошибка: ' + error.message);
+    console.error(error);
   }
 }
 
@@ -1528,7 +1533,6 @@ async function generateNextRound() {
     const currentRoundNumber = bracket.matches.length;
     const lastRound = bracket.matches[currentRoundNumber - 1];
 
-    // Проверка, что все результаты в последнем раунде введены
     const allResultsEntered = lastRound.matches.every(match => match.winner);
     if (!allResultsEntered) {
         alert(`Сначала введите все результаты для раунда ${currentRoundNumber}.`);
@@ -1537,7 +1541,6 @@ async function generateNextRound() {
 
     if (!confirm(`Вы уверены, что хотите сгенерировать раунд ${currentRoundNumber + 1}?`)) return;
 
-    // --- Логика Power Pairing ---
     let teamWins = {};
     let pastOpponents = {};
 
@@ -1547,9 +1550,7 @@ async function generateNextRound() {
             teamNames.forEach(name => {
                 if (!teamWins[name]) teamWins[name] = 0;
                 if (!pastOpponents[name]) pastOpponents[name] = new Set();
-                teamNames.forEach(opp => {
-                    if (opp !== name) pastOpponents[name].add(opp);
-                });
+                teamNames.forEach(opp => { if (opp !== name) pastOpponents[name].add(opp); });
             });
             if (match.winner) {
                 teamWins[match.winner]++;
@@ -1557,14 +1558,14 @@ async function generateNextRound() {
         });
     });
 
-    const allTeams = bracket.matches[0].matches.flatMap(m => m.teams);
+    const allTeamsFromBracket = bracket.matches[0].matches.flatMap(m => m.teams.map(t => ({faction_name: t.faction_name, club: t.club, speakers: t.speakers})));
     
     let teamsByWins = {};
     Object.keys(teamWins).forEach(name => {
         const winCount = teamWins[name];
         if (!teamsByWins[winCount]) teamsByWins[winCount] = [];
-        const teamData = allTeams.find(t => t.faction_name === name);
-        teamsByWins[winCount].push(teamData);
+        const teamData = allTeamsFromBracket.find(t => t.faction_name === name);
+        if (teamData) teamsByWins[winCount].push(teamData);
     });
 
     const newRoundMatches = [];
@@ -1572,40 +1573,22 @@ async function generateNextRound() {
 
     const sortedWinBrackets = Object.keys(teamsByWins).sort((a, b) => b - a);
     for (const winCount of sortedWinBrackets) {
-        let bucket = teamsByWins[winCount];
-        // Перемешиваем команды в бакете для случайности паринга
-        bucket = bucket.sort(() => Math.random() - 0.5);
+        let bucket = teamsByWins[winCount].sort(() => Math.random() - 0.5);
 
         while (bucket.length >= teamsPerMatch) {
-            // Пытаемся найти валидный матч
-            let foundMatch = false;
-            for (let i = 0; i < 100; i++) { // 100 попыток, чтобы избежать бесконечного цикла
-                let potentialMatch = bucket.slice(0, teamsPerMatch);
-                const teamNamesInMatch = potentialMatch.map(t => t.faction_name);
-                
-                // Проверка на рематчи
-                const isRematch = teamNamesInMatch.some((name, idx) => {
-                    const opponents = teamNamesInMatch.filter((_, oppIdx) => idx !== oppIdx);
-                    return opponents.some(opp => pastOpponents[name].has(opp));
-                });
-
-                if (!isRematch) {
-                    newRoundMatches.push({
-                        teams: potentialMatch.map((team, idx) => ({ ...team, position: "" })), // Позиции будут назначены позже
-                        room: '', judge: '', winner: null
-                    });
-                    bucket.splice(0, teamsPerMatch);
-                    foundMatch = true;
-                    break;
+            let i = 0, j = 1;
+            while (j < bucket.length) {
+                const teamA = bucket[i];
+                const teamB = bucket[j];
+                if (!pastOpponents[teamA.faction_name].has(teamB.faction_name)) {
+                    const matchTeams = [teamA, teamB];
+                    newRoundMatches.push({ teams: matchTeams, room:'', judge:'', winner: null });
+                    bucket.splice(j, 1); 
+                    bucket.splice(i, 1);
+                    i = 0; j = 1; // reset
+                } else {
+                    j++;
                 }
-                // Если рематч, перемешиваем бакет и пробуем снова
-                bucket = bucket.sort(() => Math.random() - 0.5);
-            }
-            if (!foundMatch) {
-                alert(`Не удалось сформировать уникальную пару в группе с ${winCount} победами. Возможно, потребуется ручное вмешательство.`);
-                // Для простоты, просто создаем матч как есть
-                let match = bucket.splice(0, teamsPerMatch);
-                newRoundMatches.push({ teams: match.map(t => ({...t, position: ""})), room:'', judge:'', winner: null });
             }
         }
     }
@@ -1635,7 +1618,6 @@ async function getSpeakerFullNames(usernames) {
         }
     }
 }
-
 
 async function openResultsModal(roundIndex, matchIndex) {
     const modal = document.getElementById('results-modal');
@@ -1794,7 +1776,7 @@ async function loadBracket(tournamentId, isCreator) {
             buttonsHtml += `<button id="unpublish-bracket-btn" onclick="toggleBracketPublication(false)">Снять с публикации</button>`;
         }
 
-        if (currentRoundNumber < totalRounds && allResultsEnteredForLastRound) {
+        if (currentRoundNumber < totalRounds && allResultsEnteredForLastRound && bracket.published) {
             buttonsHtml += `<button id="generate-next-round-btn" onclick="generateNextRound()">Сгенерировать ${currentRoundNumber + 1}-й раунд</button>`;
         }
         
@@ -1831,7 +1813,9 @@ async function loadBracket(tournamentId, isCreator) {
             const isWinner = match.winner === team.faction_name;
             const showResults = bracket.results_published || isCreator;
             const winnerClass = (isWinner && showResults) ? 'class="match-winner"' : '';
-            const totalScore = team.speakers.reduce((sum, s) => sum + (s.points || 0), 0);
+            
+            // Проверка на наличие speakers
+            const totalScore = team.speakers ? team.speakers.reduce((sum, s) => sum + (s.points || 0), 0) : 0;
             const scoreHtml = (totalScore > 0 && showResults) ? `<span class="team-total-score">(${totalScore})</span>` : '';
 
             return `<li ${winnerClass}>
