@@ -873,19 +873,25 @@ body {
     border-bottom: 1px solid #444;
 }
 
-#bracket-form {
+#bracket-form, #playoff-setup-form {
     background: #1a1a1a;
-    padding: 10px;
+    padding: 15px;
     border-radius: 12px;
     margin-bottom: 10px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
+#bracket-form h4, #playoff-setup-form h4 {
+    margin-bottom: 10px;
+}
+
 #bracket-form select,
-#bracket-form input {
+#bracket-form input,
+#playoff-setup-form select,
+#playoff-setup-form input {
     width: 100%;
     padding: 8px;
-    margin: 5px 0;
+    margin-bottom: 10px;
     border: 1px solid #333;
     border-radius: 8px;
     background: #262626;
@@ -893,8 +899,8 @@ body {
     font-size: 14px;
 }
 
-#bracket-form button {
-    padding: 8px 16px;
+#bracket-form button, #playoff-setup-form button {
+    padding: 10px 16px;
     background: #8b5cf6;
     color: #ffffff;
     border: none;
@@ -904,6 +910,17 @@ body {
     font-weight: 600;
     transition: background 0.2s ease;
     margin-top: 10px;
+    width: 100%;
+}
+
+.playoff-form-group {
+    margin-bottom: 15px;
+}
+.playoff-form-group label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 5px;
 }
 
 .bracket-round {
@@ -1052,7 +1069,7 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
     color: #fff;
 }
 
-#unpublish-bracket-btn, #publish-results-btn {
+#unpublish-bracket-btn, #setup-playoff-btn {
     background-color: #ef4444;
     color: #fff;
 }
