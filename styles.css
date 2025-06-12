@@ -132,7 +132,7 @@ body {
 }
 
 /* Посты */
-#posts {
+#posts, #tournament-posts-list {
     flex-grow: 1;
 }
 
@@ -154,12 +154,14 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 5px;
+    gap: 10px;
 }
 
 .post-user {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-grow: 1;
 }
 
 .post-user strong {
@@ -173,16 +175,38 @@ body {
     font-size: 14px;
 }
 
+.post-header-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
 .post-time {
     color: #6b7280;
     font-size: 12px;
 }
+
+.delete-post-btn {
+    background: none;
+    border: none;
+    color: #6b7280;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px;
+    line-height: 1;
+}
+.delete-post-btn:hover {
+    color: #ef4444;
+}
+
 
 .post-content {
     margin-top: 5px;
     font-size: 15px;
     color: #d1d5db;
     white-space: pre-wrap;
+    word-wrap: break-word;
 }
 
 .post-content a {
