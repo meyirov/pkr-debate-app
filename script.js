@@ -1541,10 +1541,8 @@ async function generateNextRound() {
 
     if (!confirm(`Вы уверены, что хотите сгенерировать раунд ${currentRoundNumber + 1}?`)) return;
 
-    // --- Логика Power Pairing на основе очков за ранг ---
     let teamPoints = {};
     let pastOpponents = {};
-
     const BPF_POINTS = { 1: 3, 2: 2, 3: 1, 4: 0 };
     const APF_POINTS = { 1: 3, 2: 0 };
     const pointsSystem = bracket.format === 'БПФ' ? BPF_POINTS : APF_POINTS;
@@ -1583,12 +1581,10 @@ async function generateNextRound() {
         let bucket = teamsByPoints[points].sort(() => Math.random() - 0.5);
 
         while (bucket.length >= teamsPerMatch) {
-            // Более простая, но надежная логика паринга. Может создавать неоптимальные пары, но избегает зависаний.
              let matchTeams = bucket.splice(0, teamsPerMatch);
              newRoundMatches.push({ teams: matchTeams, room:'', judge:''});
         }
         if (bucket.length > 0) {
-            // Обработка остатка (pull-up), для простоты пока опускаем
             console.warn("Остались команды в бакете:", bucket);
         }
     }
@@ -1648,7 +1644,7 @@ async function openResultsModal(roundIndex, matchIndex) {
                 <div class="bpf-rank-selector">
                     <label for="rank-for-${team.faction_name.replace(/\s+/g, '-')}">${team.faction_name}</label>
                     <select id="rank-for-${team.faction_name.replace(/\s+/g, '-')}" data-faction-name="${team.faction_name}">
-                        <option value="0" ${team.rank === 0 ? 'selected' : ''}>-</option>
+                        <option value="0" ${!team.rank || team.rank === 0 ? 'selected' : ''}>-</option>
                         <option value="1" ${team.rank === 1 ? 'selected' : ''}>1 место</option>
                         <option value="2" ${team.rank === 2 ? 'selected' : ''}>2 место</option>
                         <option value="3" ${team.rank === 3 ? 'selected' : ''}>3 место</option>
@@ -1723,15 +1719,19 @@ async function saveMatchResults(roundIndex, matchIndex) {
             team.rank = rank;
         });
 
-        if (!isValid || (ranks.size > 0 && ranks.size < 4)) {
-            alert('Ошибка: каждому рангу (1-4) должна соответствовать только одна команда.');
+        if (!isValid) {
+            alert('Ошибка: Ранги команд должны быть уникальными.');
             return;
         }
     } else { // АПФ
         const winnerInput = document.querySelector('input[name="winner"]:checked');
         const winnerName = winnerInput ? winnerInput.value : null;
         match.teams.forEach(team => {
-            team.rank = (team.faction_name === winnerName) ? 1 : 2;
+            if (!winnerName) {
+                team.rank = 0;
+            } else {
+                team.rank = (team.faction_name === winnerName) ? 1 : 2;
+            }
         });
     }
 
@@ -1770,7 +1770,6 @@ async function toggleBracketPublication(publishState) {
     const bracket = window.currentBracketData;
     if (!bracket) return;
     
-    // Перед публикацией сохраняем последние изменения в кабинетах/судьях
     if (publishState) {
         await saveBracketSetup(true);
     }
@@ -1797,15 +1796,66 @@ async function toggleResultsPublication(publishState) {
      if (!confirm(`Вы уверены, что хотите ${action}? Это действие будет видно всем участникам.`)) return;
 
     try {
+        // --- НОВЫЙ БЛОК: Подсчет и публикация итогов ---
+        if (publishState) {
+            const BPF_POINTS = { 1: 3, 2: 2, 3: 1, 4: 0 };
+            const APF_POINTS = { 1: 3, 2: 0 };
+            const pointsSystem = bracket.format === 'БПФ' ? BPF_POINTS : APF_POINTS;
+
+            const teamStats = {};
+
+            bracket.matches.forEach(round => {
+                round.matches.forEach(match => {
+                    match.teams.forEach(team => {
+                        if (!teamStats[team.faction_name]) {
+                            teamStats[team.faction_name] = {
+                                faction_name: team.faction_name,
+                                tournamentPoints: 0,
+                                speakerPoints: 0
+                            };
+                        }
+                        teamStats[team.faction_name].tournamentPoints += pointsSystem[team.rank] || 0;
+                        teamStats[team.faction_name].speakerPoints += team.speakers.reduce((sum, s) => sum + (s.points || 0), 0);
+                    });
+                });
+            });
+
+            const sortedStandings = Object.values(teamStats).sort((a, b) => {
+                const tpDiff = b.tournamentPoints - a.tournamentPoints;
+                if (tpDiff !== 0) return tpDiff;
+                return b.speakerPoints - a.speakerPoints;
+            });
+
+            let postContent = `**Итоговый ТЭБ отборочных раундов**\n\n| Место | Команда | Очки (TP) | Баллы (SP) |\n|---|---|---|---|\n`;
+            sortedStandings.forEach((team, index) => {
+                postContent += `| ${index + 1} | ${team.faction_name} | ${team.tournamentPoints} | ${team.speakerPoints} |\n`;
+            });
+            
+            const tournamentInfo = allTournaments.find(t => t.id === bracket.tournament_id);
+            const tournamentName = tournamentInfo ? tournamentInfo.name : "Турнир";
+
+            await supabaseFetch('tournament_posts', 'POST', {
+                tournament_id: bracket.tournament_id,
+                text: `**${tournamentName}**\n\n` + postContent,
+                timestamp: new Date().toISOString()
+            });
+
+            await loadTournamentPosts(bracket.tournament_id, true, tournamentName);
+        }
+        
+        // --- Основное действие ---
         await supabaseFetch(`brackets?id=eq.${bracket.id}`, 'PATCH', {
             results_published: publishState
         });
+
         alert(`Результаты успешно ${publishState ? "опубликованы" : "скрыты"}.`);
         loadBracket(bracket.tournament_id, true);
+
     } catch(error) {
         alert('Ошибка: ' + error.message);
     }
 }
+
 
 async function loadBracket(tournamentId, isCreator) {
   const bracketDisplay = document.getElementById('bracket-display');
@@ -1870,7 +1920,7 @@ async function loadBracket(tournamentId, isCreator) {
             const showResults = bracket.results_published || isCreator;
             const rank = team.rank || 0;
             const rankClass = (rank > 0 && showResults) ? `class="rank-${rank}"` : '';
-
+            
             const totalScore = team.speakers ? team.speakers.reduce((sum, s) => sum + (s.points || 0), 0) : 0;
             const scoreHtml = (totalScore > 0 && showResults) ? `<span class="team-total-score">(${totalScore})</span>` : '';
             const rankHtml = (rank > 0 && showResults) ? `<span class="team-rank">(${rank})</span>` : '';
