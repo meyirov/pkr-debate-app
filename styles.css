@@ -963,15 +963,20 @@ body {
     border-radius: 6px;
 }
 
-.match-winner {
-    background-color: rgba(139, 92, 246, 0.15); /* Фиолетовый фон */
-    border-left: 3px solid #8b5cf6;
+.bracket-match li .team-rank {
+    font-size: 12px;
+    font-weight: bold;
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 6px;
+    margin-left: 8px;
 }
 
-.match-winner strong {
-    color: #a78bfa;
-    font-weight: 700;
-}
+.rank-1 .team-rank { background-color: #FFD700; color: #000; }
+.rank-2 .team-rank { background-color: #C0C0C0; color: #000; }
+.rank-3 .team-rank { background-color: #CD7F32; color: #fff; }
+.rank-4 .team-rank { background-color: #555;   color: #fff; }
+
 
 .result-btn {
     display: block;
@@ -1014,6 +1019,7 @@ body {
     opacity: 0.5;
     cursor: not-allowed;
 }
+
 
 #publish-bracket-btn, #generate-next-round-btn {
     background-color: #22c55e;
@@ -1096,7 +1102,8 @@ body {
 }
 
 .modal-content input[type="text"],
-.modal-content input[type="number"] {
+.modal-content input[type="number"],
+.modal-content select {
     width: 100%;
     padding: 10px;
     margin-top: 5px;
@@ -1105,6 +1112,7 @@ body {
     background: #262626;
     color: #e6e6e6;
     font-size: 14px;
+    font-family: inherit;
 }
 
 .modal-actions {
@@ -1169,6 +1177,18 @@ body {
     flex-basis: 25%;
     padding: 6px;
     text-align: center;
+}
+#results-modal-body .bpf-rank-selector {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+#results-modal-body .bpf-rank-selector label {
+    font-weight: bold;
+}
+#results-modal-body .bpf-rank-selector select {
+    width: 150px;
 }
 #results-modal-body hr {
     border: 0;
