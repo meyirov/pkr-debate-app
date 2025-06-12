@@ -986,7 +986,7 @@ function renderFilteredTournaments() {
         const dateA = parseDate(a.date);
         const dateB = parseDate(b.date);
         if (!dateA || !dateB) return 0;
-        return isArchive ? dateB - a.date : a.date - b.date;
+        return isArchive ? dateB - dateA : dateA - dateB;
     });
 
     tournamentList.innerHTML = '';
@@ -1534,14 +1534,17 @@ async function generateBracket() {
     matches: [{ round: 1, matches: roundMatches }],
     published: false,
     results_published: false,
-    playoff_data: null, // Инициализируем поле для плей-офф
+    final_results_published: false,
+    playoff_data: null, 
     timestamp: new Date().toISOString()
   };
 
   try {
     const existingBrackets = await supabaseFetch(`brackets?tournament_id=eq.${currentTournamentId}`, 'GET');
     if (existingBrackets && existingBrackets.length > 0) {
-      await supabaseFetch(`brackets?id=eq.${existingBrackets[0].id}`, 'DELETE');
+        for(const br of existingBrackets) {
+             await supabaseFetch(`brackets?id=eq.${br.id}`, 'DELETE');
+        }
     }
     await supabaseFetch('brackets', 'POST', bracket);
     loadBracket(currentTournamentId, true);
@@ -1697,6 +1700,7 @@ async function openResultsModal(roundIndex, matchIndex, isPlayoff = false, leagu
     } else { // АПФ
         modalHtml += '<h4>Выберите победителя:</h4>';
         match.teams.forEach(team => {
+            if(team.placeholder) return;
             const isChecked = team.rank === 1 ? 'checked' : '';
             modalHtml += `
                 <div class="team-header">
@@ -1707,11 +1711,10 @@ async function openResultsModal(roundIndex, matchIndex, isPlayoff = false, leagu
         });
     }
 
-    // Блок для баллов спикеров, если они есть
-    if (match.teams.some(t => t.speakers && t.speakers.length > 0)) {
+    if (match.teams.some(t => t.speakers && t.speakers.length > 0 && !t.placeholder)) {
         modalHtml += '<hr><h4>Введите баллы спикеров:</h4>';
         match.teams.forEach(team => {
-            if (team.speakers && team.speakers.length > 0) {
+            if (team.speakers && team.speakers.length > 0 && !team.placeholder) {
                 modalHtml += `<div class="team-block"><h5>${team.faction_name}</h5>`;
                 team.speakers.forEach(speaker => {
                     const fullName = profilesCache.get(speaker.username) || speaker.username;
@@ -1750,7 +1753,6 @@ async function saveMatchResults(roundIndex, matchIndex, isPlayoff, leagueName) {
         format = bracket.format;
     }
 
-    // Сохранение баллов спикеров
      if (match.teams.some(t => t.speakers && t.speakers.length > 0)) {
         match.teams.forEach(team => {
             if (team.speakers) {
@@ -1786,6 +1788,7 @@ async function saveMatchResults(roundIndex, matchIndex, isPlayoff, leagueName) {
         const winnerInput = document.querySelector('input[name="winner"]:checked');
         const winnerName = winnerInput ? winnerInput.value : null;
         match.teams.forEach(team => {
+            if(team.placeholder) return;
             if (!winnerName) {
                 team.rank = 0;
             } else {
@@ -1853,7 +1856,7 @@ async function toggleBracketPublication(publishState) {
 }
 
 async function finalizeAndPublishBreak() {
-    const isCreator = true; // Предполагаем, что эту функцию вызывает только создатель
+    const isCreator = true;
     const bracket = window.currentBracketData;
     if (!bracket) return;
 
@@ -1864,16 +1867,14 @@ async function finalizeAndPublishBreak() {
         const APF_POINTS = { 1: 3, 2: 0 };
         const pointsSystem = bracket.format === 'БПФ' ? BPF_POINTS : APF_POINTS;
 
-        // Расчет командных очков
         const teamStats = {};
         bracket.matches.forEach(round => {
             round.matches.forEach(match => {
                  match.teams.forEach(team => {
-                    // Используем original_reg_id для уникальной идентификации команды
                     const teamId = team.original_reg_id;
                     if (!teamStats[teamId]) {
                         teamStats[teamId] = {
-                            ...team, // Копируем всю информацию о команде
+                            ...team,
                             tournamentPoints: 0,
                             speakerPoints: 0
                         };
@@ -1885,7 +1886,6 @@ async function finalizeAndPublishBreak() {
         });
         const sortedTeams = Object.values(teamStats).sort((a, b) => (b.tournamentPoints - a.tournamentPoints) || (b.speakerPoints - a.speakerPoints));
         
-        // Расчет спикерских очков
         const speakerStats = {};
         bracket.matches.forEach(round => {
             round.matches.forEach(match => {
@@ -1906,7 +1906,6 @@ async function finalizeAndPublishBreak() {
         const tournamentInfo = allTournaments.find(t => t.id === bracket.tournament_id);
         const tournamentName = tournamentInfo ? tournamentInfo.name : "Турнир";
 
-        // Публикация постов
         let teamBreakContent = `**Командный Брейк | ${tournamentName}**\n\n| Место | Команда | Очки (TP) | Баллы (SP) |\n|---|---|---|---|\n`;
         sortedTeams.forEach((team, index) => {
             teamBreakContent += `| ${index + 1} | ${team.faction_name} | ${team.tournamentPoints} | ${team.speakerPoints} |\n`;
@@ -1914,16 +1913,14 @@ async function finalizeAndPublishBreak() {
         await supabaseFetch('tournament_posts', 'POST', { tournament_id: bracket.tournament_id, text: teamBreakContent, timestamp: new Date().toISOString() });
 
         let speakerBreakContent = `**Спикерский ТЭБ | ${tournamentName}**\n\n| Место | Спикер | Баллы (SP) |\n|---|---|---|\n`;
-        sortedSpeakers.slice(0, 10).forEach((speaker, index) => { // Ограничим топ-10 для краткости
+        sortedSpeakers.slice(0, 10).forEach((speaker, index) => { 
             const fullName = profilesCache.get(speaker.username) || speaker.username;
             speakerBreakContent += `| ${index + 1} | ${fullName} | ${speaker.totalPoints} |\n`;
         });
         await supabaseFetch('tournament_posts', 'POST', { tournament_id: bracket.tournament_id, text: speakerBreakContent, timestamp: new Date().toISOString() });
 
-        // Генерация и сохранение плей-офф
         await generateAndStorePlayoffBrackets(sortedTeams, sortedSpeakers);
         
-        // Финальное обновление статуса
         await supabaseFetch(`brackets?id=eq.${bracket.id}`, 'PATCH', { results_published: true });
 
         alert(`Брейк успешно сформирован и опубликован! Сетки плей-офф сгенерированы.`);
@@ -1956,44 +1953,39 @@ async function loadBracket(tournamentId, isCreator) {
       const bracket = brackets[0];
       window.currentBracketData = bracket;
 
-      // Скрыть/показать форму генерации отборочных
       bracketForm.style.display = 'none';
 
-      // --- Панель управления ---
+      const controlsDiv = document.createElement('div');
+      controlsDiv.className = 'bracket-controls';
+      bracketDisplay.appendChild(controlsDiv);
+
       if(isCreator) {
-        const controlsDiv = document.createElement('div');
-        controlsDiv.className = 'bracket-controls';
-        
         const currentRoundNumber = bracket.matches.length;
         const totalRounds = bracket.round_count;
         const allResultsEnteredForLastRound = bracket.matches[currentRoundNumber - 1].matches.every(match => match.teams.every(team => team.rank > 0));
 
-        let buttonsHtml = '';
-
-        // Кнопки для отборочных
         if (!bracket.results_published) {
              if (!bracket.published) {
-                buttonsHtml += `<button onclick="saveBracketSetup()">Сохранить кабинеты/судей</button>`;
-                buttonsHtml += `<button onclick="toggleBracketPublication(true)">Опубликовать сетку</button>`;
+                controlsDiv.innerHTML += `<button onclick="saveBracketSetup()">Сохранить кабинеты/судей</button>`;
+                controlsDiv.innerHTML += `<button onclick="toggleBracketPublication(true)">Опубликовать сетку</button>`;
             } else {
-                buttonsHtml += `<button onclick="toggleBracketPublication(false)">Снять с публикации</button>`;
+                controlsDiv.innerHTML += `<button onclick="toggleBracketPublication(false)">Снять с публикации</button>`;
             }
 
             if (currentRoundNumber < totalRounds && allResultsEnteredForLastRound && bracket.published) {
-                buttonsHtml += `<button onclick="generateNextRound()">Сгенерировать ${currentRoundNumber + 1}-й раунд</button>`;
+                controlsDiv.innerHTML += `<button onclick="generateNextRound()">Сгенерировать ${currentRoundNumber + 1}-й раунд</button>`;
             }
         
-            // Кнопка для перехода к настройке плей-офф
             if (currentRoundNumber === totalRounds && allResultsEnteredForLastRound && !bracket.playoff_data) {
-                buttonsHtml += `<button id="setup-playoff-btn" onclick="showPlayoffSetupForm()">Настроить Плей-офф</button>`;
+                controlsDiv.innerHTML += `<button id="setup-playoff-btn" onclick="showPlayoffSetupForm()">Настроить Плей-офф</button>`;
             }
         }
        
-        controlsDiv.innerHTML = buttonsHtml;
-        bracketDisplay.appendChild(controlsDiv);
+        if (isCreator && bracket.playoff_data && areAllPlayoffsFinished(bracket.playoff_data) && !bracket.final_results_published) {
+             controlsDiv.innerHTML += `<button id="publish-final-results-btn" onclick="publishFinalTournamentResults()">🏆 Опубликовать итоги турнира</button>`;
+        }
       }
 
-      // --- Отображение отборочных раундов ---
       bracket.matches.forEach((round, roundIndex) => {
         const roundDiv = document.createElement('div');
         roundDiv.classList.add('bracket-round');
@@ -2043,7 +2035,6 @@ async function loadBracket(tournamentId, isCreator) {
         bracketDisplay.appendChild(roundDiv);
       });
       
-      // --- Отображение Плей-офф ---
       if (bracket.playoff_data) {
           renderPlayoffBracket(bracket.playoff_data, isCreator);
       }
@@ -2112,29 +2103,24 @@ async function generateAndStorePlayoffBrackets(sortedTeams, sortedSpeakers) {
     
     const playoffData = {};
 
-    // 1. Главная сетка (Альфа-лига)
     const mainBreakTeams = sortedTeams.slice(0, playoffSettings.mainBreakCount);
     playoffData['alpha'] = createPlayoffTree(mainBreakTeams, 'Плей-офф Альфа', playoffSettings.format);
     
-    // 2. Дополнительные лиги (Бета)
     if (playoffSettings.enableLeagues && playoffSettings.betaStart && playoffSettings.betaEnd) {
         const betaTeams = sortedTeams.slice(playoffSettings.betaStart - 1, playoffSettings.betaEnd);
         playoffData['beta'] = createPlayoffTree(betaTeams, 'Плей-офф Бета', playoffSettings.format);
     }
 
-    // 3. Сетка ЛД
     if (playoffSettings.enableLD && playoffSettings.ldCount > 0) {
         const ldBreakSpeakers = sortedSpeakers.slice(0, playoffSettings.ldCount);
-        // "Команды" для ЛД - это отдельные спикеры
         const ldTeams = ldBreakSpeakers.map(s => ({
-            faction_name: profilesCache.get(s.username) || s.username, // Имя спикера как имя "фракции"
+            faction_name: profilesCache.get(s.username) || s.username,
             speakers: [{ username: s.username, points: s.totalPoints }],
-            original_reg_id: s.username // Используем username как ID
+            original_reg_id: s.username 
         }));
         playoffData['ld'] = createPlayoffTree(ldTeams, 'Плей-офф ЛД', playoffSettings.format);
     }
     
-    // Сохраняем всю структуру в основной объект сетки
     bracket.playoff_data = playoffData;
     await supabaseFetch(`brackets?id=eq.${bracket.id}`, 'PATCH', { playoff_data: bracket.playoff_data });
 }
@@ -2143,14 +2129,12 @@ async function generateAndStorePlayoffBrackets(sortedTeams, sortedSpeakers) {
 function createPlayoffTree(teams, leagueName, format) {
     if (teams.length < 2) return null;
 
-    // Убедимся, что количество команд - степень двойки
     const validTeamCount = Math.pow(2, Math.floor(Math.log2(teams.length)));
     const seededTeams = teams.slice(0, validTeamCount);
 
     const rounds = [];
     let currentRoundTeams = seededTeams.map((team, index) => ({...team, seed: index + 1}));
     
-    // Первый раунд (1 vs N, 2 vs N-1, etc.)
     const firstRound = { round: 1, matches: [] };
     const highSeeds = currentRoundTeams.slice(0, currentRoundTeams.length / 2);
     const lowSeeds = currentRoundTeams.slice(currentRoundTeams.length / 2).reverse();
@@ -2164,7 +2148,6 @@ function createPlayoffTree(teams, leagueName, format) {
     }
     rounds.push(firstRound);
 
-    // Последующие раунды с плейсхолдерами
     let teamsInNextRound = currentRoundTeams.length / 2;
     let roundNum = 2;
     while(teamsInNextRound >= 2) {
@@ -2189,7 +2172,7 @@ function createPlayoffTree(teams, leagueName, format) {
 
 function renderPlayoffBracket(playoffData, isCreator) {
     const playoffDisplay = document.getElementById('playoff-display');
-    playoffDisplay.innerHTML = ''; // Очищаем предыдущее отображение
+    playoffDisplay.innerHTML = ''; 
 
     for (const leagueName in playoffData) {
         const league = playoffData[leagueName];
@@ -2206,20 +2189,20 @@ function renderPlayoffBracket(playoffData, isCreator) {
         league.rounds.forEach((round, roundIndex) => {
             const roundDiv = document.createElement('div');
             roundDiv.className = 'playoff-round';
-            roundDiv.innerHTML = `<h4>Раунд ${round.round}</h4>`;
+            roundDiv.innerHTML = `<h4>${getRoundName(round.round, league.rounds.length)}</h4>`;
 
             round.matches.forEach((match, matchIndex) => {
                 const matchDiv = document.createElement('div');
                 matchDiv.className = 'playoff-match';
 
-                let teamsHtml = match.teams.map((team, teamIndex) => {
-                    const isWinner = team.faction_name === match.winner?.faction_name;
+                let teamsHtml = match.teams.map((team) => {
+                    const isWinner = match.winner && team.faction_name === match.winner.faction_name;
                     const teamClass = `playoff-team ${isWinner ? 'winner' : ''} ${isCreator && !team.placeholder ? 'clickable' : ''}`;
                     const seedHtml = team.seed ? `<span class="team-seed">(${team.seed})</span>` : '';
                     const teamName = team.placeholder ? `<span class="placeholder">${team.faction_name}</span>` : `<strong>${team.faction_name}</strong>`;
                     
                     return `<div class="${teamClass}" 
-                                 onclick="${(isCreator && !team.placeholder) ? `openResultsModal(${roundIndex}, ${matchIndex}, true, '${leagueName}')` : ''}">
+                                 onclick="${(isCreator && !team.placeholder && !window.currentBracketData.final_results_published) ? `openResultsModal(${roundIndex}, ${matchIndex}, true, '${leagueName}')` : ''}">
                                  ${seedHtml} ${teamName}
                             </div>`;
                 }).join('<hr style="border-color: #333; margin: 2px 0; border-style: dashed;">');
@@ -2235,6 +2218,14 @@ function renderPlayoffBracket(playoffData, isCreator) {
     }
 }
 
+function getRoundName(roundNum, totalRounds) {
+    const teamsCount = Math.pow(2, totalRounds - roundNum + 1);
+    if (teamsCount === 2) return "Финал";
+    if (teamsCount === 4) return "Полуфинал";
+    if (teamsCount === 8) return "Четвертьфинал";
+    return `1/${teamsCount / 2} финала`;
+}
+
 
 async function advancePlayoffWinner(leagueName, roundIndex, matchIndex) {
     const bracket = window.currentBracketData;
@@ -2242,20 +2233,152 @@ async function advancePlayoffWinner(leagueName, roundIndex, matchIndex) {
     const match = league.rounds[roundIndex].matches[matchIndex];
     
     const winner = match.teams.find(t => t.rank === 1);
-    if (!winner) return; // Победитель не определен
+    if (!winner) {
+        match.winner = null; 
+    } else {
+       match.winner = winner;
+    }
     
-    match.winner = winner;
-
-    // Проверяем, есть ли следующий раунд
     if (roundIndex + 1 < league.rounds.length) {
         const nextRoundIndex = roundIndex + 1;
         const nextMatchIndex = Math.floor(matchIndex / 2);
         const positionInNextMatch = matchIndex % 2;
 
         const nextMatch = league.rounds[nextRoundIndex].matches[nextMatchIndex];
-        // Заменяем плейсхолдер на победителя
-        nextMatch.teams[positionInNextMatch] = { ...winner, seed: winner.seed };
+        
+        if(winner) {
+             nextMatch.teams[positionInNextMatch] = { ...winner, seed: winner.seed };
+        } else {
+             nextMatch.teams[positionInNextMatch] = { faction_name: `Победитель M${roundIndex+1}-${matchIndex+1}`, placeholder: true};
+        }
     }
+}
+
+function areAllPlayoffsFinished(playoffData) {
+    if (!playoffData) return false;
+    for (const leagueName in playoffData) {
+        const league = playoffData[leagueName];
+        if (!league) continue;
+        const finalRound = league.rounds[league.rounds.length - 1];
+        if (!finalRound.matches[0] || !finalRound.matches[0].winner) {
+            return false; // Если хоть один финал не сыгран, возвращаем false
+        }
+    }
+    return true; // Все финалы сыграны
+}
+
+async function publishFinalTournamentResults() {
+    if (!confirm("Вы уверены, что хотите опубликовать окончательные итоги? Это действие нельзя будет отменить.")) {
+        return;
+    }
+
+    const bracket = window.currentBracketData;
+    const tournamentInfo = allTournaments.find(t => t.id === bracket.tournament_id);
+    const tournamentName = tournamentInfo ? tournamentInfo.name : "Турнир";
+    let postContent = `**🏆 Итоги турнира: ${tournamentName} 🏆**\n\n`;
+
+    // Считаем очки отборочных для определения 3-го места
+    const BPF_POINTS = { 1: 3, 2: 2, 3: 1, 4: 0 };
+    const APF_POINTS = { 1: 3, 2: 0 };
+    const pointsSystem = bracket.format === 'БПФ' ? BPF_POINTS : APF_POINTS;
+    const teamStats = {};
+    bracket.matches.forEach(round => {
+        round.matches.forEach(match => {
+            match.teams.forEach(team => {
+                const teamId = team.original_reg_id;
+                if (!teamStats[teamId]) {
+                    teamStats[teamId] = { ...team, tournamentPoints: 0, speakerPoints: 0 };
+                }
+                teamStats[teamId].tournamentPoints += pointsSystem[team.rank] || 0;
+                teamStats[teamId].speakerPoints += team.speakers.reduce((sum, s) => sum + (s.points || 0), 0);
+            });
+        });
+    });
+
+    for (const leagueName in bracket.playoff_data) {
+        const league = bracket.playoff_data[leagueName];
+        if (!league) continue;
+        
+        postContent += `**--- ${league.name} ---**\n\n`;
+        const placements = getLeaguePlacement(league, teamStats);
+        
+        // Собираем всех спикеров для одного запроса имен
+        const allUsernames = Object.values(placements).flat().flatMap(t => t.speakers?.map(s => s.username) || []).filter(Boolean);
+        await getSpeakerFullNames(allUsernames);
+
+        if (placements['1']) {
+            postContent += `**🥇 1 место:** ${placements['1'].faction_name}\n`;
+            placements['1'].speakers?.forEach(s => {
+                postContent += `*${profilesCache.get(s.username) || s.username}*\n`;
+            });
+            postContent += `\n`;
+        }
+        if (placements['2']) {
+            postContent += `**🥈 2 место:** ${placements['2'].faction_name}\n`;
+            placements['2'].speakers?.forEach(s => {
+                postContent += `*${profilesCache.get(s.username) || s.username}*\n`;
+            });
+            postContent += `\n`;
+        }
+        if (placements['3']) {
+             postContent += `**🥉 3 место:** ${placements['3'].faction_name}\n`;
+            placements['3'].speakers?.forEach(s => {
+                postContent += `*${profilesCache.get(s.username) || s.username}*\n`;
+            });
+            postContent += `\n`;
+        }
+         if (placements['4']) {
+             postContent += `**🏅 4 место:** ${placements['4'].faction_name}\n`;
+            placements['4'].speakers?.forEach(s => {
+                postContent += `*${profilesCache.get(s.username) || s.username}*\n`;
+            });
+            postContent += `\n`;
+        }
+    }
+    
+    try {
+        await supabaseFetch('tournament_posts', 'POST', { tournament_id: bracket.tournament_id, text: postContent, timestamp: new Date().toISOString() });
+        await supabaseFetch(`brackets?id=eq.${bracket.id}`, 'PATCH', { final_results_published: true });
+        
+        alert("Итоги турнира успешно опубликованы!");
+        loadBracket(bracket.tournament_id, true);
+        loadTournamentPosts(bracket.tournament_id, true, tournamentName);
+
+    } catch (error) {
+        alert("Ошибка при публикации итогов: " + error.message);
+        console.error("Error publishing final results:", error);
+    }
+}
+
+function getLeaguePlacement(league, teamStats) {
+    const finalRound = league.rounds[league.rounds.length - 1];
+    const finalMatch = finalRound.matches[0];
+    const placements = {};
+
+    placements['1'] = finalMatch.winner;
+    placements['2'] = finalMatch.teams.find(t => t.faction_name !== finalMatch.winner.faction_name);
+
+    // Только для командных лиг с полуфиналами
+    if (league.rounds.length > 1 && league.name.toLowerCase().includes('плей-офф')) {
+        const semiFinalRound = league.rounds[league.rounds.length - 2];
+        const semiFinalLosers = semiFinalRound.matches.map(match => match.teams.find(t => t.rank === 2)).filter(Boolean);
+
+        if (semiFinalLosers.length === 2) {
+            const teamA_stats = teamStats[semiFinalLosers[0].original_reg_id];
+            const teamB_stats = teamStats[semiFinalLosers[1].original_reg_id];
+            
+            if (teamA_stats.tournamentPoints > teamB_stats.tournamentPoints || 
+               (teamA_stats.tournamentPoints === teamB_stats.tournamentPoints && teamA_stats.speakerPoints > teamB_stats.speakerPoints)) {
+                placements['3'] = semiFinalLosers[0];
+                placements['4'] = semiFinalLosers[1];
+            } else {
+                placements['3'] = semiFinalLosers[1];
+                placements['4'] = semiFinalLosers[0];
+            }
+        }
+    }
+    
+    return placements;
 }
 
 
