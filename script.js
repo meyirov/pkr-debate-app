@@ -1982,7 +1982,7 @@ async function loadBracket(tournamentId, isCreator) {
         }
        
         if (isCreator && bracket.playoff_data && areAllPlayoffsFinished(bracket.playoff_data) && !bracket.final_results_published) {
-             controlsDiv.innerHTML += `<button id="publish-final-results-btn" onclick="publishFinalTournamentResults()">🏆 Опубликовать итоги турнира</button>`;
+             controlsDiv.innerHTML += `<button id="publish-final-results-btn" class="publish" onclick="publishFinalTournamentResults()">🏆 Опубликовать итоги турнира</button>`;
         }
       }
 
@@ -2261,10 +2261,10 @@ function areAllPlayoffsFinished(playoffData) {
         if (!league) continue;
         const finalRound = league.rounds[league.rounds.length - 1];
         if (!finalRound.matches[0] || !finalRound.matches[0].winner) {
-            return false; // Если хоть один финал не сыгран, возвращаем false
+            return false;
         }
     }
-    return true; // Все финалы сыграны
+    return true;
 }
 
 async function publishFinalTournamentResults() {
@@ -2277,7 +2277,6 @@ async function publishFinalTournamentResults() {
     const tournamentName = tournamentInfo ? tournamentInfo.name : "Турнир";
     let postContent = `**🏆 Итоги турнира: ${tournamentName} 🏆**\n\n`;
 
-    // Считаем очки отборочных для определения 3-го места
     const BPF_POINTS = { 1: 3, 2: 2, 3: 1, 4: 0 };
     const APF_POINTS = { 1: 3, 2: 0 };
     const pointsSystem = bracket.format === 'БПФ' ? BPF_POINTS : APF_POINTS;
@@ -2300,9 +2299,8 @@ async function publishFinalTournamentResults() {
         if (!league) continue;
         
         postContent += `**--- ${league.name} ---**\n\n`;
-        const placements = getLeaguePlacement(league, teamStats);
+        const placements = getLeaguePlacement(league, teamStats, leagueName);
         
-        // Собираем всех спикеров для одного запроса имен
         const allUsernames = Object.values(placements).flat().flatMap(t => t.speakers?.map(s => s.username) || []).filter(Boolean);
         await getSpeakerFullNames(allUsernames);
 
@@ -2341,8 +2339,9 @@ async function publishFinalTournamentResults() {
         await supabaseFetch(`brackets?id=eq.${bracket.id}`, 'PATCH', { final_results_published: true });
         
         alert("Итоги турнира успешно опубликованы!");
-        loadBracket(bracket.tournament_id, true);
-        loadTournamentPosts(bracket.tournament_id, true, tournamentName);
+        const isCreator = tournamentInfo.creator_id === userData.telegramUsername;
+        loadBracket(bracket.tournament_id, isCreator);
+        loadTournamentPosts(bracket.tournament_id, isCreator, tournamentName);
 
     } catch (error) {
         alert("Ошибка при публикации итогов: " + error.message);
@@ -2350,16 +2349,17 @@ async function publishFinalTournamentResults() {
     }
 }
 
-function getLeaguePlacement(league, teamStats) {
+function getLeaguePlacement(league, teamStats, leagueName) {
     const finalRound = league.rounds[league.rounds.length - 1];
     const finalMatch = finalRound.matches[0];
     const placements = {};
 
+    if (!finalMatch.winner) return {};
+
     placements['1'] = finalMatch.winner;
     placements['2'] = finalMatch.teams.find(t => t.faction_name !== finalMatch.winner.faction_name);
 
-    // Только для командных лиг с полуфиналами
-    if (league.rounds.length > 1 && league.name.toLowerCase().includes('плей-офф')) {
+    if (league.rounds.length > 1 && leagueName !== 'ld') {
         const semiFinalRound = league.rounds[league.rounds.length - 2];
         const semiFinalLosers = semiFinalRound.matches.map(match => match.teams.find(t => t.rank === 2)).filter(Boolean);
 
@@ -2367,6 +2367,18 @@ function getLeaguePlacement(league, teamStats) {
             const teamA_stats = teamStats[semiFinalLosers[0].original_reg_id];
             const teamB_stats = teamStats[semiFinalLosers[1].original_reg_id];
             
+            // Если для одной из команд нет статистики (маловероятно, но возможно), отдаем предпочтение той, у которой есть
+            if (!teamA_stats) {
+                placements['3'] = semiFinalLosers[1];
+                placements['4'] = semiFinalLosers[0];
+                return placements;
+            }
+            if (!teamB_stats) {
+                placements['3'] = semiFinalLosers[0];
+                placements['4'] = semiFinalLosers[1];
+                return placements;
+            }
+
             if (teamA_stats.tournamentPoints > teamB_stats.tournamentPoints || 
                (teamA_stats.tournamentPoints === teamB_stats.tournamentPoints && teamA_stats.speakerPoints > teamB_stats.speakerPoints)) {
                 placements['3'] = semiFinalLosers[0];
