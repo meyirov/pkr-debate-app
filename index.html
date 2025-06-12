@@ -135,7 +135,21 @@
                     </div>
 
                     <div id="tournament-bracket" class="tab-content">
+                        <div id="bracket-form">
+                            <h4>Управление сеткой отборочных раундов</h4>
+                            <select id="bracket-format">
+                              <option value="АПФ">АПФ</option>
+                              <option value="БПФ">БПФ</option>
+                            </select>
+                            <input id="bracket-faction-count" type="number" placeholder="Количество фракций" required>
+                            <input id="bracket-round-count" type="number" placeholder="Количество раундов" required>
+                            <button id="generate-bracket-btn">Сгенерировать 1-й раунд</button>
                         </div>
+                        <div id="bracket-display"></div>
+                        
+                        <form id="playoff-setup-form" class="form-hidden"></form>
+                        <div id="playoff-display"></div>
+                    </div>
                 </div>
             </section>
             <section id="rating" class="content">
