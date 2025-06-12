@@ -1182,11 +1182,11 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
 #save-results-btn:hover {
     background: #a78bfa;
 }
-#cancel-results-btn {
+#cancel-results-btn, #cancel-winner-btn {
     background: #444;
     color: #e6e6e6;
 }
-#cancel-results-btn:hover {
+#cancel-results-btn:hover, #cancel-winner-btn:hover {
     background: #555;
 }
 
@@ -1371,4 +1371,137 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
     background: linear-gradient(135deg, #CD7F32, #B87333);
     color: #1c1c1c;
     font-weight: 700;
+}
+
+
+/* --- СТИЛИ ДЛЯ СЕТКИ ПЛЕЙ-ОФФ --- */
+.playoff-container {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #0c0c0c;
+    border-radius: 12px;
+}
+
+.playoff-bracket {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 15px;
+    background: #111;
+    border-radius: 8px;
+}
+
+.playoff-bracket .round {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    min-width: 220px;
+    flex-grow: 1;
+}
+
+.playoff-bracket .round-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: #a78bfa;
+    text-align: center;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+}
+
+.playoff-bracket .match {
+    position: relative;
+    background-color: #1a1a1a;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 30px; /* Расстояние между матчами */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.playoff-bracket .team {
+    padding: 8px;
+    border-radius: 5px;
+    background-color: #262626;
+    color: #ccc;
+    margin: 5px 0;
+    font-size: 14px;
+    position: relative;
+    transition: background-color 0.2s ease;
+}
+
+.playoff-bracket .team.winner {
+    background-color: #8b5cf6;
+    color: #fff;
+    font-weight: bold;
+}
+
+.playoff-bracket .team span {
+    display: inline-block;
+}
+
+.playoff-bracket .team.placeholder {
+    color: #555;
+    font-style: italic;
+}
+
+.playoff-bracket .match-connector {
+    position: absolute;
+    top: 50%;
+    right: -20px;
+    width: 20px;
+    height: 2px;
+    background-color: #444;
+}
+
+.playoff-bracket .winner-connector {
+    position: absolute;
+    top: 50%;
+    left: -20px;
+    width: 20px;
+    height: 2px;
+    background-color: #444;
+}
+
+.playoff-bracket .vertical-connector {
+    position: absolute;
+    right: -20px;
+    width: 2px;
+    background-color: #444;
+}
+
+.set-winner-btn {
+    background-color: #3b82f6;
+    color: #fff;
+    border: none;
+    padding: 5px 8px;
+    font-size: 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    position: absolute;
+    right: 5px;
+    top: 5px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.playoff-bracket .match:hover .set-winner-btn {
+    opacity: 1;
+}
+
+/* Стили для модального окна выбора победителя */
+#winner-modal .modal-content {
+    background: #2a2a2a;
+}
+#winner-modal-body button {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    margin: 5px 0;
+    font-size: 16px;
+    background-color: #444;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+}
+#winner-modal-body button:hover {
+    background-color: #8b5cf6;
 }
