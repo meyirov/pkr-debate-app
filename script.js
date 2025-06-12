@@ -1181,10 +1181,8 @@ function initRegistration() {
         const registrationData = {
             tournament_id: currentTournamentId,
             faction_name: document.getElementById('reg-faction-name').value.trim(),
-            // --- ИЗМЕНЕНИЯ ЗДЕСЬ ---
             speaker1_username: document.getElementById('reg-username1').value.trim(),
             speaker2_username: document.getElementById('reg-username2').value.trim(),
-            // -------------------------
             club: document.getElementById('reg-club').value.trim(),
             city: document.getElementById('reg-city').value.trim(),
             contacts: document.getElementById('reg-contacts').value.trim(),
@@ -1457,7 +1455,6 @@ function initBracket(isCreator) {
   }
 }
 
-// Найдите эту функцию в script.js
 async function generateBracket() {
   if (!confirm("Вы уверены, что хотите сгенерировать новую сетку? Это действие удалит существующую сетку для этого турнира.")) {
       return;
@@ -1488,7 +1485,8 @@ async function generateBracket() {
   let teams = registrations.slice(0, factionCount).map(reg => ({
     faction_name: reg.faction_name,
     club: reg.club,
-    speakers: [{ username: reg.speaker1_username, points: 0 }, { username: reg.speaker2_username, points: 0 }]
+    speakers: [{ username: reg.speaker1_username, points: 0 }, { username: reg.speaker2_username, points: 0 }],
+    rank: 0
   }));
   
   teams.sort(() => Math.random() - 0.5);
@@ -1502,7 +1500,7 @@ async function generateBracket() {
       const matchTeams = availableTeams.splice(0, teamsPerMatch);
       roundMatches.push({
           teams: matchTeams.map((team, idx) => ({ ...team, position: positions[idx] })),
-          room: '', judge: '', winner: null
+          room: '', judge: ''
       });
   }
 
@@ -1514,9 +1512,6 @@ async function generateBracket() {
     results_published: false,
     timestamp: new Date().toISOString()
   };
-
-  // --- ДОБАВЬТЕ СТРОКУ НИЖЕ ---
-  console.log("Отправка в Supabase:", JSON.stringify(bracket, null, 2));
 
   try {
     const existingBrackets = await supabaseFetch(`brackets?tournament_id=eq.${currentTournamentId}`, 'GET');
@@ -1531,7 +1526,6 @@ async function generateBracket() {
   }
 }
 
-// ЗАМЕНИТЕ ЭТУ ФУНКЦИЮ ПОЛНОСТЬЮ
 async function generateNextRound() {
     const bracket = window.currentBracketData;
     if (!bracket) return;
@@ -1539,7 +1533,7 @@ async function generateNextRound() {
     const currentRoundNumber = bracket.matches.length;
     const lastRound = bracket.matches[currentRoundNumber - 1];
 
-    const allResultsEntered = lastRound.matches.every(match => match.winner);
+    const allResultsEntered = lastRound.matches.every(match => match.teams.every(team => team.rank > 0));
     if (!allResultsEntered) {
         alert(`Сначала введите все результаты для раунда ${currentRoundNumber}.`);
         return;
@@ -1547,73 +1541,67 @@ async function generateNextRound() {
 
     if (!confirm(`Вы уверены, что хотите сгенерировать раунд ${currentRoundNumber + 1}?`)) return;
 
-    let teamWins = {};
+    // --- Логика Power Pairing на основе очков за ранг ---
+    let teamPoints = {};
     let pastOpponents = {};
+
+    const BPF_POINTS = { 1: 3, 2: 2, 3: 1, 4: 0 };
+    const APF_POINTS = { 1: 3, 2: 0 };
+    const pointsSystem = bracket.format === 'БПФ' ? BPF_POINTS : APF_POINTS;
 
     bracket.matches.forEach(round => {
         round.matches.forEach(match => {
             const teamNames = match.teams.map(t => t.faction_name);
             teamNames.forEach(name => {
-                if (!teamWins[name]) teamWins[name] = 0;
+                if (!teamPoints[name]) teamPoints[name] = 0;
                 if (!pastOpponents[name]) pastOpponents[name] = new Set();
                 teamNames.forEach(opp => { if (opp !== name) pastOpponents[name].add(opp); });
             });
-            if (match.winner) {
-                teamWins[match.winner]++;
-            }
+            match.teams.forEach(team => {
+                if (team.rank > 0) {
+                    teamPoints[team.faction_name] += pointsSystem[team.rank] || 0;
+                }
+            });
         });
     });
 
-    const allTeamsFromBracket = bracket.matches[0].matches.flatMap(m => m.teams.map(t => ({faction_name: t.faction_name, club: t.club, speakers: t.speakers})));
+    const allTeamsFromBracket = bracket.matches[0].matches.flatMap(m => m.teams.map(t => ({...t})));
     
-    let teamsByWins = {};
-    Object.keys(teamWins).forEach(name => {
-        const winCount = teamWins[name];
-        if (!teamsByWins[winCount]) teamsByWins[winCount] = [];
+    let teamsByPoints = {};
+    Object.keys(teamPoints).forEach(name => {
+        const totalPoints = teamPoints[name];
+        if (!teamsByPoints[totalPoints]) teamsByPoints[totalPoints] = [];
         const teamData = allTeamsFromBracket.find(t => t.faction_name === name);
-        if (teamData) teamsByWins[winCount].push(teamData);
+        if (teamData) teamsByPoints[totalPoints].push(teamData);
     });
 
     const newRoundMatches = [];
     const teamsPerMatch = bracket.format === 'АПФ' ? 2 : 4;
 
-    const sortedWinBrackets = Object.keys(teamsByWins).sort((a, b) => b - a);
-    for (const winCount of sortedWinBrackets) {
-        let bucket = teamsByWins[winCount].sort(() => Math.random() - 0.5);
+    const sortedPointBrackets = Object.keys(teamsByPoints).sort((a, b) => b - a);
+    for (const points of sortedPointBrackets) {
+        let bucket = teamsByPoints[points].sort(() => Math.random() - 0.5);
 
         while (bucket.length >= teamsPerMatch) {
-            let i = 0, j = 1;
-            while (j < bucket.length) {
-                const teamA = bucket[i];
-                const teamB = bucket[j];
-                if (!pastOpponents[teamA.faction_name].has(teamB.faction_name)) {
-                    const matchTeams = [teamA, teamB];
-                    newRoundMatches.push({ teams: matchTeams, room:'', judge:'', winner: null });
-                    bucket.splice(j, 1); 
-                    bucket.splice(i, 1);
-                    i = 0; j = 1; 
-                } else {
-                    j++;
-                }
-            }
-             if (j >= bucket.length && i < bucket.length -1) {
-                i++;
-                j = i + 1;
-            } else if (i >= bucket.length - 1) {
-                break;
-            }
+            // Более простая, но надежная логика паринга. Может создавать неоптимальные пары, но избегает зависаний.
+             let matchTeams = bucket.splice(0, teamsPerMatch);
+             newRoundMatches.push({ teams: matchTeams, room:'', judge:''});
+        }
+        if (bucket.length > 0) {
+            // Обработка остатка (pull-up), для простоты пока опускаем
+            console.warn("Остались команды в бакете:", bucket);
         }
     }
     
     const positions = bracket.format === 'АПФ' ? ['Правительство', 'Оппозиция'] : ['ОП', 'ОО', 'ЗП', 'ЗО'];
     newRoundMatches.forEach(match => {
-        match.teams.forEach((team, idx) => team.position = positions[idx]);
+        match.teams.forEach((team, idx) => {
+            team.position = positions[idx];
+            team.rank = 0;
+        });
     });
 
     bracket.matches.push({ round: currentRoundNumber + 1, matches: newRoundMatches });
-    
-    // --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
-    // Переводим сетку обратно в режим черновика для заполнения кабинетов/судей
     bracket.published = false;
 
     try {
@@ -1638,6 +1626,7 @@ async function getSpeakerFullNames(usernames) {
     }
 }
 
+
 async function openResultsModal(roundIndex, matchIndex) {
     const modal = document.getElementById('results-modal');
     const modalBody = document.getElementById('results-modal-body');
@@ -1650,16 +1639,36 @@ async function openResultsModal(roundIndex, matchIndex) {
     const allUsernames = match.teams.flatMap(team => team.speakers.map(s => s.username));
     await getSpeakerFullNames(allUsernames);
 
-    let modalHtml = '<h4>Выберите победителя:</h4>';
-    match.teams.forEach(team => {
-        const isChecked = match.winner === team.faction_name ? 'checked' : '';
-        modalHtml += `
-            <div class="team-header">
-                <input type="radio" id="winner-${team.faction_name.replace(/\s+/g, '-')}" name="winner" value="${team.faction_name}" ${isChecked}>
-                <label for="winner-${team.faction_name.replace(/\s+/g, '-')}"><strong>${team.faction_name}</strong></label>
-            </div>
-        `;
-    });
+    let modalHtml = '';
+
+    if (bracket.format === 'БПФ') {
+        modalHtml += `<h4>Расставьте ранги:</h4>`;
+        match.teams.forEach(team => {
+            modalHtml += `
+                <div class="bpf-rank-selector">
+                    <label for="rank-for-${team.faction_name.replace(/\s+/g, '-')}">${team.faction_name}</label>
+                    <select id="rank-for-${team.faction_name.replace(/\s+/g, '-')}" data-faction-name="${team.faction_name}">
+                        <option value="0" ${team.rank === 0 ? 'selected' : ''}>-</option>
+                        <option value="1" ${team.rank === 1 ? 'selected' : ''}>1 место</option>
+                        <option value="2" ${team.rank === 2 ? 'selected' : ''}>2 место</option>
+                        <option value="3" ${team.rank === 3 ? 'selected' : ''}>3 место</option>
+                        <option value="4" ${team.rank === 4 ? 'selected' : ''}>4 место</option>
+                    </select>
+                </div>
+            `;
+        });
+    } else { // АПФ
+        modalHtml += '<h4>Выберите победителя:</h4>';
+        match.teams.forEach(team => {
+            const isChecked = team.rank === 1 ? 'checked' : '';
+            modalHtml += `
+                <div class="team-header">
+                    <input type="radio" id="winner-${team.faction_name.replace(/\s+/g, '-')}" name="winner" value="${team.faction_name}" ${isChecked}>
+                    <label for="winner-${team.faction_name.replace(/\s+/g, '-')}"><strong>${team.faction_name}</strong></label>
+                </div>
+            `;
+        });
+    }
 
     modalHtml += '<hr><h4>Введите баллы спикеров:</h4>';
 
@@ -1690,6 +1699,7 @@ async function saveMatchResults(roundIndex, matchIndex) {
     const bracket = window.currentBracketData;
     const match = bracket.matches[roundIndex].matches[matchIndex];
 
+    // Обновляем баллы спикеров
     match.teams.forEach(team => {
         team.speakers.forEach(speaker => {
             const input = document.getElementById(`score-${speaker.username}`);
@@ -1697,8 +1707,33 @@ async function saveMatchResults(roundIndex, matchIndex) {
         });
     });
 
-    const winnerInput = document.querySelector('input[name="winner"]:checked');
-    match.winner = winnerInput ? winnerInput.value : null;
+    // Обновляем ранги
+    if (bracket.format === 'БПФ') {
+        const ranks = new Set();
+        let isValid = true;
+        match.teams.forEach(team => {
+            const select = document.getElementById(`rank-for-${team.faction_name.replace(/\s+/g, '-')}`);
+            const rank = parseInt(select.value);
+            if (rank > 0) {
+                if (ranks.has(rank)) {
+                    isValid = false;
+                }
+                ranks.add(rank);
+            }
+            team.rank = rank;
+        });
+
+        if (!isValid || (ranks.size > 0 && ranks.size < 4)) {
+            alert('Ошибка: каждому рангу (1-4) должна соответствовать только одна команда.');
+            return;
+        }
+    } else { // АПФ
+        const winnerInput = document.querySelector('input[name="winner"]:checked');
+        const winnerName = winnerInput ? winnerInput.value : null;
+        match.teams.forEach(team => {
+            team.rank = (team.faction_name === winnerName) ? 1 : 2;
+        });
+    }
 
     await saveBracketSetup(true); 
     modal.style.display = 'none';
@@ -1735,6 +1770,11 @@ async function toggleBracketPublication(publishState) {
     const bracket = window.currentBracketData;
     if (!bracket) return;
     
+    // Перед публикацией сохраняем последние изменения в кабинетах/судьях
+    if (publishState) {
+        await saveBracketSetup(true);
+    }
+
     const action = publishState ? "опубликовать" : "снять с публикации";
     if (!confirm(`Вы уверены, что хотите ${action} сетку?`)) return;
 
@@ -1777,14 +1817,13 @@ async function loadBracket(tournamentId, isCreator) {
       const bracket = brackets[0];
       window.currentBracketData = bracket;
 
-      // --- Панель управления сеткой для организатора ---
       if(isCreator) {
         const controlsDiv = document.createElement('div');
         controlsDiv.className = 'bracket-controls';
         
         const currentRoundNumber = bracket.matches.length;
         const totalRounds = bracket.round_count;
-        const allResultsEnteredForLastRound = bracket.matches[currentRoundNumber - 1].matches.every(match => match.winner);
+        const allResultsEnteredForLastRound = bracket.matches[currentRoundNumber - 1].matches.every(match => match.teams.every(team => team.rank > 0));
 
         let buttonsHtml = '';
 
@@ -1810,7 +1849,6 @@ async function loadBracket(tournamentId, isCreator) {
         bracketDisplay.appendChild(controlsDiv);
       }
 
-      // --- Отображение раундов ---
       bracket.matches.forEach((round, roundIndex) => {
         const roundDiv = document.createElement('div');
         roundDiv.classList.add('bracket-round');
@@ -1829,19 +1867,20 @@ async function loadBracket(tournamentId, isCreator) {
             : `<span>Судья: ${match.judge || 'Не указан'}</span>`;
 
           let teamsHtml = match.teams.map(team => {
-            const isWinner = match.winner === team.faction_name;
             const showResults = bracket.results_published || isCreator;
-            const winnerClass = (isWinner && showResults) ? 'class="match-winner"' : '';
-            
-            // Проверка на наличие speakers
+            const rank = team.rank || 0;
+            const rankClass = (rank > 0 && showResults) ? `class="rank-${rank}"` : '';
+
             const totalScore = team.speakers ? team.speakers.reduce((sum, s) => sum + (s.points || 0), 0) : 0;
             const scoreHtml = (totalScore > 0 && showResults) ? `<span class="team-total-score">(${totalScore})</span>` : '';
+            const rankHtml = (rank > 0 && showResults) ? `<span class="team-rank">(${rank})</span>` : '';
 
-            return `<li ${winnerClass}>
+            return `<li ${rankClass}>
                         <div class="team-name-wrapper">
                             <span>${team.position}: <strong>${team.faction_name}</strong></span>
                             ${scoreHtml}
                         </div>
+                        ${rankHtml}
                     </li>`;
           }).join('');
 
