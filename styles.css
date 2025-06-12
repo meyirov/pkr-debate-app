@@ -1063,7 +1063,11 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
     cursor: not-allowed;
 }
 
-#publish-bracket-btn, #generate-next-round-btn, #finalize-playoffs-btn {
+#publish-bracket-btn, #generate-next-round-btn {
+    background-color: #22c55e;
+    color: #fff;
+}
+#finalize-playoffs-btn {
     background-color: #22c55e;
     color: #fff;
 }
@@ -1083,7 +1087,19 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
 #playoff-display {
     overflow-x: auto;
     padding: 20px 0;
+    display: flex;
 }
+.playoff-bracket-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.playoff-bracket-container h3 {
+    color: #a78bfa;
+}
+
 .playoff-bracket {
     display: flex;
     flex-direction: row;
@@ -1094,7 +1110,15 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
     justify-content: space-around;
     flex-grow: 1;
     min-width: 200px;
+    padding: 0 20px;
 }
+
+.playoff-round h4 {
+    text-align: center;
+    color: #6b7280;
+    margin-bottom: 20px;
+}
+
 .playoff-match {
     position: relative;
     background: #1a1a1a;
@@ -1104,14 +1128,16 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
     display: flex;
     flex-direction: column;
     justify-content: center;
+    border: 1px solid #333;
 }
 /* Линии, соединяющие матчи */
 .playoff-match::after {
     content: '';
     position: absolute;
-    right: -15px;
+    right: -20px;
     top: 50%;
-    width: 15px;
+    transform: translateY(-50%);
+    width: 20px;
     height: 2px;
     background-color: #444;
 }
@@ -1121,17 +1147,26 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
 .playoff-match::before {
     content: '';
     position: absolute;
-    left: -15px;
+    left: -20px;
     top: 50%;
-    width: 15px;
+    transform: translateY(-50%);
+    width: 20px;
     height: 2px;
     background-color: #444;
 }
 .playoff-round:first-child .playoff-match::before {
     display: none;
 }
-/* Линии, соединяющие раунды */
-.playoff-round > .playoff-match:not(:last-child) {
+
+/* Вертикальные линии */
+.match-connector {
+    position: absolute;
+    width: 2px;
+    background-color: #444;
+    right: -20px;
+}
+
+.playoff-round > div:not(:last-child) {
     margin-bottom: 40px; /* Увеличиваем расстояние между матчами в раунде */
 }
 .playoff-team {
@@ -1139,10 +1174,18 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
     display: flex;
     justify-content: space-between;
     align-items: center;
+    border-radius: 4px;
 }
 .playoff-team.winner {
     font-weight: bold;
     color: #a78bfa;
+    background-color: #2a2a2a;
+}
+.playoff-team .team-seed {
+    font-size: 10px;
+    color: #6b7280;
+    margin-right: 5px;
+    font-weight: bold;
 }
 .playoff-team.clickable {
     cursor: pointer;
