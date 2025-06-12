@@ -1111,6 +1111,7 @@ async function showTournamentDetails(tournamentId) {
     }
 }
 
+// ЗАМЕНИТЕ ЭТУ ФУНКЦИЮ ПОЛНОСТЬЮ
 async function loadTournamentPosts(tournamentId, isCreator, tournamentName) {
     const postsSection = document.getElementById('tournament-posts');
     postsSection.innerHTML = '';
@@ -1156,17 +1157,28 @@ async function loadTournamentPosts(tournamentId, isCreator, tournamentName) {
                 const formattedContent = formatPostContent(post.text);
                 const timeAgo = getTimeAgo(new Date(post.timestamp));
                 
-                const deleteButton = isCreator ? `<button class="delete-post-btn" onclick="deleteTournamentPost(${post.id}, ${tournamentId}, ${isCreator}, '${tournamentName.replace(/'/g, "\\'")}')" title="Удалить пост">🗑️</button>` : '';
-
+                // Создаем HTML без кнопки
                 postDiv.innerHTML = `
                     <div class="post-header">
                         <div class="post-user"><strong>Турнир: ${tournamentName}</strong></div>
                         <div class="post-header-meta">
                             <div class="post-time">${timeAgo}</div>
-                            ${deleteButton}
                         </div>
                     </div>
                     <div class="post-content">${formattedContent}</div>`;
+                
+                // Если пользователь - создатель, программно добавляем кнопку
+                if (isCreator) {
+                    const metaContainer = postDiv.querySelector('.post-header-meta');
+                    const deleteButton = document.createElement('button');
+                    deleteButton.className = 'delete-post-btn';
+                    deleteButton.title = 'Удалить пост';
+                    deleteButton.innerHTML = '🗑️';
+                    // Назначаем действие напрямую, это безопасно для спецсимволов
+                    deleteButton.onclick = () => deleteTournamentPost(post.id, tournamentId, isCreator, tournamentName);
+                    metaContainer.appendChild(deleteButton);
+                }
+
                 postsList.appendChild(postDiv);
             });
         } else {
