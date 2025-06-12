@@ -135,7 +135,10 @@
                     </div>
 
                     <div id="tournament-bracket" class="tab-content">
-                        </div>
+                        <div id="bracket-display"></div>
+                        <div id="playoff-display" class="playoff-container"></div>
+                        <form id="playoff-setup-form" class="form-hidden"></form>
+                    </div>
                 </div>
             </section>
             <section id="rating" class="content">
@@ -202,6 +205,17 @@
             <div class="modal-actions">
                 <button id="save-results-btn">Сохранить</button>
                 <button id="cancel-results-btn">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="winner-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Выберите победителя</h3>
+            <div id="winner-modal-body">
+                </div>
+            <div class="modal-actions">
+                <button id="cancel-winner-btn">Отмена</button>
             </div>
         </div>
     </div>
