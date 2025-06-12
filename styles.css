@@ -972,6 +972,8 @@ body {
     margin-left: 8px;
 }
 
+li.rank-1 { background-color: rgba(255, 215, 0, 0.1); }
+li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
 .rank-1 .team-rank { background-color: #FFD700; color: #000; }
 .rank-2 .team-rank { background-color: #C0C0C0; color: #000; }
 .rank-3 .team-rank { background-color: #CD7F32; color: #fff; }
