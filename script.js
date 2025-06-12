@@ -472,6 +472,7 @@ function renderNewPost(post, prepend = false) {
   subscribeToReactions(post.id);
 }
 
+// ЗАМЕНИТЕ ЭТУ ФУНКЦИЮ ЦЕЛИКОМ В ВАШЕМ SCRIPT.JS
 async function renderMorePosts(newPosts) {
   for (const post of newPosts) {
     const postDiv = document.createElement('div');
