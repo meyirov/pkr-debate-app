@@ -1111,7 +1111,7 @@ async function showTournamentDetails(tournamentId) {
     }
 }
 
-// ЗАМЕНИТЕ ЭТУ ФУНКЦИЮ ПОЛНОСТЬЮ
+// ЗАМЕНИТЬ ЭТУ ФУНКЦИЮ ПОЛНОСТЬЮ
 async function loadTournamentPosts(tournamentId, isCreator, tournamentName) {
     const postsSection = document.getElementById('tournament-posts');
     postsSection.innerHTML = '';
@@ -1157,28 +1157,18 @@ async function loadTournamentPosts(tournamentId, isCreator, tournamentName) {
                 const formattedContent = formatPostContent(post.text);
                 const timeAgo = getTimeAgo(new Date(post.timestamp));
                 
-                // Создаем HTML без кнопки
+                // ИСПРАВЛЕНИЕ: onclick теперь максимально простой и безопасный
+                const deleteButton = isCreator ? `<button class="delete-post-btn" onclick="deleteTournamentPost(${post.id})" title="Удалить пост">🗑️</button>` : '';
+
                 postDiv.innerHTML = `
                     <div class="post-header">
                         <div class="post-user"><strong>Турнир: ${tournamentName}</strong></div>
                         <div class="post-header-meta">
                             <div class="post-time">${timeAgo}</div>
+                            ${deleteButton}
                         </div>
                     </div>
                     <div class="post-content">${formattedContent}</div>`;
-                
-                // Если пользователь - создатель, программно добавляем кнопку
-                if (isCreator) {
-                    const metaContainer = postDiv.querySelector('.post-header-meta');
-                    const deleteButton = document.createElement('button');
-                    deleteButton.className = 'delete-post-btn';
-                    deleteButton.title = 'Удалить пост';
-                    deleteButton.innerHTML = '🗑️';
-                    // Назначаем действие напрямую, это безопасно для спецсимволов
-                    deleteButton.onclick = () => deleteTournamentPost(post.id, tournamentId, isCreator, tournamentName);
-                    metaContainer.appendChild(deleteButton);
-                }
-
                 postsList.appendChild(postDiv);
             });
         } else {
@@ -1189,17 +1179,22 @@ async function loadTournamentPosts(tournamentId, isCreator, tournamentName) {
     }
 }
 
-async function deleteTournamentPost(postId, tournamentId, isCreator, tournamentName) {
+// ЗАМЕНИТЬ ЭТУ ФУНКЦИЮ ПОЛНОСТЬЮ
+async function deleteTournamentPost(postId) {
     if (!confirm('Вы уверены, что хотите удалить этот пост?')) return;
     try {
         await supabaseFetch(`tournament_posts?id=eq.${postId}`, 'DELETE');
         alert('Пост удален!');
-        await loadTournamentPosts(tournamentId, isCreator, tournamentName);
+        
+        // Получаем нужные данные из глобальных переменных для обновления
+        const tournamentInfo = allTournaments.find(t => t.id === currentTournamentId);
+        const isCreator = tournamentInfo.creator_id === userData.telegramUsername;
+        
+        await loadTournamentPosts(currentTournamentId, isCreator, tournamentInfo.name);
     } catch (error) {
         alert('Ошибка удаления поста: ' + error.message);
     }
 }
-
 
 function initRegistration() {
     const registerBtn = document.getElementById('register-tournament-btn');
