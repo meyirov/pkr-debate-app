@@ -1130,7 +1130,7 @@ async function loadTournamentPosts(tournamentId, isCreator, tournamentName) {
             try {
                 await supabaseFetch('tournament_posts', 'POST', post);
                 document.getElementById('tournament-post-text').value = '';
-                loadTournamentPosts(tournamentId, isCreator, tournamentName); 
+                await loadTournamentPosts(tournamentId, isCreator, tournamentName); 
             } catch (error) {
                 alert('Ошибка при публикации поста: ' + error.message);
             }
@@ -1149,10 +1149,16 @@ async function loadTournamentPosts(tournamentId, isCreator, tournamentName) {
                 postDiv.classList.add('post'); 
                 const formattedContent = formatPostContent(post.text);
                 const timeAgo = getTimeAgo(new Date(post.timestamp));
+                
+                const deleteButton = isCreator ? `<button class="delete-post-btn" onclick="deleteTournamentPost(${post.id}, ${tournamentId}, ${isCreator}, '${tournamentName}')" title="Удалить пост">🗑️</button>` : '';
+
                 postDiv.innerHTML = `
                     <div class="post-header">
                         <div class="post-user"><strong>Турнир: ${tournamentName}</strong></div>
-                        <div class="post-time">${timeAgo}</div>
+                        <div class="post-header-meta">
+                            <div class="post-time">${timeAgo}</div>
+                            ${deleteButton}
+                        </div>
                     </div>
                     <div class="post-content">${formattedContent}</div>`;
                 postsList.appendChild(postDiv);
@@ -1162,6 +1168,17 @@ async function loadTournamentPosts(tournamentId, isCreator, tournamentName) {
         }
     } catch (error) {
         postsList.innerHTML = '<p>Ошибка загрузки постов.</p>';
+    }
+}
+
+async function deleteTournamentPost(postId, tournamentId, isCreator, tournamentName) {
+    if (!confirm('Вы уверены, что хотите удалить этот пост?')) return;
+    try {
+        await supabaseFetch(`tournament_posts?id=eq.${postId}`, 'DELETE');
+        alert('Пост удален!');
+        await loadTournamentPosts(tournamentId, isCreator, tournamentName);
+    } catch (error) {
+        alert('Ошибка удаления поста: ' + error.message);
     }
 }
 
@@ -1695,7 +1712,6 @@ async function saveMatchResults(roundIndex, matchIndex) {
     const bracket = window.currentBracketData;
     const match = bracket.matches[roundIndex].matches[matchIndex];
 
-    // Обновляем баллы спикеров
     match.teams.forEach(team => {
         team.speakers.forEach(speaker => {
             const input = document.getElementById(`score-${speaker.username}`);
@@ -1703,27 +1719,26 @@ async function saveMatchResults(roundIndex, matchIndex) {
         });
     });
 
-    // Обновляем ранги
     if (bracket.format === 'БПФ') {
         const ranks = new Set();
-        let isValid = true;
+        let hasDuplicates = false;
         match.teams.forEach(team => {
             const select = document.getElementById(`rank-for-${team.faction_name.replace(/\s+/g, '-')}`);
             const rank = parseInt(select.value);
             if (rank > 0) {
                 if (ranks.has(rank)) {
-                    isValid = false;
+                    hasDuplicates = true;
                 }
                 ranks.add(rank);
             }
             team.rank = rank;
         });
 
-        if (!isValid) {
+        if (hasDuplicates) {
             alert('Ошибка: Ранги команд должны быть уникальными.');
             return;
         }
-    } else { // АПФ
+    } else { 
         const winnerInput = document.querySelector('input[name="winner"]:checked');
         const winnerName = winnerInput ? winnerInput.value : null;
         match.teams.forEach(team => {
@@ -1796,7 +1811,6 @@ async function toggleResultsPublication(publishState) {
      if (!confirm(`Вы уверены, что хотите ${action}? Это действие будет видно всем участникам.`)) return;
 
     try {
-        // --- НОВЫЙ БЛОК: Подсчет и публикация итогов ---
         if (publishState) {
             const BPF_POINTS = { 1: 3, 2: 2, 3: 1, 4: 0 };
             const APF_POINTS = { 1: 3, 2: 0 };
@@ -1808,8 +1822,10 @@ async function toggleResultsPublication(publishState) {
                 round.matches.forEach(match => {
                     match.teams.forEach(team => {
                         if (!teamStats[team.faction_name]) {
+                            const originalTeam = bracket.matches[0].matches.flatMap(m => m.teams).find(t => t.faction_name === team.faction_name);
                             teamStats[team.faction_name] = {
                                 faction_name: team.faction_name,
+                                club: originalTeam ? originalTeam.club : '',
                                 tournamentPoints: 0,
                                 speakerPoints: 0
                             };
@@ -1839,11 +1855,10 @@ async function toggleResultsPublication(publishState) {
                 text: `**${tournamentName}**\n\n` + postContent,
                 timestamp: new Date().toISOString()
             });
-
+            
             await loadTournamentPosts(bracket.tournament_id, true, tournamentName);
         }
         
-        // --- Основное действие ---
         await supabaseFetch(`brackets?id=eq.${bracket.id}`, 'PATCH', {
             results_published: publishState
         });
