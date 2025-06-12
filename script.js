@@ -299,7 +299,7 @@ submitPost.addEventListener('click', async () => {
   } finally {
     submitPost.disabled = false;
   }
-}
+});
 
 async function loadPosts() {
   if (isPostsLoaded) {
@@ -472,7 +472,6 @@ function renderNewPost(post, prepend = false) {
   subscribeToReactions(post.id);
 }
 
-// ЗАМЕНИТЕ ЭТУ ФУНКЦИЮ ЦЕЛИКОМ В ВАШЕМ SCRIPT.JS
 async function renderMorePosts(newPosts) {
   for (const post of newPosts) {
     const postDiv = document.createElement('div');
@@ -1112,7 +1111,6 @@ async function showTournamentDetails(tournamentId) {
     }
 }
 
-// ЗАМЕНИТЬ ЭТУ ФУНКЦИЮ ПОЛНОСТЬЮ
 async function loadTournamentPosts(tournamentId, isCreator, tournamentName) {
     const postsSection = document.getElementById('tournament-posts');
     postsSection.innerHTML = '';
@@ -1158,7 +1156,6 @@ async function loadTournamentPosts(tournamentId, isCreator, tournamentName) {
                 const formattedContent = formatPostContent(post.text);
                 const timeAgo = getTimeAgo(new Date(post.timestamp));
                 
-                // ИСПРАВЛЕНИЕ: onclick теперь максимально простой и безопасный
                 const deleteButton = isCreator ? `<button class="delete-post-btn" onclick="deleteTournamentPost(${post.id})" title="Удалить пост">🗑️</button>` : '';
 
                 postDiv.innerHTML = `
@@ -1180,14 +1177,12 @@ async function loadTournamentPosts(tournamentId, isCreator, tournamentName) {
     }
 }
 
-// ЗАМЕНИТЬ ЭТУ ФУНКЦИЮ ПОЛНОСТЬЮ
 async function deleteTournamentPost(postId) {
     if (!confirm('Вы уверены, что хотите удалить этот пост?')) return;
     try {
         await supabaseFetch(`tournament_posts?id=eq.${postId}`, 'DELETE');
         alert('Пост удален!');
         
-        // Получаем нужные данные из глобальных переменных для обновления
         const tournamentInfo = allTournaments.find(t => t.id === currentTournamentId);
         const isCreator = tournamentInfo.creator_id === userData.telegramUsername;
         
