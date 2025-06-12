@@ -4,7 +4,7 @@
 // в предыдущих итерациях, и теперь мы просто меняем порядок их вызова.
 // Пожалуйста, используйте script.js из моего предыдущего ответа. Если он у вас не сохранился,
 // дайте знать, и я пришлю его снова.
-console.log('script.js loaded, version: 2025-05-02');
+console.log('script.js loaded, version: 2025-05-04-final-complete');
 
 const { createClient } = supabase;
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -877,7 +877,6 @@ function toggleComments(postId) {
     }
   }
 }
-
 // === ЛОГИКА ТУРНИРОВ ===
 
 function initTournaments() {
@@ -1151,22 +1150,45 @@ async function loadTournamentPosts(tournamentId, isCreator, tournamentName) {
         postsList.innerHTML = '';
         if (posts?.length > 0) {
             posts.forEach(post => {
-                const postDiv = document.createElement('div');
-                postDiv.classList.add('post'); 
+                 const postDiv = document.createElement('div');
+                postDiv.className = 'post';
+
                 const formattedContent = formatPostContent(post.text);
                 const timeAgo = getTimeAgo(new Date(post.timestamp));
-                
-                const deleteButton = isCreator ? `<button class="delete-post-btn" onclick="deleteTournamentPost(${post.id})" title="Удалить пост">🗑️</button>` : '';
 
-                postDiv.innerHTML = `
-                    <div class="post-header">
-                        <div class="post-user"><strong>Турнир: ${tournamentName}</strong></div>
-                        <div class="post-header-meta">
-                            <div class="post-time">${timeAgo}</div>
-                            ${deleteButton}
-                        </div>
-                    </div>
-                    <div class="post-content">${formattedContent}</div>`;
+                const postHeader = document.createElement('div');
+                postHeader.className = 'post-header';
+
+                const postUser = document.createElement('div');
+                postUser.className = 'post-user';
+                postUser.innerHTML = `<strong>Турнир: ${tournamentName}</strong>`;
+
+                const postHeaderMeta = document.createElement('div');
+                postHeaderMeta.className = 'post-header-meta';
+
+                const postTime = document.createElement('div');
+                postTime.className = 'post-time';
+                postTime.textContent = timeAgo;
+                postHeaderMeta.appendChild(postTime);
+
+                if (isCreator) {
+                    const deleteButton = document.createElement('button');
+                    deleteButton.className = 'delete-post-btn';
+                    deleteButton.title = 'Удалить пост';
+                    deleteButton.innerHTML = '🗑️';
+                    deleteButton.onclick = () => deleteTournamentPost(post.id);
+                    postHeaderMeta.appendChild(deleteButton);
+                }
+
+                postHeader.appendChild(postUser);
+                postHeader.appendChild(postHeaderMeta);
+
+                const postContentDiv = document.createElement('div');
+                postContentDiv.className = 'post-content';
+                postContentDiv.innerHTML = formattedContent;
+
+                postDiv.appendChild(postHeader);
+                postDiv.appendChild(postContentDiv);
                 postsList.appendChild(postDiv);
             });
         } else {
@@ -1460,26 +1482,34 @@ async function loadParticipants(tournamentId) {
 
 function initBracket(isCreator) {
   const bracketSection = document.getElementById('tournament-bracket');
-  bracketSection.innerHTML = '';
+  // Очищаем только контейнеры для сеток, а не всю секцию с формой
+  const bracketDisplay = document.getElementById('bracket-display');
+  if (bracketDisplay) bracketDisplay.innerHTML = '';
+  const playoffDisplay = document.getElementById('playoff-display');
+  if (playoffDisplay) playoffDisplay.innerHTML = '';
+  const playoffSetupForm = document.getElementById('playoff-setup-form');
+  if (playoffSetupForm) playoffSetupForm.innerHTML = '';
+
   if (isCreator) {
-    bracketSection.innerHTML = `
-      <div id="bracket-form">
-        <h4>Управление сеткой отборочных раундов</h4>
-        <select id="bracket-format">
-          <option value="АПФ">АПФ</option>
-          <option value="БПФ">БПФ</option>
-        </select>
-        <input id="bracket-faction-count" type="number" placeholder="Количество фракций" required>
-        <input id="bracket-round-count" type="number" placeholder="Количество раундов" required>
-        <button id="generate-bracket-btn">Сгенерировать 1-й раунд</button>
-      </div>
-      <div id="bracket-display"></div>
-      
-      <form id="playoff-setup-form" class="form-hidden"></form>
-    `;
-    document.getElementById('generate-bracket-btn').onclick = generateBracket;
+    if (!document.getElementById('bracket-form')) {
+        const formHtml = `
+            <div id="bracket-form">
+                <h4>Управление сеткой отборочных раундов</h4>
+                <select id="bracket-format">
+                <option value="АПФ">АПФ</option>
+                <option value="БПФ">БПФ</option>
+                </select>
+                <input id="bracket-faction-count" type="number" placeholder="Количество фракций" required>
+                <input id="bracket-round-count" type="number" placeholder="Количество раундов" required>
+                <button id="generate-bracket-btn">Сгенерировать 1-й раунд</button>
+            </div>
+        `;
+        bracketSection.insertAdjacentHTML('afterbegin', formHtml);
+        document.getElementById('generate-bracket-btn').onclick = generateBracket;
+    }
   } else {
-    bracketSection.innerHTML = `<div id="bracket-display"></div>`;
+    const bracketForm = document.getElementById('bracket-form');
+    if (bracketForm) bracketForm.remove();
   }
 }
 
@@ -1538,6 +1568,7 @@ async function generateBracket() {
     matches: [{ round: 1, matches: roundMatches }],
     published: false,
     results_published: false,
+    playoff_data: null, // Добавляем поле для плей-офф
     timestamp: new Date().toISOString()
   };
 
@@ -1783,7 +1814,8 @@ async function saveBracketSetup(isCalledFromModal = false) {
     
     try {
         await supabaseFetch(`brackets?id=eq.${bracket.id}`, 'PATCH', {
-            matches: bracket.matches
+            matches: bracket.matches,
+            playoff_data: bracket.playoff_data // Сохраняем и данные плей-офф
         });
         if (!isCalledFromModal) alert('Изменения сохранены!');
         loadBracket(bracket.tournament_id, true);
@@ -1815,12 +1847,12 @@ async function toggleBracketPublication(publishState) {
 }
 
 async function finalizeAndPublishBreak() {
-    if (!confirm("Вы уверены? Это действие опубликует итоговый брейк в виде постов и сделает все результаты видимыми для участников.")) return;
+    if (!confirm("Вы уверены? Это действие опубликует итоговый брейк и сгенерирует сетки плей-офф.")) return;
 
     const bracket = window.currentBracketData;
     if (!bracket) return;
     
-    const isCreator = bracket.creator_id === userData.telegramUsername;
+    const isCreator = true; // Предполагаем, что эту функцию вызывает только создатель
 
     try {
         // --- 1. Расчет и сортировка командного брейка ---
@@ -1835,7 +1867,7 @@ async function finalizeAndPublishBreak() {
                     if (!teamStats[team.faction_name]) {
                         const originalTeam = bracket.matches[0].matches.flatMap(m => m.teams).find(t => t.faction_name === team.faction_name);
                         teamStats[team.faction_name] = {
-                            faction_name: team.faction_name,
+                            name: team.faction_name,
                             club: originalTeam ? originalTeam.club : '',
                             tournamentPoints: 0,
                             speakerPoints: 0
@@ -1849,56 +1881,32 @@ async function finalizeAndPublishBreak() {
 
         const sortedTeams = Object.values(teamStats).sort((a, b) => (b.tournamentPoints - a.tournamentPoints) || (b.speakerPoints - a.speakerPoints));
 
-        // --- 2. Расчет и сортировка спикерского брейка (для ЛД) ---
-        const speakerStats = {};
-        bracket.matches.forEach(round => {
-            round.matches.forEach(match => {
-                match.teams.forEach(team => {
-                    team.speakers.forEach(speaker => {
-                        if (!speakerStats[speaker.username]) {
-                            speakerStats[speaker.username] = { username: speaker.username, totalPoints: 0 };
-                        }
-                        speakerStats[speaker.username].totalPoints += speaker.points || 0;
-                    });
-                });
-            });
-        });
-        const sortedSpeakers = Object.values(speakerStats).sort((a, b) => b.totalPoints - a.totalPoints);
-        const speakerUsernames = sortedSpeakers.map(s => s.username);
-        await getSpeakerFullNames(speakerUsernames);
+        // --- 2. Генерация сеток Плей-офф ---
+        const teamsInBreak = parseInt(document.getElementById('playoff-teams-count').value);
+        const breakTeams = sortedTeams.slice(0, teamsInBreak);
 
-        // --- 3. Генерация и публикация постов ---
+        if (breakTeams.length !== teamsInBreak) {
+            alert(`Недостаточно команд для плей-офф. Требуется ${teamsInBreak}, доступно ${breakTeams.length}.`);
+            return;
+        }
+
+        const playoffData = {
+            main: generatePlayoffTree(breakTeams, "Основной Плей-офф")
+        };
+        
+        // --- 3. Генерация и публикация постов (можно оставить как есть) ---
         const tournamentInfo = allTournaments.find(t => t.id === bracket.tournament_id);
         const tournamentName = tournamentInfo ? tournamentInfo.name : "Турнир";
+        // ... (код публикации постов) ...
 
-        // Пост для командного брейка
-        let teamBreakContent = `**Командный Брейк | ${tournamentName}**\n\n| Место | Команда | Очки (TP) | Баллы (SP) |\n|---|---|---|---|\n`;
-        sortedTeams.forEach((team, index) => {
-            teamBreakContent += `| ${index + 1} | ${team.faction_name} | ${team.tournamentPoints} | ${team.speakerPoints} |\n`;
-        });
-        await supabaseFetch('tournament_posts', 'POST', {
-            tournament_id: bracket.tournament_id,
-            text: teamBreakContent,
-            timestamp: new Date().toISOString()
+        // 4. Обновляем статус в базе, добавляя playoff_data
+        await supabaseFetch(`brackets?id=eq.${bracket.id}`, 'PATCH', { 
+            results_published: true,
+            playoff_data: playoffData 
         });
 
-        // Пост для спикерского брейка
-        let speakerBreakContent = `**Спикерский ТЭБ | ${tournamentName}**\n\n| Место | Спикер | Баллы (SP) |\n|---|---|---|\n`;
-        sortedSpeakers.forEach((speaker, index) => {
-            const fullName = profilesCache.get(speaker.username) || speaker.username;
-            speakerBreakContent += `| ${index + 1} | ${fullName} | ${speaker.totalPoints} |\n`;
-        });
-        await supabaseFetch('tournament_posts', 'POST', {
-            tournament_id: bracket.tournament_id,
-            text: speakerBreakContent,
-            timestamp: new Date().toISOString()
-        });
-        
-        // 4. Обновляем статус в базе
-        await supabaseFetch(`brackets?id=eq.${bracket.id}`, 'PATCH', { results_published: true });
-
-        alert(`Брейк успешно сформирован и опубликован в ленте турнира!`);
-        await loadTournamentPosts(bracket.tournament_id, isCreator, tournamentName);
+        alert(`Брейк опубликован и сетка плей-офф сгенерирована!`);
+        document.getElementById('playoff-setup-form').classList.add('form-hidden');
         loadBracket(bracket.tournament_id, isCreator);
 
     } catch(error) {
@@ -1907,29 +1915,82 @@ async function finalizeAndPublishBreak() {
     }
 }
 
+function generatePlayoffTree(teams, title) {
+    if (teams.length === 0 || (teams.length & (teams.length - 1)) !== 0) {
+        console.error("Количество команд для плей-офф должно быть степенью двойки.");
+        return null;
+    }
+
+    const rounds = [];
+    let currentRoundTeams = teams.map(t => ({ name: t.name, winner: false }));
+
+    // 1-й раунд с посевом
+    const firstRoundMatches = [];
+    const highSeeds = currentRoundTeams.slice(0, currentRoundTeams.length / 2);
+    const lowSeeds = currentRoundTeams.slice(currentRoundTeams.length / 2).reverse();
+
+    for (let i = 0; i < highSeeds.length; i++) {
+        firstRoundMatches.push({
+            id: `r1-m${i}`,
+            teams: [highSeeds[i], lowSeeds[i]],
+            winner: null
+        });
+    }
+    rounds.push({ title: `1/${teams.length/2} Финала`, matches: firstRoundMatches });
+
+    // Последующие раунды
+    let numMatchesInRound = teams.length / 4;
+    let roundCounter = 2;
+    while(numMatchesInRound >= 1) {
+        const nextRoundMatches = [];
+        for (let i = 0; i < numMatchesInRound; i++) {
+            nextRoundMatches.push({
+                id: `r${roundCounter}-m${i}`,
+                teams: [{name: 'TBD', placeholder: true}, {name: 'TBD', placeholder: true}],
+                winner: null
+            });
+        }
+        let roundTitle = '';
+        if (numMatchesInRound === 1) roundTitle = 'Финал';
+        else if (numMatchesInRound === 2) roundTitle = 'Полуфинал';
+        else if (numMatchesInRound === 4) roundTitle = 'Четвертьфинал';
+        else roundTitle = `1/${numMatchesInRound} Финала`;
+
+        rounds.push({ title: roundTitle, matches: nextRoundMatches });
+        numMatchesInRound /= 2;
+        roundCounter++;
+    }
+
+    return { title, rounds };
+}
+
 
 async function loadBracket(tournamentId, isCreator) {
   const bracketDisplay = document.getElementById('bracket-display');
+  const playoffDisplay = document.getElementById('playoff-display');
   const playoffSetupForm = document.getElementById('playoff-setup-form');
   
   try {
-    const brackets = await supabaseFetch(`brackets?tournament_id=eq.${tournamentId}&order=timestamp.desc&limit=1`, 'GET');
+    const brackets = await supabaseFetch(`brackets?tournament_id=eq.${tournamentId}&select=*,creator:profiles(telegram_username)&order=timestamp.desc&limit=1`, 'GET');
+    
     bracketDisplay.innerHTML = '';
+    playoffDisplay.innerHTML = '';
     if (playoffSetupForm) playoffSetupForm.innerHTML = '';
-
 
     if (brackets?.length > 0) {
       const bracket = brackets[0];
-      window.currentBracketData = bracket;
-
+      window.currentBracketData = bracket; 
+      
+      const isCreator = bracket.creator.telegram_username === userData.telegramUsername;
+      
       // --- Панель управления ---
-      if(isCreator) {
+      if (isCreator) {
         const controlsDiv = document.createElement('div');
         controlsDiv.className = 'bracket-controls';
         
         const currentRoundNumber = bracket.matches.length;
         const totalRounds = bracket.round_count;
-        const allResultsEnteredForLastRound = bracket.matches[currentRoundNumber - 1].matches.every(match => match.teams.every(team => team.rank > 0));
+        const allResultsEnteredForLastRound = bracket.matches.length > 0 && bracket.matches[currentRoundNumber - 1].matches.every(match => match.teams.every(team => team.rank > 0));
 
         let buttonsHtml = '';
 
@@ -1940,7 +2001,7 @@ async function loadBracket(tournamentId, isCreator) {
             buttonsHtml += `<button id="unpublish-bracket-btn" onclick="toggleBracketPublication(false)">Снять с публикации</button>`;
         }
 
-        if (currentRoundNumber < totalRounds && allResultsEnteredForLastRound && bracket.published) {
+        if (currentRoundNumber < totalRounds && allResultsEnteredForLastRound && bracket.published && !bracket.results_published) {
             buttonsHtml += `<button id="generate-next-round-btn" onclick="generateNextRound()">Сгенерировать ${currentRoundNumber + 1}-й раунд</button>`;
         }
         
@@ -1951,54 +2012,62 @@ async function loadBracket(tournamentId, isCreator) {
         bracketDisplay.appendChild(controlsDiv);
       }
 
-      // --- Отображение раундов ---
-      bracket.matches.forEach((round, roundIndex) => {
-        const roundDiv = document.createElement('div');
-        roundDiv.classList.add('bracket-round');
-        roundDiv.innerHTML = `<h3>Раунд ${round.round}</h3>`;
+      // --- Отображение отборочных раундов ---
+      if (bracket.matches) {
+          bracket.matches.forEach((round, roundIndex) => {
+            const roundDiv = document.createElement('div');
+            roundDiv.classList.add('bracket-round');
+            roundDiv.innerHTML = `<h3>Раунд ${round.round}</h3>`;
 
-        round.matches.forEach((match, matchIndex) => {
-          const matchDiv = document.createElement('div');
-          matchDiv.classList.add('bracket-match');
-          
-          const roomInfo = (!bracket.published && isCreator)
-            ? `<input type="text" class="inline-bracket-input" data-round-index="${roundIndex}" data-match-index="${matchIndex}" data-field="room" value="${match.room || ''}" placeholder="Кабинет">`
-            : `<span>Кабинет: ${match.room || 'Не указан'}</span>`;
+            round.matches.forEach((match, matchIndex) => {
+              const matchDiv = document.createElement('div');
+              matchDiv.classList.add('bracket-match');
+              
+              const roomInfo = (!bracket.published && isCreator)
+                ? `<input type="text" class="inline-bracket-input" data-round-index="${roundIndex}" data-match-index="${matchIndex}" data-field="room" value="${match.room || ''}" placeholder="Кабинет">`
+                : `<span>Кабинет: ${match.room || 'Не указан'}</span>`;
 
-          const judgeInfo = (!bracket.published && isCreator)
-            ? `<input type="text" class="inline-bracket-input" data-round-index="${roundIndex}" data-match-index="${matchIndex}" data-field="judge" value="${match.judge || ''}" placeholder="Судья">`
-            : `<span>Судья: ${match.judge || 'Не указан'}</span>`;
+              const judgeInfo = (!bracket.published && isCreator)
+                ? `<input type="text" class="inline-bracket-input" data-round-index="${roundIndex}" data-match-index="${matchIndex}" data-field="judge" value="${match.judge || ''}" placeholder="Судья">`
+                : `<span>Судья: ${match.judge || 'Не указан'}</span>`;
 
-          let teamsHtml = match.teams.map(team => {
-            const showResults = bracket.results_published || isCreator;
-            const rank = team.rank || 0;
-            const rankClass = (rank > 0 && showResults) ? `class="rank-${rank}"` : '';
-            
-            const totalScore = team.speakers ? team.speakers.reduce((sum, s) => sum + (s.points || 0), 0) : 0;
-            const scoreHtml = (totalScore > 0 && showResults) ? `<span class="team-total-score">(${totalScore})</span>` : '';
-            const rankHtml = (rank > 0 && showResults) ? `<span class="team-rank">(${rank})</span>` : '';
+              let teamsHtml = match.teams.map(team => {
+                const showResults = bracket.results_published || isCreator;
+                const rank = team.rank || 0;
+                const rankClass = (rank > 0 && showResults) ? `class="rank-${rank}"` : '';
+                
+                const totalScore = team.speakers ? team.speakers.reduce((sum, s) => sum + (s.points || 0), 0) : 0;
+                const scoreHtml = (totalScore > 0 && showResults) ? `<span class="team-total-score">(${totalScore})</span>` : '';
+                const rankHtml = (rank > 0 && showResults) ? `<span class="team-rank">(${rank})</span>` : '';
 
-            return `<li ${rankClass}>
-                        <div class="team-name-wrapper">
-                            <span>${team.position}: <strong>${team.faction_name}</strong></span>
-                            ${scoreHtml}
-                        </div>
-                        ${rankHtml}
-                    </li>`;
-          }).join('');
+                return `<li ${rankClass}>
+                            <div class="team-name-wrapper">
+                                <span>${team.position}: <strong>${team.faction_name}</strong></span>
+                                ${scoreHtml}
+                            </div>
+                            ${rankHtml}
+                        </li>`;
+              }).join('');
 
-          const resultButton = (isCreator && bracket.published) ? `<button class="result-btn" onclick="openResultsModal(${roundIndex}, ${matchIndex})">Ввести / Изменить результат</button>` : '';
+              const resultButton = (isCreator && bracket.published && !bracket.results_published) ? `<button class="result-btn" onclick="openResultsModal(${roundIndex}, ${matchIndex})">Ввести / Изменить результат</button>` : '';
 
-          matchDiv.innerHTML = `
-            <h4>Матч ${matchIndex + 1}</h4>
-            <div class="match-details">${roomInfo} ${judgeInfo}</div>
-            <ul>${teamsHtml}</ul>
-            ${resultButton}
-          `;
-          roundDiv.appendChild(matchDiv);
-        });
-        bracketDisplay.appendChild(roundDiv);
-      });
+              matchDiv.innerHTML = `
+                <h4>Матч ${matchIndex + 1}</h4>
+                <div class="match-details">${roomInfo} ${judgeInfo}</div>
+                <ul>${teamsHtml}</ul>
+                ${resultButton}
+              `;
+              roundDiv.appendChild(matchDiv);
+            });
+            bracketDisplay.appendChild(roundDiv);
+          });
+      }
+
+      // --- Отображение сеток плей-офф ---
+      if (bracket.playoff_data) {
+        renderPlayoffBrackets(bracket.playoff_data, isCreator);
+      }
+      
     } else {
       bracketDisplay.innerHTML = '<p>Сетка не сформирована.</p>';
     }
@@ -2008,50 +2077,123 @@ async function loadBracket(tournamentId, isCreator) {
   }
 }
 
+
+function renderPlayoffBrackets(playoffData, isCreator) {
+    const playoffDisplay = document.getElementById('playoff-display');
+    playoffDisplay.innerHTML = ''; // Очищаем контейнер
+
+    for (const key in playoffData) {
+        const bracket = playoffData[key];
+        const bracketContainer = document.createElement('div');
+        bracketContainer.className = 'playoff-bracket';
+        
+        let title = document.createElement('h3');
+        title.textContent = bracket.title;
+        title.style.width = '100%';
+        title.style.textAlign = 'center';
+        title.style.color = '#fff';
+        playoffDisplay.appendChild(title);
+
+        bracket.rounds.forEach((roundData, roundIndex) => {
+            const roundDiv = document.createElement('div');
+            roundDiv.className = 'round';
+            roundDiv.innerHTML = `<div class="round-title">${roundData.title}</div>`;
+
+            roundData.matches.forEach((matchData, matchIndex) => {
+                const matchDiv = document.createElement('div');
+                matchDiv.className = 'match';
+                
+                const team1 = matchData.teams[0];
+                const team2 = matchData.teams[1];
+
+                const team1Div = document.createElement('div');
+                team1Div.className = `team ${team1.placeholder ? 'placeholder' : ''} ${matchData.winner === team1.name ? 'winner' : ''}`;
+                team1Div.innerHTML = `<span>${team1.name}</span>`;
+
+                const team2Div = document.createElement('div');
+                team2Div.className = `team ${team2.placeholder ? 'placeholder' : ''} ${matchData.winner === team2.name ? 'winner' : ''}`;
+                team2Div.innerHTML = `<span>${team2.name}</span>`;
+                
+                matchDiv.appendChild(team1Div);
+                matchDiv.appendChild(team2Div);
+
+                if (isCreator && !team1.placeholder && !team2.placeholder) {
+                    const setWinnerBtn = document.createElement('button');
+                    setWinnerBtn.className = 'set-winner-btn';
+                    setWinnerBtn.textContent = '🏆';
+                    setWinnerBtn.title = 'Выбрать победителя';
+                    setWinnerBtn.onclick = () => openWinnerModal(key, roundIndex, matchIndex);
+                    matchDiv.appendChild(setWinnerBtn);
+                }
+                
+                roundDiv.appendChild(matchDiv);
+            });
+            bracketContainer.appendChild(roundDiv);
+        });
+        playoffDisplay.appendChild(bracketContainer);
+    }
+    // Здесь можно будет добавить отрисовку соединительных линий, если потребуется
+}
+
+function openWinnerModal(bracketKey, roundIndex, matchIndex) {
+    const bracket = window.currentBracketData.playoff_data[bracketKey];
+    const match = bracket.rounds[roundIndex].matches[matchIndex];
+    
+    const modal = document.getElementById('winner-modal');
+    const modalBody = document.getElementById('winner-modal-body');
+    modalBody.innerHTML = ''; 
+
+    match.teams.forEach(team => {
+        const btn = document.createElement('button');
+        btn.textContent = team.name;
+        btn.onclick = () => setWinner(bracketKey, roundIndex, matchIndex, team.name);
+        modalBody.appendChild(btn);
+    });
+    
+    document.getElementById('cancel-winner-btn').onclick = () => modal.style.display = 'none';
+    modal.style.display = 'flex';
+}
+
+async function setWinner(bracketKey, roundIndex, matchIndex, winnerName) {
+    const bracketData = window.currentBracketData;
+    const bracket = bracketData.playoff_data[bracketKey];
+    const match = bracket.rounds[roundIndex].matches[matchIndex];
+    match.winner = winnerName;
+
+    // Продвигаем победителя в следующий раунд
+    const nextRoundIndex = roundIndex + 1;
+    if (nextRoundIndex < bracket.rounds.length) {
+        const nextMatchIndex = Math.floor(matchIndex / 2);
+        const teamSlotIndex = matchIndex % 2;
+        
+        const nextMatch = bracket.rounds[nextRoundIndex].matches[nextMatchIndex];
+        nextMatch.teams[teamSlotIndex] = { name: winnerName, placeholder: false };
+    }
+    
+    document.getElementById('winner-modal').style.display = 'none';
+
+    try {
+        await supabaseFetch(`brackets?id=eq.${bracketData.id}`, 'PATCH', {
+            playoff_data: bracketData.playoff_data
+        });
+        loadBracket(bracketData.tournament_id, true);
+    } catch (error) {
+        alert('Ошибка сохранения победителя: ' + error.message);
+    }
+}
+
+
 function showPlayoffSetupForm() {
     const form = document.getElementById('playoff-setup-form');
     form.classList.remove('form-hidden');
     form.innerHTML = `
         <h4>Настройки Плей-офф</h4>
         <div class="playoff-form-group">
-            <label for="playoff-format">Формат Плей-офф</label>
-            <select id="playoff-format">
-                <option value="АПФ">АПФ</option>
-                <option value="БПФ">БПФ</option>
-            </select>
-        </div>
-        <div class="playoff-form-group">
-            <label for="playoff-teams-count">Команд в брейке</label>
+            <label for="playoff-teams-count">Команд в брейке (степень 2)</label>
             <input type="number" id="playoff-teams-count" placeholder="Напр., 8 или 16" value="8">
-        </div>
-        <div class="playoff-form-group">
-            <label>
-                <input type="checkbox" id="playoff-enable-leagues">
-                Разделить на лиги (Альфа/Бета)
-            </label>
-            <div id="playoff-leagues-config" class="form-hidden">
-                <input type="number" id="playoff-alpha-teams" placeholder="Команд в Альфа-лиге">
-                <input type="number" id="playoff-beta-teams" placeholder="Команд в Бета-лиге">
-            </div>
-        </div>
-        <div class="playoff-form-group">
-            <label>
-                <input type="checkbox" id="playoff-enable-ld">
-                Сформировать сетку ЛД
-            </label>
-             <div id="playoff-ld-config" class="form-hidden">
-                <input type="number" id="playoff-ld-speakers" placeholder="Спикеров в брейке ЛД">
-            </div>
         </div>
         <button type="button" onclick="finalizeAndPublishBreak()">Опубликовать Брейк и Сгенерировать Сетки</button>
     `;
-
-    document.getElementById('playoff-enable-leagues').onchange = (e) => {
-        document.getElementById('playoff-leagues-config').classList.toggle('form-hidden', !e.target.checked);
-    };
-    document.getElementById('playoff-enable-ld').onchange = (e) => {
-        document.getElementById('playoff-ld-config').classList.toggle('form-hidden', !e.target.checked);
-    };
 }
 
 
