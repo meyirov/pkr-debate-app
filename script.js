@@ -1477,7 +1477,7 @@ function initBracket(isCreator) {
     document.getElementById('generate-bracket-btn').onclick = generateBracket;
   }
 
-  // Новая логика для управления вложенными вкладками (Отборочные / Play Off)
+  // Логика для управления вложенными вкладками (Отборочные / Play Off)
   const qualifyingTabBtn = document.getElementById('qualifying-tab-btn');
   const playoffTabBtn = document.getElementById('playoff-tab-btn');
   const qualifyingContent = document.getElementById('qualifying-content');
@@ -1487,6 +1487,7 @@ function initBracket(isCreator) {
   if (qualifyingTabBtn && playoffTabBtn && qualifyingContent && playoffContent) {
     qualifyingTabBtn.addEventListener('click', (e) => {
         e.preventDefault();
+        e.stopPropagation(); // Предотвращаем конфликт с обработчиком основных вкладок
         qualifyingTabBtn.classList.add('active');
         playoffTabBtn.classList.remove('active');
         qualifyingContent.classList.add('active');
@@ -1495,6 +1496,7 @@ function initBracket(isCreator) {
 
     playoffTabBtn.addEventListener('click', (e) => {
         e.preventDefault();
+        e.stopPropagation(); // Предотвращаем конфликт с обработчиком основных вкладок
         playoffTabBtn.classList.add('active');
         qualifyingTabBtn.classList.remove('active');
         playoffContent.classList.add('active');
