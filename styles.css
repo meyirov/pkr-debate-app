@@ -873,42 +873,6 @@ body {
     border-bottom: 1px solid #444;
 }
 
-/* Стили для под-вкладок сетки */
-.bracket-sub-tabs {
-    display: flex;
-    background: #1a1a1a;
-    border-radius: 8px;
-    padding: 4px;
-    margin-bottom: 10px;
-}
-
-.bracket-tab-btn {
-    flex: 1;
-    padding: 8px;
-    background: none;
-    border: none;
-    border-radius: 6px;
-    color: #d1d5db;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.2s ease, color 0.2s ease;
-}
-
-.bracket-tab-btn.active {
-    background: #8b5cf6;
-    color: #ffffff;
-    font-weight: 600;
-}
-
-.bracket-tab-content {
-    display: none;
-}
-.bracket-tab-content.active {
-    display: block;
-}
-
-
 #bracket-form, #playoff-setup-form {
     background: #1a1a1a;
     padding: 15px;
@@ -1099,11 +1063,11 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
     cursor: not-allowed;
 }
 
-#publish-bracket-btn, #generate-next-round-btn, #finalize-playoffs-btn {
+#publish-bracket-btn, #generate-next-round-btn {
     background-color: #22c55e;
     color: #fff;
 }
-.bracket-controls button.publish {
+#finalize-playoffs-btn {
     background-color: #22c55e;
     color: #fff;
 }
@@ -1116,6 +1080,42 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
 #save-bracket-setup-btn {
     background-color: #3b82f6;
     color: #fff;
+}
+
+/* Стили для под-вкладок в "Сетке" */
+.bracket-sub-nav {
+    display: flex;
+    background: #262626;
+    border-radius: 8px;
+    padding: 4px;
+    margin-bottom: 10px;
+}
+
+.bracket-sub-nav-btn {
+    flex: 1;
+    padding: 8px;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    color: #d1d5db;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.bracket-sub-nav-btn.active {
+    background: #8b5cf6;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.bracket-content-pane {
+    display: none;
+}
+
+.bracket-content-pane.active {
+    display: block;
 }
 
 
