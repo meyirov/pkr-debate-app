@@ -97,7 +97,7 @@
                 <div id="tournament-future-content">
                     <div id="tournament-nav-tabs" class="tournament-tabs">
                         <button id="posts-tab" class="tab-btn active">Посты</button>
-                    </div>
+                        </div>
                     
                     <div id="tournament-posts" class="tab-content active"></div>
                     
@@ -134,14 +134,13 @@
                         <div id="participants-reserve-list"></div>
                     </div>
 
-                    <div id="tournament-bracket" class="tab-content">
-                        <div id="bracket-controls-container"></div>
-                        <div class="bracket-view-tabs">
-                            <button id="qualifying-bracket-tab" class="bracket-tab-btn active">Отборочные</button>
-                            <button id="playoff-bracket-tab" class="bracket-tab-btn">Плей-офф</button>
+                    <section id="tournament-bracket" class="tab-content">
+                        <div class="bracket-sub-nav">
+                            <button id="qualifying-bracket-tab" class="bracket-sub-nav-btn active">Отборочные</button>
+                            <button id="playoff-bracket-tab" class="bracket-sub-nav-btn">Play Off</button>
                         </div>
-
-                        <div id="qualifying-view" class="bracket-view-content active">
+        
+                        <div id="bracket-qualifying-content" class="bracket-content-pane active">
                             <div id="bracket-form">
                                 <h4>Управление сеткой отборочных раундов</h4>
                                 <select id="bracket-format">
@@ -153,13 +152,13 @@
                                 <button id="generate-bracket-btn">Сгенерировать 1-й раунд</button>
                             </div>
                             <div id="bracket-display"></div>
-                            <form id="playoff-setup-form" class="form-hidden"></form>
                         </div>
-
-                        <div id="playoff-view" class="bracket-view-content">
+        
+                        <div id="bracket-playoff-content" class="bracket-content-pane">
+                            <form id="playoff-setup-form" class="form-hidden"></form>
                             <div id="playoff-display"></div>
                         </div>
-                    </div>
+                    </section>
                 </div>
             </section>
             <section id="rating" class="content">
