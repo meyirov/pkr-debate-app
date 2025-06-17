@@ -1466,17 +1466,43 @@ async function loadParticipants(tournamentId) {
 
 // --- БЛОК УПРАВЛЕНИЯ СЕТКОЙ ---
 
+/**
+ * Инициализирует вкладки "Отборочные" и "Play Off" внутри секции "Сетка",
+ * а также привязывает обработчик для кнопки генерации сетки.
+ * @param {boolean} isCreator - Является ли текущий пользователь создателем турнира.
+ */
 function initBracket(isCreator) {
-  const bracketSection = document.getElementById('tournament-bracket');
-  const bracketForm = document.getElementById('bracket-form');
-  
   if (isCreator) {
-    bracketForm.style.display = 'block';
+    // Привязываем событие к кнопке генерации, которая находится в форме
     document.getElementById('generate-bracket-btn').onclick = generateBracket;
-  } else {
-    bracketForm.style.display = 'none';
+  }
+
+  // Новая логика для управления вложенными вкладками (Отборочные / Play Off)
+  const qualifyingTabBtn = document.getElementById('qualifying-tab-btn');
+  const playoffTabBtn = document.getElementById('playoff-tab-btn');
+  const qualifyingContent = document.getElementById('qualifying-content');
+  const playoffContent = document.getElementById('playoff-content');
+
+  // Убеждаемся, что все элементы существуют, прежде чем навешивать события
+  if (qualifyingTabBtn && playoffTabBtn && qualifyingContent && playoffContent) {
+    qualifyingTabBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        qualifyingTabBtn.classList.add('active');
+        playoffTabBtn.classList.remove('active');
+        qualifyingContent.classList.add('active');
+        playoffContent.classList.remove('active');
+    });
+
+    playoffTabBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        playoffTabBtn.classList.add('active');
+        qualifyingTabBtn.classList.remove('active');
+        playoffContent.classList.add('active');
+        qualifyingContent.classList.remove('active');
+    });
   }
 }
+
 
 async function generateBracket() {
   if (!confirm("Вы уверены, что хотите сгенерировать новую сетку? Это действие удалит существующую сетку для этого турнира.")) {
@@ -1714,7 +1740,7 @@ async function openResultsModal(roundIndex, matchIndex, isPlayoff = false, leagu
     if (match.teams.some(t => t.speakers && t.speakers.length > 0 && !t.placeholder)) {
         modalHtml += '<hr><h4>Введите баллы спикеров:</h4>';
         match.teams.forEach(team => {
-            if (team.speakers && team.speakers.length > 0 && !team.placeholder) {
+            if (team.speakers && team.speakers.length > 0 && !t.placeholder) {
                 modalHtml += `<div class="team-block"><h5>${team.faction_name}</h5>`;
                 team.speakers.forEach(speaker => {
                     const fullName = profilesCache.get(speaker.username) || speaker.username;
@@ -1934,14 +1960,29 @@ async function finalizeAndPublishBreak() {
 }
 
 
+/**
+ * Загружает и отображает данные сетки турнира, управляя видимостью вкладок
+ * "Отборочные" и "Play Off".
+ * @param {number} tournamentId - ID текущего турнира.
+ * @param {boolean} isCreator - Является ли пользователь создателем.
+ */
 async function loadBracket(tournamentId, isCreator) {
+  // Основные контейнеры для контента
   const bracketDisplay = document.getElementById('bracket-display');
   const playoffDisplay = document.getElementById('playoff-display');
   const playoffSetupForm = document.getElementById('playoff-setup-form');
   const bracketForm = document.getElementById('bracket-form');
+
+  // Элементы для управления вложенными вкладками
+  const playoffTabBtn = document.getElementById('playoff-tab-btn');
+  const qualifyingTabBtn = document.getElementById('qualifying-tab-btn');
+  const qualifyingContent = document.getElementById('qualifying-content');
+  const playoffContent = document.getElementById('playoff-content');
   
   try {
     const brackets = await supabaseFetch(`brackets?tournament_id=eq.${tournamentId}&order=timestamp.desc&limit=1`, 'GET');
+    
+    // Сброс и очистка содержимого
     bracketDisplay.innerHTML = '';
     playoffDisplay.innerHTML = '';
     if (playoffSetupForm) {
@@ -1949,11 +1990,21 @@ async function loadBracket(tournamentId, isCreator) {
         playoffSetupForm.classList.add('form-hidden');
     }
 
+    // Установка состояния вкладок по умолчанию: "Отборочные" активны, "Play Off" скрыта
+    if (playoffTabBtn) playoffTabBtn.style.display = 'none';
+    if (qualifyingTabBtn && qualifyingContent && playoffContent) {
+        qualifyingTabBtn.classList.add('active');
+        playoffTabBtn.classList.remove('active');
+        qualifyingContent.classList.add('active');
+        playoffContent.classList.remove('active');
+    }
+
     if (brackets?.length > 0) {
+      // Если сетка существует
       const bracket = brackets[0];
       window.currentBracketData = bracket;
 
-      bracketForm.style.display = 'none';
+      if (bracketForm) bracketForm.style.display = 'none'; // Скрываем форму создания
 
       const controlsDiv = document.createElement('div');
       controlsDiv.className = 'bracket-controls';
@@ -1986,6 +2037,7 @@ async function loadBracket(tournamentId, isCreator) {
         }
       }
 
+      // Отрисовка отборочных раундов
       bracket.matches.forEach((round, roundIndex) => {
         const roundDiv = document.createElement('div');
         roundDiv.classList.add('bracket-round');
@@ -2035,19 +2087,24 @@ async function loadBracket(tournamentId, isCreator) {
         bracketDisplay.appendChild(roundDiv);
       });
       
+      // Если есть данные для плей-офф, показываем вкладку и отрисовываем
       if (bracket.playoff_data) {
+          if (playoffTabBtn) playoffTabBtn.style.display = 'flex'; // Показываем вкладку
           renderPlayoffBracket(bracket.playoff_data, isCreator);
       }
 
     } else {
-      bracketForm.style.display = isCreator ? 'block' : 'none';
+      // Если сетка еще не создана
+      if (bracketForm) bracketForm.style.display = isCreator ? 'block' : 'none';
       bracketDisplay.innerHTML = '<p>Сетка отборочных раундов не сформирована.</p>';
+      if (playoffTabBtn) playoffTabBtn.style.display = 'none'; // Убеждаемся, что вкладка скрыта
     }
   } catch (error) {
     bracketDisplay.innerHTML = '<p>Ошибка загрузки сетки.</p>';
     console.error("Error loading bracket:", error);
   }
 }
+
 
 function showPlayoffSetupForm() {
     const form = document.getElementById('playoff-setup-form');
