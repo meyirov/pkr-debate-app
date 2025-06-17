@@ -135,13 +135,14 @@
                     </div>
 
                     <div id="tournament-bracket" class="tab-content">
-                        <div class="bracket-sub-tabs">
-                            <button id="qualifiers-bracket-tab" class="bracket-tab-btn active">Отборочные</button>
-                            <button id="playoff-bracket-tab" class="bracket-tab-btn" style="display: none;">Плей-офф</button>
+                        <div id="bracket-controls-container"></div>
+                        <div class="bracket-view-tabs">
+                            <button id="qualifying-bracket-tab" class="bracket-tab-btn active">Отборочные</button>
+                            <button id="playoff-bracket-tab" class="bracket-tab-btn">Плей-офф</button>
                         </div>
 
-                        <div id="qualifiers-bracket-content" class="bracket-tab-content active">
-                            <div id="bracket-form" style="display: none;">
+                        <div id="qualifying-view" class="bracket-view-content active">
+                            <div id="bracket-form">
                                 <h4>Управление сеткой отборочных раундов</h4>
                                 <select id="bracket-format">
                                   <option value="АПФ">АПФ</option>
@@ -155,8 +156,8 @@
                             <form id="playoff-setup-form" class="form-hidden"></form>
                         </div>
 
-                        <div id="playoff-bracket-content" class="bracket-tab-content">
-                             <div id="playoff-display"></div>
+                        <div id="playoff-view" class="bracket-view-content">
+                            <div id="playoff-display"></div>
                         </div>
                     </div>
                 </div>
