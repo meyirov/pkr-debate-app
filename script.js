@@ -68,7 +68,7 @@ const ratingData = [
 async function supabaseFetch(endpoint, method, body = null, retries = 3) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const response = await fetch(`<span class="math-inline">\{SUPABASE\_URL\}/rest/v1/</span>{endpoint}`, {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, {
         method,
         headers: {
           'apikey': SUPABASE_KEY,
@@ -90,7 +90,7 @@ async function supabaseFetch(endpoint, method, body = null, retries = 3) {
 
 async function uploadImage(file) {
   const fileExt = file.name.split('.').pop();
-  const fileName = `<span class="math-inline">\{Date\.now\(\)\}\-</span>{Math.random().toString(36).substring(2)}.${fileExt}`;
+  const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
   const { data, error } = await supabaseClient.storage.from('post-images').upload(fileName, file);
   if (error) throw new Error(`Image upload error: ${error.message}`);
   const { data: urlData } = supabaseClient.storage.from('post-images').getPublicUrl(fileName);
@@ -120,10 +120,10 @@ async function showProfile() {
       const chatIdStatus = profile.chat_id ? `Привязан (ID: ${profile.chat_id})` : 'Не привязан';
       profileSection.innerHTML = `
         <h2>Профиль</h2>
-        <span class="math-inline">\{\!profile\.chat\_id ? '<p style\="color\: \#ff4d4d;"\>📢 Привяжите Telegram\!</p\>' \: ''\}
-<p\>Username\: <span\></span>{userData.telegramUsername}</span></p>
-        <p>Chat ID: <span><span class="math-inline">\{chatIdStatus\}</span\></p\>
-<input id\="fullname" type\="text" value\="</span>{profile.fullname || ''}">
+        ${!profile.chat_id ? '<p style="color: #ff4d4d;">📢 Привяжите Telegram!</p>' : ''}
+        <p>Username: <span>${userData.telegramUsername}</span></p>
+        <p>Chat ID: <span>${chatIdStatus}</span></p>
+        <input id="fullname" type="text" value="${profile.fullname || ''}">
         <button id="update-profile">Изменить имя</button>
         ${!profile.chat_id ? '<button id="link-telegram">Привязать Telegram</button>' : ''}
       `;
@@ -272,7 +272,7 @@ submitPost.addEventListener('click', async () => {
     submitPost.disabled = false;
     return;
   }
-  const text = `<span class="math-inline">\{userData\.fullname\} \(@</span>{userData.telegramUsername}):\n${postContent}`;
+  const text = `${userData.fullname} (@${userData.telegramUsername}):\n${postContent}`;
   const post = {
     text,
     timestamp: new Date().toISOString(),
@@ -422,7 +422,7 @@ function renderNewPosts(newPosts, prepend = false) {
 function formatPostContent(content) {
   let formatted = content.replace(/\n/g, '<br>');
   const urlRegex = /(https?:\/\/[^\s<]+[^\s<.,:;"')\]\}])/g;
-  formatted = formatted.replace(urlRegex, url => `<a href="<span class="math-inline">\{url\}" target\="\_blank"\></span>{url}</a>`);
+  formatted = formatted.replace(urlRegex, url => `<a href="${url}" target="_blank">${url}</a>`);
   const tagRegex = /@([a-zA-Z0-9_]+)/g;
   formatted = formatted.replace(tagRegex, tag => `<span class="tag">${tag}</span>`);
   return formatted;
@@ -440,19 +440,19 @@ function renderNewPost(post, prepend = false) {
   const timeAgo = getTimeAgo(new Date(post.timestamp));
   postDiv.innerHTML = `
     <div class="post-header">
-      <div class="post-user"><strong><span class="math-inline">\{fullname\}</strong\><span\>@</span>{cleanUsername}</span></div>
-      <div class="post-time"><span class="math-inline">\{timeAgo\}</div\>
-</div\>
-<div class\="post\-content"\></span>{formattedContent}</div>
+      <div class="post-user"><strong>${fullname}</strong><span>@${cleanUsername}</span></div>
+      <div class="post-time">${timeAgo}</div>
+    </div>
+    <div class="post-content">${formattedContent}</div>
     ${post.image_url ? `<img src="${post.image_url}" class="post-image">` : ''}
     <div class="post-actions">
-      <button class="reaction-btn like-btn" onclick="toggleReaction(<span class="math-inline">\{post\.id\}, 'like'\)"\>👍 0</button\>
-<button class\="reaction\-btn dislike\-btn" onclick\="toggleReaction\(</span>{post.id}, 'dislike')">👎 0</button>
-      <button class="comment-toggle-btn" onclick="toggleComments(<span class="math-inline">\{post\.id\}\)"\>💬 Комментарии \(0\)</button\>
-</div\>
-<div class\="comment\-section" id\="comments\-</span>{post.id}" style="display: none;">
-      <button id="new-comments-btn-<span class="math-inline">\{post\.id\}" class\="new\-posts\-btn" style\="display\: none;"\>Новые комментарии</button\>
-<div class\="comment\-list" id\="comment\-list\-</span>{post.id}" style="max-height: 200px; overflow-y: auto;"></div>
+      <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">👍 0</button>
+      <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">👎 0</button>
+      <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (0)</button>
+    </div>
+    <div class="comment-section" id="comments-${post.id}" style="display: none;">
+      <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
+      <div class="comment-list" id="comment-list-${post.id}" style="max-height: 200px; overflow-y: auto;"></div>
       <form class="comment-form">
         <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
         <button type="submit" onclick="addComment(event, ${post.id})">Отправить</button>
@@ -485,19 +485,19 @@ async function renderMorePosts(newPosts) {
     const timeAgo = getTimeAgo(new Date(post.timestamp));
     postDiv.innerHTML = `
       <div class="post-header">
-        <div class="post-user"><strong><span class="math-inline">\{fullname\}</strong\><span\>@</span>{cleanUsername}</span></div>
-        <div class="post-time"><span class="math-inline">\{timeAgo\}</div\>
-</div\>
-<div class\="post\-content"\></span>{formattedContent}</div>
+        <div class="post-user"><strong>${fullname}</strong><span>@${cleanUsername}</span></div>
+        <div class="post-time">${timeAgo}</div>
+      </div>
+      <div class="post-content">${formattedContent}</div>
       ${post.image_url ? `<img src="${post.image_url}" class="post-image">` : ''}
       <div class="post-actions">
-        <button class="reaction-btn like-btn" onclick="toggleReaction(<span class="math-inline">\{post\.id\}, 'like'\)"\>👍 0</button\>
-<button class\="reaction\-btn dislike\-btn" onclick\="toggleReaction\(</span>{post.id}, 'dislike')">👎 0</button>
-        <button class="comment-toggle-btn" onclick="toggleComments(<span class="math-inline">\{post\.id\}\)"\>💬 Комментарии \(0\)</button\>
-</div\>
-<div class\="comment\-section" id\="comments\-</span>{post.id}" style="display: none;">
-        <button id="new-comments-btn-<span class="math-inline">\{post\.id\}" class\="new\-posts\-btn" style\="display\: none;"\>Новые комментарии</button\>
-<div class\="comment\-list" id\="comment\-list\-</span>{post.id}" style="max-height: 200px; overflow-y: auto;"></div>
+        <button class="reaction-btn like-btn" onclick="toggleReaction(${post.id}, 'like')">👍 0</button>
+        <button class="reaction-btn dislike-btn" onclick="toggleReaction(${post.id}, 'dislike')">👎 0</button>
+        <button class="comment-toggle-btn" onclick="toggleComments(${post.id})">💬 Комментарии (0)</button>
+      </div>
+      <div class="comment-section" id="comments-${post.id}" style="display: none;">
+        <button id="new-comments-btn-${post.id}" class="new-posts-btn" style="display: none;">Новые комментарии</button>
+        <div class="comment-list" id="comment-list-${post.id}" style="max-height: 200px; overflow-y: auto;"></div>
         <form class="comment-form">
           <textarea class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий..."></textarea>
           <button type="submit" onclick="addComment(event, ${post.id})">Отправить</button>
@@ -565,7 +565,7 @@ async function updatePost(postId) {
     const comments = commentsCache.get(postId) || [];
     const commentCount = comments.length;
 
-    postDiv.querySelector('.post-user').innerHTML = `<strong><span class="math-inline">\{fullname\}</strong\><span\>@</span>{cleanUsername}</span>`;
+    postDiv.querySelector('.post-user').innerHTML = `<strong>${fullname}</strong><span>@${cleanUsername}</span>`;
     postDiv.querySelector('.post-time').textContent = timeAgo;
     postDiv.querySelector('.post-content').innerHTML = formattedContent;
     
@@ -615,7 +615,7 @@ async function toggleReaction(postId, type) {
   try {
     const userExists = await supabaseFetch(`profiles?telegram_username=eq.${userData.telegramUsername}`, 'GET');
     if (!userExists?.length) throw new Error('Пользователь не найден!');
-    const userReaction = await supabaseFetch(`reactions?post_id=eq.<span class="math-inline">\{postId\}&user\_id\=eq\.</span>{userData.telegramUsername}`, 'GET');
+    const userReaction = await supabaseFetch(`reactions?post_id=eq.${postId}&user_id=eq.${userData.telegramUsername}`, 'GET');
     if (userReaction?.length > 0) {
       const currentReaction = userReaction[0];
       if (currentReaction.type === type) await supabaseFetch(`reactions?id=eq.${currentReaction.id}`, 'DELETE');
@@ -660,7 +660,7 @@ async function loadMoreComments(postId) {
   commentList.dataset.isLoadingMore = 'true';
   const oldestCommentId = commentsCache.get(postId).length > 0 ? commentsCache.get(postId)[0].id : null;
   try {
-    const moreComments = await supabaseFetch(`comments?post_id=eq.<span class="math-inline">\{postId\}&id\=lt\.</span>{oldestCommentId}&order=id.asc&limit=10`, 'GET');
+    const moreComments = await supabaseFetch(`comments?post_id=eq.${postId}&id=lt.${oldestCommentId}&order=id.asc&limit=10`, 'GET');
     if (moreComments?.length > 0) {
       const currentComments = commentsCache.get(postId);
       const newComments = moreComments.filter(comment => !currentComments.some(c => c.id === comment.id));
@@ -681,7 +681,7 @@ async function loadNewComments(postId) {
   const lastCommentId = lastCommentIds.get(postId);
   if (!lastCommentId) return;
   try {
-    const newComments = await supabaseFetch(`comments?post_id=eq.<span class="math-inline">\{postId\}&id\=gt\.</span>{lastCommentId}&order=id.asc`, 'GET');
+    const newComments = await supabaseFetch(`comments?post_id=eq.${postId}&id=gt.${lastCommentId}&order=id.asc`, 'GET');
     if (newComments?.length > 0) {
       const currentComments = commentsCache.get(postId);
       const uniqueNewComments = newComments.filter(comment => !currentComments.some(c => c.id === comment.id));
@@ -783,7 +783,7 @@ function renderNewComment(postId, comment, append = true) {
   const content = contentParts.join(':\n');
   const formattedContent = formatPostContent(content);
   commentDiv.innerHTML = `
-    <div class="comment-user"><strong><span class="math-inline">\{fullname\}</strong\><span\>@</span>{cleanUsername}</span></div>
+    <div class="comment-user"><strong>${fullname}</strong><span>@${cleanUsername}</span></div>
     <div class="comment-content">${formattedContent}</div>
   `;
   if (append) {
@@ -804,7 +804,7 @@ async function renderMoreComments(postId, newComments) {
     const content = contentParts.join(':\n');
     const formattedContent = formatPostContent(content);
     commentDiv.innerHTML = `
-      <div class="comment-user"><strong><span class="math-inline">\{fullname\}</strong\><span\>@</span>{cleanUsername}</span></div>
+      <div class="comment-user"><strong>${fullname}</strong><span>@${cleanUsername}</span></div>
       <div class="comment-content">${formattedContent}</div>
     `;
     commentList.appendChild(commentDiv);
@@ -832,7 +832,7 @@ async function addComment(event, postId) {
     const comment = {
       post_id: postId,
       user_id: userData.telegramUsername,
-      text: `<span class="math-inline">\{userData\.fullname\} \(@</span>{userData.telegramUsername}):\n${text}`,
+      text: `${userData.fullname} (@${userData.telegramUsername}):\n${text}`,
       timestamp: new Date().toISOString()
     };
     const newComment = await supabaseFetch('comments', 'POST', comment);
@@ -996,9 +996,9 @@ function renderFilteredTournaments() {
             card.className = `tournament-card ${isArchive ? 'archived' : ''}`;
             card.dataset.tournamentId = tournament.id;
             card.innerHTML = `
-              <img src="<span class="math-inline">\{tournament\.logo \|\| 'https\://via\.placeholder\.com/64'\}" class\="tournament\-logo" alt\="Логотип"\>
-<div class\="tournament\-info"\>
-<strong\></span>{tournament.name}</strong>
+              <img src="${tournament.logo || 'https://via.placeholder.com/64'}" class="tournament-logo" alt="Логотип">
+              <div class="tournament-info">
+                <strong>${tournament.name}</strong>
                 <span>${tournament.scale} | ${tournament.city}</span>
                 <span>Дата: ${tournament.date}</span>
               </div>`;
@@ -1021,8 +1021,8 @@ async function showTournamentDetails(tournamentId) {
         
         const header = document.getElementById('tournament-header');
         header.innerHTML = `
-          <img src="<span class="math-inline">\{tournament\.logo \|\| 'https\://via\.placeholder\.com/180'\}" alt\="Логотип турнира"\>
-<strong\></span>{tournament.name}</strong>
+          <img src="${tournament.logo || 'https://via.placeholder.com/180'}" alt="Логотип турнира">
+          <strong>${tournament.name}</strong>
           <p>Дата: ${tournament.date}</p>
           <p>Масштаб: ${tournament.scale || 'Не указан'}</p>
           <p>Город: ${tournament.city || 'Не указан'}</p>
@@ -1159,9 +1159,9 @@ async function loadTournamentPosts(tournamentId, isCreator, tournamentName) {
                 
                 postDiv.innerHTML = `
                     <div class="post-header">
-                        <div class="post-user"><strong>Турнир: <span class="math-inline">\{tournamentName\}</strong\></div\>
-<div class\="post\-header\-meta"\>
-<div class\="post\-time"\></span>{timeAgo}</div>
+                        <div class="post-user"><strong>Турнир: ${tournamentName}</strong></div>
+                        <div class="post-header-meta">
+                            <div class="post-time">${timeAgo}</div>
                         </div>
                     </div>
                     <div class="post-content">${formattedContent}</div>`;
@@ -1406,8 +1406,8 @@ async function loadTabManagement(tournamentId, isCreator) {
                 actionsHtml += `<button class="action-btn accept" data-id="${reg.id}" data-status="accepted">✅ В осн. состав</button>`;
             }
             actionsHtml += `<button class="action-btn remove" data-id="${reg.id}" data-status="pending">❌ Убрать</button></div>`;
-            card.innerHTML = `<div class="registration-card-header"><strong><span class="math-inline">\{reg\.faction\_name\}</strong\></div\>
-<div class\="registration\-card\-body"\><p\></span>{speaker1_fullname} & ${speaker2_fullname}</p></div>
+            card.innerHTML = `<div class="registration-card-header"><strong>${reg.faction_name}</strong></div>
+                              <div class="registration-card-body"><p>${speaker1_fullname} & ${speaker2_fullname}</p></div>
                               ${actionsHtml}`;
             list.appendChild(card);
         });
@@ -1452,8 +1452,8 @@ async function loadParticipants(tournamentId) {
                 const speaker2_fullname = profilesCache.get(reg.speaker2_username) || `(${reg.speaker2_username})`;
                 const card = document.createElement('div');
                 card.className = `registration-card status-${reg.status}`;
-                card.innerHTML = `<div class="registration-card-header"><strong><span class="math-inline">\{reg\.faction\_name\}</strong\></div\>
-<div class\="registration\-card\-body"\><p\></span>{speaker1_fullname} & ${speaker2_fullname}</p></div>`;
+                card.innerHTML = `<div class="registration-card-header"><strong>${reg.faction_name}</strong></div>
+                                  <div class="registration-card-body"><p>${speaker1_fullname} & ${speaker2_fullname}</p></div>`;
                 list.appendChild(card);
             });
         };
@@ -1476,7 +1476,7 @@ function initBracket(isCreator) {
   if (isCreator) {
     document.getElementById('generate-bracket-btn').onclick = generateBracket;
   }
-
+  
   const qualifyingTabBtn = document.getElementById('qualifying-bracket-tab');
   const playoffTabBtn = document.getElementById('playoff-bracket-tab');
   const qualifyingContent = document.getElementById('bracket-qualifying-content');
@@ -1712,8 +1712,8 @@ async function openResultsModal(roundIndex, matchIndex, isPlayoff = false, leagu
         match.teams.forEach(team => {
             modalHtml += `
                 <div class="bpf-rank-selector">
-                    <label for="rank-for-<span class="math-inline">\{team\.faction\_name\.replace\(/\\s\+/g, '\-'\)\}"\></span>{team.faction_name}</label>
-                    <select id="rank-for-<span class="math-inline">\{team\.faction\_name\.replace\(/\\s\+/g, '\-'\)\}" data\-faction\-name\="</span>{team.faction_name}">
+                    <label for="rank-for-${team.faction_name.replace(/\s+/g, '-')}">${team.faction_name}</label>
+                    <select id="rank-for-${team.faction_name.replace(/\s+/g, '-')}" data-faction-name="${team.faction_name}">
                         <option value="0" ${!team.rank || team.rank === 0 ? 'selected' : ''}>-</option>
                         <option value="1" ${team.rank === 1 ? 'selected' : ''}>1 место</option>
                         <option value="2" ${team.rank === 2 ? 'selected' : ''}>2 место</option>
@@ -1730,8 +1730,8 @@ async function openResultsModal(roundIndex, matchIndex, isPlayoff = false, leagu
             const isChecked = team.rank === 1 ? 'checked' : '';
             modalHtml += `
                 <div class="team-header">
-                    <input type="radio" id="winner-<span class="math-inline">\{team\.faction\_name\.replace\(/\\s\+/g, '\-'\)\}" name\="winner" value\="</span>{team.faction_name}" <span class="math-inline">\{isChecked\}\>
-<label for\="winner\-</span>{team.faction_name.replace(/\s+/g, '-')}"><strong>${team.faction_name}</strong></label>
+                    <input type="radio" id="winner-${team.faction_name.replace(/\s+/g, '-')}" name="winner" value="${team.faction_name}" ${isChecked}>
+                    <label for="winner-${team.faction_name.replace(/\s+/g, '-')}"><strong>${team.faction_name}</strong></label>
                 </div>
             `;
         });
@@ -1746,8 +1746,8 @@ async function openResultsModal(roundIndex, matchIndex, isPlayoff = false, leagu
                     const fullName = profilesCache.get(speaker.username) || speaker.username;
                     modalHtml += `
                         <div class="speaker-score">
-                            <label for="score-<span class="math-inline">\{speaker\.username\}"\></span>{fullName}</label>
-                            <input type="number" id="score-<span class="math-inline">\{speaker\.username\}" value\="</span>{speaker.points || 0}" min="0">
+                            <label for="score-${speaker.username}">${fullName}</label>
+                            <input type="number" id="score-${speaker.username}" value="${speaker.points || 0}" min="0">
                         </div>
                     `;
                 });
@@ -1839,8 +1839,8 @@ async function saveBracketSetup(isCalledFromModal = false) {
     if (!isCalledFromModal) {
          bracket.matches.forEach((round, roundIndex) => {
             round.matches.forEach((match, matchIndex) => {
-                const roomInput = document.querySelector(`input[data-round-index="<span class="math-inline">\{roundIndex\}"\]\[data\-match\-index\="</span>{matchIndex}"][data-field="room"]`);
-                const judgeInput = document.querySelector(`input[data-round-index="<span class="math-inline">\{roundIndex\}"\]\[data\-match\-index\="</span>{matchIndex}"][data-field="judge"]`);
+                const roomInput = document.querySelector(`input[data-round-index="${roundIndex}"][data-match-index="${matchIndex}"][data-field="room"]`);
+                const judgeInput = document.querySelector(`input[data-round-index="${roundIndex}"][data-match-index="${matchIndex}"][data-field="judge"]`);
                 if(roomInput) match.room = roomInput.value;
                 if(judgeInput) match.judge = judgeInput.value;
             });
@@ -2048,11 +2048,11 @@ async function loadBracket(tournamentId, isCreator) {
           matchDiv.classList.add('bracket-match');
           
           const roomInfo = (!bracket.published && isCreator)
-            ? `<input type="text" class="inline-bracket-input" data-round-index="<span class="math-inline">\{roundIndex\}" data\-match\-index\="</span>{matchIndex}" data-field="room" value="${match.room || ''}" placeholder="Кабинет">`
+            ? `<input type="text" class="inline-bracket-input" data-round-index="${roundIndex}" data-match-index="${matchIndex}" data-field="room" value="${match.room || ''}" placeholder="Кабинет">`
             : `<span>Кабинет: ${match.room || 'Не указан'}</span>`;
 
           const judgeInfo = (!bracket.published && isCreator)
-            ? `<input type="text" class="inline-bracket-input" data-round-index="<span class="math-inline">\{roundIndex\}" data\-match\-index\="</span>{matchIndex}" data-field="judge" value="${match.judge || ''}" placeholder="Судья">`
+            ? `<input type="text" class="inline-bracket-input" data-round-index="${roundIndex}" data-match-index="${matchIndex}" data-field="judge" value="${match.judge || ''}" placeholder="Судья">`
             : `<span>Судья: ${match.judge || 'Не указан'}</span>`;
 
           let teamsHtml = match.teams.map(team => {
@@ -2064,9 +2064,9 @@ async function loadBracket(tournamentId, isCreator) {
             const scoreHtml = (totalScore > 0 && showResults) ? `<span class="team-total-score">(${totalScore})</span>` : '';
             const rankHtml = (rank > 0 && showResults) ? `<span class="team-rank">(${rank})</span>` : '';
 
-            return `<li <span class="math-inline">\{rankClass\}\>
-<div class\="team\-name\-wrapper"\>
-<span\></span>{team.position}: <strong>${team.faction_name}</strong></span>
+            return `<li ${rankClass}>
+                        <div class="team-name-wrapper">
+                            <span>${team.position}: <strong>${team.faction_name}</strong></span>
                             ${scoreHtml}
                         </div>
                         ${rankHtml}
@@ -2077,9 +2077,9 @@ async function loadBracket(tournamentId, isCreator) {
             ? `<button class="result-btn" onclick="openResultsModal(${roundIndex}, ${matchIndex})">Ввести / Изменить результат</button>` : '';
 
           matchDiv.innerHTML = `
-            <h4>Матч <span class="math-inline">\{matchIndex \+ 1\}</h4\>
-<div class\="match\-details"\></span>{roomInfo} <span class="math-inline">\{judgeInfo\}</div\>
-<ul\></span>{teamsHtml}</ul>
+            <h4>Матч ${matchIndex + 1}</h4>
+            <div class="match-details">${roomInfo} ${judgeInfo}</div>
+            <ul>${teamsHtml}</ul>
             ${resultButton}
           `;
           roundDiv.appendChild(matchDiv);
@@ -2258,8 +2258,8 @@ function renderPlayoffBracket(playoffData, isCreator) {
                     const seedHtml = team.seed ? `<span class="team-seed">(${team.seed})</span>` : '';
                     const teamName = team.placeholder ? `<span class="placeholder">${team.faction_name}</span>` : `<strong>${team.faction_name}</strong>`;
                     
-                    return `<div class="<span class="math-inline">\{teamClass\}" 
-onclick\="</span>{(isCreator && !team.placeholder && !window.currentBracketData.final_results_published) ? `openResultsModal(${roundIndex}, ${matchIndex}, true, '${leagueName}')` : ''}">
+                    return `<div class="${teamClass}" 
+                                 onclick="${(isCreator && !team.placeholder && !window.currentBracketData.final_results_published) ? `openResultsModal(${roundIndex}, ${matchIndex}, true, '${leagueName}')` : ''}">
                                  ${seedHtml} ${teamName}
                             </div>`;
                 }).join('<hr style="border-color: #333; margin: 2px 0; border-style: dashed;">');
@@ -2481,7 +2481,7 @@ function initRating() {
         cities.forEach(city => {
             const card = document.createElement('div');
             card.className = 'rating-card';
-            card.innerHTML = `<span class="rating-icon"><span class="math-inline">\{city\.icon\}</span\> <span\></span>{city.name}</span>`;
+            card.innerHTML = `<span class="rating-icon">${city.icon}</span> <span>${city.name}</span>`;
             card.onclick = () => showSeasonsForCity(city);
             cityList.appendChild(card);
         });
@@ -2517,10 +2517,10 @@ function renderRatingTable() {
     const tableBody = document.getElementById('rating-list-tbody');
     tableBody.innerHTML = '';
     tableBody.innerHTML = ratingData.map(player => `
-        <tr class="rank-<span class="math-inline">\{player\.rank\}"\>
-<td\></span>{player.rank}</td>
-            <td><span class="math-inline">\{player\.name\}</td\>
-<td\></span>{player.points}</td>
+        <tr class="rank-${player.rank}">
+            <td>${player.rank}</td>
+            <td>${player.name}</td>
+            <td>${player.points}</td>
             <td>${player.club}</td>
         </tr>
     `).join('');
