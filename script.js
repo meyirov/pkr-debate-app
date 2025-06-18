@@ -2246,6 +2246,11 @@ function renderPlayoffBracket(playoffData, isCreator) {
         league.rounds.forEach((round, roundIndex) => {
             const roundDiv = document.createElement('div');
             roundDiv.className = 'playoff-round';
+            
+            // Добавляем класс с количеством матчей для CSS-стилизации
+            const matchCount = round.matches.length;
+            roundDiv.classList.add('match-count-' + matchCount);
+
             roundDiv.innerHTML = `<h4>${getRoundName(round.round, league.rounds.length)}</h4>`;
 
             round.matches.forEach((match, matchIndex) => {
