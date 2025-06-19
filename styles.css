@@ -1231,15 +1231,19 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
     align-items: center;
     border-radius: 4px;
 }
+.playoff-team hr { /* Стилизуем <hr> для разделения команд */
+    border: none;
+    border-top: 1px dashed #444;
+    margin: 4px 0 !important;
+}
 .playoff-team.winner {
     font-weight: bold;
     color: #a78bfa;
-    background-color: #2a2a2a;
 }
 .playoff-team .team-seed {
     font-size: 10px;
     color: #6b7280;
-    margin-right: 5px;
+    margin-right: 8px;
     font-weight: bold;
 }
 .playoff-team.clickable {
