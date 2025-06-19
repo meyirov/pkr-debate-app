@@ -1119,22 +1119,19 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
 }
 
 
-/* --- НАЧАЛО: Стили для сетки Плей-офф (заменить этот блок) --- */
+/* --- Стили для сетки Плей-офф --- */
 #playoff-display {
     display: flex;
     overflow-x: auto;
-    padding: 20px 10px;
+    padding: 20px 0;
 }
 
 .playoff-bracket {
-    display: inline-flex;
+    display: flex;
     flex-direction: row;
 }
 
 .playoff-bracket-container {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
     padding: 10px;
 }
 
@@ -1147,10 +1144,11 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
 .playoff-round {
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    margin: 0 30px;
+    justify-content: space-around;
+    flex-grow: 1;
+    min-width: 220px;
+    padding: 0 25px; /* Увеличиваем отступ для линий */
     position: relative;
-    min-width: 200px;
 }
 
 .playoff-round h4 {
@@ -1160,64 +1158,72 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
     font-weight: 500;
 }
 
+/* Контейнер для пары матчей (добавлено из предположения) */
+.playoff-match-pair {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    margin: 15px 0;
+    gap: 40px; /* Расстояние между матчами в паре */
+}
+
 .playoff-match {
     background: #1a1a1a;
     padding: 10px 15px;
     border-radius: 8px;
     border: 1px solid #333;
     position: relative;
-    margin: 25px 0; /* Вертикальный отступ между матчами/парами */
     display: flex;
     flex-direction: column;
     gap: 10px;
+    min-width: 200px;
 }
 
-/* Линия, идущая ОТ матча к следующему раунду */
+/* --- Линии-коннекторы (новая логика) --- */
+/* Горизонтальная линия от матча к соединителю */
 .playoff-match::after {
     content: '';
     position: absolute;
     top: 50%;
     left: 100%;
-    width: 30px; /* Должно соответствовать половине margin у .playoff-round */
+    width: 25px;
     height: 2px;
     background-color: #444;
 }
 
-/* Линия, идущая К матчу от предыдущего раунда */
-.playoff-match::before {
+/* Вертикальный соединитель для пары */
+.playoff-match-pair::before {
     content: '';
     position: absolute;
-    top: 50%;
-    right: 100%;
-    width: 30px; /* Должно соответствовать половине margin у .playoff-round */
-    height: 2px;
-    background-color: #444;
-}
-
-/* Вертикальная линия, соединяющая два матча, которые ведут к одному матчу в след. раунде */
-.playoff-match:nth-of-type(2n-1)::before {
-    /* Эта линия рисуется от нечетного матча (1-й, 3-й, и т.д.) */
-    content: '';
-    position: absolute;
-    /* Позиционируем вертикальную линию между раундами */
-    left: calc(100% + 30px);
-    /* Начинаем от центра текущего (нечетного) матча */
-    top: 50%;
-    /* Высота равна высоте одного матча + отступ между ними, чтобы соединить центры */
-    height: calc(100% + 50px); /* 100% высоты матча + (2 * 25px margin) */
+    top: 25%;
+    left: calc(100% + 25px);
+    height: 50%;
     width: 2px;
     background-color: #444;
 }
 
+/* Горизонтальная линия от пары к следующему раунду */
+.playoff-match-pair::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: calc(100% + 27px); /* +2px ширины верт. линии */
+    width: 25px;
+    height: 2px;
+    background-color: #444;
+}
 
-/* Скрываем ненужные линии */
-.playoff-round:first-child .playoff-match::before,
-.playoff-round:last-child .playoff-match::after,
-.playoff-round:last-child .playoff-match:nth-of-type(2n-1)::before {
+/* Скрываем линии где не нужно */
+.playoff-round:last-child .playoff-match-pair::after,
+.playoff-round:last-child .playoff-match::after {
+    display: none;
+}
+.playoff-match-pair:has(.playoff-match:only-child)::before {
     display: none;
 }
 
-/* Стили для содержимого матча */
+/* Содержимое матча */
 .playoff-team {
     padding: 5px;
     display: flex;
@@ -1246,7 +1252,8 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
     color: #555;
     font-style: italic;
 }
-/* --- КОНЕЦ: Стили для сетки Плей-офф --- */
+/* --- КОНЕЦ СТИЛЕЙ ДЛЯ ПЛЕЙ-ОФФ --- */
+
 
 .navbar {
     display: flex;
