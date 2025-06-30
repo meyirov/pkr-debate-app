@@ -4,7 +4,7 @@
 // в предыдущих итерациях, и теперь мы просто меняем порядок их вызова.
 // Пожалуйста, используйте script.js из моего предыдущего ответа. Если он у вас не сохранился,
 // дайте знать, и я пришлю его снова.
-console.log('script.js loaded, version: 2025-06-30'); // Обновлена версия
+console.log('script.js loaded, version: 2025-06-30.1'); // Обновлена версия
 
 const { createClient } = supabase;
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -410,6 +410,35 @@ function sortPostsCache() {
   postsCache.sort((a, b) => b.id - a.id);
 }
 
+// Перемещаем эту функцию выше, чтобы она была доступна
+async function loadReactionsAndComments(postId) {
+  try {
+    const reactions = await loadReactions(postId);
+    const likes = reactions.filter(r => r.type === 'like').length;
+    const dislikes = reactions.filter(r => r.type === 'dislike').length;
+    const userReaction = reactions.find(r => r.user_id === userData.telegramUsername);
+    const likeClass = userReaction?.type === 'like' ? 'active' : '';
+    const dislikeClass = userReaction?.type === 'dislike' ? 'active' : '';
+    const comments = await loadComments(postId); // Важно, чтобы loadComments тоже была объявлена
+    const commentCount = comments?.length || 0;
+    const postDiv = postsDiv.querySelector(`[data-post-id="${postId}"]`);
+    if (postDiv) {
+      const likeBtn = postDiv.querySelector('.like-btn');
+      const dislikeBtn = postDiv.querySelector('.dislike-btn');
+      const commentBtn = postDiv.querySelector('.comment-toggle-btn');
+      likeBtn.className = `reaction-btn like-btn ${likeClass}`;
+      likeBtn.innerHTML = `👍 ${likes}`;
+      dislikeBtn.className = `reaction-btn dislike-btn ${dislikeClass}`;
+      dislikeBtn.innerHTML = `👎 ${dislikes}`;
+      commentBtn.innerHTML = `💬 Комментарии (${commentCount})`;
+      if (comments) await renderComments(postId, comments);
+      setupCommentInfiniteScroll(postId);
+    }
+  } catch (error) {
+    console.error('Error loading reactions/comments:', error);
+  }
+}
+
 function renderPosts() {
   postsDiv.innerHTML = '';
   postsCache.forEach(post => renderNewPost(post, false));
@@ -606,6 +635,7 @@ async function toggleReaction(postId, type) {
   }
 }
 
+// Перемещаем эти функции выше, чтобы они были доступны
 async function loadComments(postId) {
   try {
     if (!commentsCache.has(postId)) {
@@ -960,6 +990,18 @@ async function loadTournaments(forceReload = false) {
     }
 }
 
+// Новая вспомогательная функция для форматирования даты для отображения
+function formatDateForDisplay(dateString) {
+    if (!dateString) return '';
+    // Если дата в формате YYYY-MM-DD (от нового input type="date")
+    if (dateString.includes('-')) {
+        const [year, month, day] = dateString.split('-');
+        return `${day}.${month}.${year}`;
+    }
+    // Если дата уже в формате DD.MM.YYYY (от старых данных)
+    return dateString;
+}
+
 function renderFilteredTournaments() {
     const tournamentList = document.getElementById('tournament-list');
     const selectedCity = document.getElementById('filter-city').value;
@@ -1002,19 +1044,6 @@ function renderFilteredTournaments() {
         tournamentList.innerHTML = '<p>Турниры не найдены.</p>';
     }
 }
-
-// Новая вспомогательная функция для форматирования даты для отображения
-function formatDateForDisplay(dateString) {
-    if (!dateString) return '';
-    // Если дата в формате YYYY-MM-DD (от нового input type="date")
-    if (dateString.includes('-')) {
-        const [year, month, day] = dateString.split('-');
-        return `${day}.${month}.${year}`;
-    }
-    // Если дата уже в формате DD.MM.YYYY (от старых данных)
-    return dateString;
-}
-
 
 async function showTournamentDetails(tournamentId) {
     try {
@@ -1717,7 +1746,7 @@ async function openResultsModal(roundIndex, matchIndex, isPlayoff = false, leagu
         match.teams.forEach(team => {
             modalHtml += `
                 <div class="bpf-rank-selector">
-                    <label for="rank-for-${team.faction_name.replace(/\s+/g, '-')}">${team.faction_name}</label>
+                    <label for="rank-for-${team.faction_name.replace(/\s+/g, '-')}" class="no-wrap">${team.faction_name}</label>
                     <select id="rank-for-${team.faction_name.replace(/\s+/g, '-')}" data-faction-name="${team.faction_name}">
                         <option value="0" ${!team.rank || team.rank === 0 ? 'selected' : ''}>-</option>
                         <option value="1" ${team.rank === 1 ? 'selected' : ''}>1 место</option>
@@ -1736,7 +1765,7 @@ async function openResultsModal(roundIndex, matchIndex, isPlayoff = false, leagu
             modalHtml += `
                 <div class="team-header">
                     <input type="radio" id="winner-${team.faction_name.replace(/\s+/g, '-')}" name="winner" value="${team.faction_name}" ${isChecked}>
-                    <label for="winner-${team.faction-name.replace(/\s+/g, '-')}"><strong>${team.faction_name}</strong></label>
+                    <label for="winner-${team.faction_name.replace(/\s+/g, '-')}" class="no-wrap"><strong>${team.faction_name}</strong></label>
                 </div>
             `;
         });
