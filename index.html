@@ -45,27 +45,12 @@
                 <button id="create-tournament-btn">Создать турнир</button>
                 <form id="create-tournament-form" class="form-hidden">
                     <input id="tournament-name" type="text" placeholder="Название турнира" required>
-                    <input id="tournament-date" type="date" required> <select id="tournament-city" required>
+                    <input id="tournament-date" type="text" placeholder="Дата (в формате ДД.ММ.ГГГГ)" required>
+                    <select id="tournament-city" required>
                         <option value="" disabled selected>Выберите город</option>
                         <option value="Алматы">Алматы</option>
                         <option value="Астана">Астана</option>
                         <option value="Шымкент">Шымкент</option>
-                        <option value="Ақтау">Ақтау</option>
-                        <option value="Ақтөбе">Ақтөбе</option>
-                        <option value="Атырау">Атырау</option>
-                        <option value="Карағанда">Карағанда</option>
-                        <option value="Көкшетау">Көкшетау</option>
-                        <option value="Қостанай">Қостанай</option>
-                        <option value="Қызылорда">Қызылорда</option>
-                        <option value="Павлодар">Павлодар</option>
-                        <option value="Петропавловск">Петропавловск</option>
-                        <option value="Семей">Семей</option>
-                        <option value="Талдықорған">Талдықорған</option>
-                        <option value="Тараз">Тараз</option>
-                        <option value="Орал">Орал</option>
-                        <option value="Өскемен">Өскемен</option>
-                        <option value="Түркістан">Түркістан</option>
-                        <option value="Жезқазған">Жезқазған</option>
                         <option value="Другой">Другой</option>
                     </select>
                     <select id="tournament-scale" required>
@@ -73,11 +58,11 @@
                         <option value="Городской">Городской</option>
                         <option value="Республиканский">Республиканский</option>
                     </select>
-                    <label for="tournament-logo-file" class="image-upload-label" style="margin-top: 10px;"> <span>🖼️</span> Загрузить логотип
-                    </label>
-                    <input id="tournament-logo-file" type="file" accept="image/*" style="display: none;"> <textarea id="tournament-desc" placeholder="Описание турнира"></textarea>
+                    <input id="tournament-logo" type="text" placeholder="Ссылка на логотип">
+                    <textarea id="tournament-desc" placeholder="Описание турнира"></textarea>
                     <input id="tournament-address" type="text" placeholder="Ссылка на 2GIS">
-                    <input id="tournament-deadline" type="date"> <button id="submit-tournament" type="submit">Создать</button>
+                    <input id="tournament-deadline" type="text" placeholder="Дедлайн (например, 05.04.2025)">
+                    <button id="submit-tournament" type="submit">Создать</button>
                 </form>
 
                 <div class="tournaments-view-controls">
@@ -91,22 +76,6 @@
                             <option value="Алматы">Алматы</option>
                             <option value="Астана">Астана</option>
                             <option value="Шымкент">Шымкент</option>
-                            <option value="Ақтау">Ақтау</option>
-                            <option value="Ақтөбе">Ақтөбе</option>
-                            <option value="Атырау">Атырау</option>
-                            <option value="Қарағанда">Қарағанда</option>
-                            <option value="Көкшетау">Көкшетау</option>
-                            <option value="Қостанай">Қостанай</option>
-                            <option value="Қызылорда">Қызылорда</option>
-                            <option value="Павлодар">Павлодар</option>
-                            <option value="Петропавловск">Петропавловск</option>
-                            <option value="Семей">Семей</option>
-                            <option value="Талдықорған">Талдықорған</option>
-                            <option value="Тараз">Тараз</option>
-                            <option value="Орал">Орал</option>
-                            <option value="Өскемен">Өскемен</option>
-                            <option value="Түркістан">Түркістан</option>
-                            <option value="Жезқазған">Жезқазған</option>
                             <option value="Другой">Другой</option>
                         </select>
                         <select id="filter-scale">
