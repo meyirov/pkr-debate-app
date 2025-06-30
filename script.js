@@ -4,7 +4,7 @@
 // в предыдущих итерациях, и теперь мы просто меняем порядок их вызова.
 // Пожалуйста, используйте script.js из моего предыдущего ответа. Если он у вас не сохранился,
 // дайте знать, и я пришлю его снова.
-console.log('script.js loaded, version: 2025-05-02');
+console.log('script.js loaded, version: 2025-06-30'); // Обновлена версия
 
 const { createClient } = supabase;
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -91,9 +91,10 @@ async function supabaseFetch(endpoint, method, body = null, retries = 3) {
 async function uploadImage(file) {
   const fileExt = file.name.split('.').pop();
   const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-  const { data, error } = await supabaseClient.storage.from('post-images').upload(fileName, file);
+  // Используем бакет 'tournament-logos' для логотипов турниров
+  const { data, error } = await supabaseClient.storage.from('tournament-logos').upload(fileName, file);
   if (error) throw new Error(`Image upload error: ${error.message}`);
-  const { data: urlData } = supabaseClient.storage.from('post-images').getPublicUrl(fileName);
+  const { data: urlData } = supabaseClient.storage.from('tournament-logos').getPublicUrl(fileName);
   return urlData.publicUrl;
 }
 
@@ -511,34 +512,6 @@ async function renderMorePosts(newPosts) {
   }
 }
 
-async function loadReactionsAndComments(postId) {
-  try {
-    const reactions = await loadReactions(postId);
-    const likes = reactions.filter(r => r.type === 'like').length;
-    const dislikes = reactions.filter(r => r.type === 'dislike').length;
-    const userReaction = reactions.find(r => r.user_id === userData.telegramUsername);
-    const likeClass = userReaction?.type === 'like' ? 'active' : '';
-    const dislikeClass = userReaction?.type === 'dislike' ? 'active' : '';
-    const comments = await loadComments(postId);
-    const commentCount = comments?.length || 0;
-    const postDiv = postsDiv.querySelector(`[data-post-id="${postId}"]`);
-    if (postDiv) {
-      const likeBtn = postDiv.querySelector('.like-btn');
-      const dislikeBtn = postDiv.querySelector('.dislike-btn');
-      const commentBtn = postDiv.querySelector('.comment-toggle-btn');
-      likeBtn.className = `reaction-btn like-btn ${likeClass}`;
-      likeBtn.innerHTML = `👍 ${likes}`;
-      dislikeBtn.className = `reaction-btn dislike-btn ${dislikeClass}`;
-      dislikeBtn.innerHTML = `👎 ${dislikes}`;
-      commentBtn.innerHTML = `💬 Комментарии (${commentCount})`;
-      if (comments) await renderComments(postId, comments);
-      setupCommentInfiniteScroll(postId);
-    }
-  } catch (error) {
-    console.error('Error loading reactions/comments:', error);
-  }
-}
-
 async function updatePost(postId) {
     const postIndex = postsCache.findIndex(post => post.id === postId);
     if (postIndex === -1) return;
@@ -897,15 +870,27 @@ function initTournaments() {
         const submitTournamentBtn = document.getElementById('submit-tournament');
         submitTournamentBtn.disabled = true;
 
+        const tournamentLogoFile = document.getElementById('tournament-logo-file').files[0]; // Получаем файл
+        let logoUrl = '';
+        if (tournamentLogoFile) {
+            try {
+                logoUrl = await uploadImage(tournamentLogoFile); // Загружаем изображение
+            } catch (error) {
+                alert('Ошибка загрузки логотипа: ' + error.message);
+                submitTournamentBtn.disabled = false;
+                return;
+            }
+        }
+
         const tournament = {
             name: document.getElementById('tournament-name').value.trim(),
-            date: document.getElementById('tournament-date').value.trim(),
+            date: document.getElementById('tournament-date').value, // Дата уже в правильном формате YYYY-MM-DD
             city: document.getElementById('tournament-city').value,
             scale: document.getElementById('tournament-scale').value,
-            logo: document.getElementById('tournament-logo').value.trim(),
+            logo: logoUrl, // Используем загруженный URL
             desc: document.getElementById('tournament-desc').value.trim(),
             address: document.getElementById('tournament-address').value.trim(),
-            deadline: document.getElementById('tournament-deadline').value.trim(),
+            deadline: document.getElementById('tournament-deadline').value, // Дата уже в правильном формате YYYY-MM-DD
             creator_id: userData.telegramUsername,
             timestamp: new Date().toISOString(),
             tab_published: false
@@ -946,10 +931,19 @@ function initTournaments() {
     filterScale.addEventListener('change', renderFilteredTournaments);
 }
 
+// Обновлена функция parseDate для обработки формата YYYY-MM-DD
 function parseDate(dateString) {
-    if (!dateString || !/^\d{2}\.\d{2}\.\d{4}$/.test(dateString)) return null;
-    const [day, month, year] = dateString.split('.');
-    return new Date(year, month - 1, day);
+    if (!dateString) return null;
+    // Проверяем формат DD.MM.YYYY (старый)
+    if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateString)) {
+        const [day, month, year] = dateString.split('.');
+        return new Date(year, month - 1, day);
+    }
+    // Проверяем формат YYYY-MM-DD (новый)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        return new Date(dateString);
+    }
+    return null;
 }
 
 async function loadTournaments(forceReload = false) {
@@ -1000,8 +994,7 @@ function renderFilteredTournaments() {
               <div class="tournament-info">
                 <strong>${tournament.name}</strong>
                 <span>${tournament.scale} | ${tournament.city}</span>
-                <span>Дата: ${tournament.date}</span>
-              </div>`;
+                <span>Дата: ${formatDateForDisplay(tournament.date)}</span> </div>`;
             card.addEventListener('click', () => showTournamentDetails(tournament.id));
             tournamentList.appendChild(card);
         });
@@ -1009,6 +1002,19 @@ function renderFilteredTournaments() {
         tournamentList.innerHTML = '<p>Турниры не найдены.</p>';
     }
 }
+
+// Новая вспомогательная функция для форматирования даты для отображения
+function formatDateForDisplay(dateString) {
+    if (!dateString) return '';
+    // Если дата в формате YYYY-MM-DD (от нового input type="date")
+    if (dateString.includes('-')) {
+        const [year, month, day] = dateString.split('-');
+        return `${day}.${month}.${year}`;
+    }
+    // Если дата уже в формате DD.MM.YYYY (от старых данных)
+    return dateString;
+}
+
 
 async function showTournamentDetails(tournamentId) {
     try {
@@ -1023,8 +1029,7 @@ async function showTournamentDetails(tournamentId) {
         header.innerHTML = `
           <img src="${tournament.logo || 'https://via.placeholder.com/180'}" alt="Логотип турнира">
           <strong>${tournament.name}</strong>
-          <p>Дата: ${tournament.date}</p>
-          <p>Масштаб: ${tournament.scale || 'Не указан'}</p>
+          <p>Дата: ${formatDateForDisplay(tournament.date)}</p> <p>Масштаб: ${tournament.scale || 'Не указан'}</p>
           <p>Город: ${tournament.city || 'Не указан'}</p>
         `;
 
@@ -1731,7 +1736,7 @@ async function openResultsModal(roundIndex, matchIndex, isPlayoff = false, leagu
             modalHtml += `
                 <div class="team-header">
                     <input type="radio" id="winner-${team.faction_name.replace(/\s+/g, '-')}" name="winner" value="${team.faction_name}" ${isChecked}>
-                    <label for="winner-${team.faction_name.replace(/\s+/g, '-')}"><strong>${team.faction_name}</strong></label>
+                    <label for="winner-${team.faction-name.replace(/\s+/g, '-')}"><strong>${team.faction_name}</strong></label>
                 </div>
             `;
         });
@@ -1740,7 +1745,7 @@ async function openResultsModal(roundIndex, matchIndex, isPlayoff = false, leagu
     if (match.teams.some(t => t.speakers && t.speakers.length > 0 && !t.placeholder)) {
         modalHtml += '<hr><h4>Введите баллы спикеров:</h4>';
         match.teams.forEach(team => {
-            if (team.speakers && team.speakers.length > 0 && !t.placeholder) {
+            if (team.speakers && team.speakers.length > 0 && !team.placeholder) {
                 modalHtml += `<div class="team-block"><h5>${team.faction_name}</h5>`;
                 team.speakers.forEach(speaker => {
                     const fullName = profilesCache.get(speaker.username) || speaker.username;
@@ -2270,7 +2275,7 @@ function renderPlayoffBracket(playoffData, isCreator) {
                                  onclick="${(isCreator && !team.placeholder && !window.currentBracketData.final_results_published) ? `openResultsModal(${roundIndex}, ${matchIndex}, true, '${leagueName}')` : ''}">
                                  ${seedHtml} ${teamName}
                             </div>`;
-                }).join('<hr style="border-color: #333; margin: 4px 0; border-style: dashed;">'); // Изменил margin здесь
+                }).join('<hr style="border-color: #333; margin: 4px 0; border-style: dashed;">');
 
                 matchDiv.innerHTML = teamsHtml;
                 matchWrapper.appendChild(matchDiv); // Добавляем matchDiv в обёртчик
