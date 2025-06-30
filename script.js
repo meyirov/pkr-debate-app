@@ -2254,6 +2254,9 @@ function renderPlayoffBracket(playoffData, isCreator) {
             roundDiv.innerHTML = `<h4>${getRoundName(round.round, league.rounds.length)}</h4>`;
 
             round.matches.forEach((match, matchIndex) => {
+                const matchWrapper = document.createElement('div'); // Новый обёртчик
+                matchWrapper.className = 'playoff-match-wrapper'; // Класс для обёртчика
+
                 const matchDiv = document.createElement('div');
                 matchDiv.className = 'playoff-match';
 
@@ -2267,10 +2270,11 @@ function renderPlayoffBracket(playoffData, isCreator) {
                                  onclick="${(isCreator && !team.placeholder && !window.currentBracketData.final_results_published) ? `openResultsModal(${roundIndex}, ${matchIndex}, true, '${leagueName}')` : ''}">
                                  ${seedHtml} ${teamName}
                             </div>`;
-                }).join('<hr style="border-color: #333; margin: 2px 0; border-style: dashed;">');
+                }).join('<hr style="border-color: #333; margin: 4px 0; border-style: dashed;">'); // Изменил margin здесь
 
                 matchDiv.innerHTML = teamsHtml;
-                roundDiv.appendChild(matchDiv);
+                matchWrapper.appendChild(matchDiv); // Добавляем matchDiv в обёртчик
+                roundDiv.appendChild(matchWrapper); // Добавляем обёртчик в roundDiv
             });
             bracketDiv.appendChild(roundDiv);
         });
