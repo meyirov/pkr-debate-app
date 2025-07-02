@@ -12,6 +12,16 @@ const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
 const tg = window.Telegram.WebApp;
 tg.ready();
 
+// Вспомогательная функция для конвертации даты в формат ISO (ГГГГ-ММ-ДД)
+function convertDateToISO(dateString) {
+  // Если строка пустая или не соответствует формату ДД.ММ.ГГГГ, возвращаем null
+  if (!dateString || !/^\d{2}\.\d{2}\.\d{4}$/.test(dateString)) {
+    return null;
+  }
+  const [day, month, year] = dateString.split('.');
+  return `${year}-${month}-${day}`;
+}
+
 const registrationModal = document.getElementById('registration-modal');
 const appContainer = document.getElementById('app-container');
 const regFullname = document.getElementById('reg-fullname');
@@ -927,31 +937,36 @@ function initTournaments() {
 
 // Замените старый обработчик на этот
 
+// Замените существующий обработчик createTournamentForm на этот
+
 createTournamentForm.addEventListener('submit', async (e) => {
     e.preventDefault(); 
     const submitTournamentBtn = document.getElementById('submit-tournament');
     submitTournamentBtn.disabled = true;
-    submitTournamentBtn.textContent = 'Создание...'; // Меняем текст кнопки на время загрузки
+    submitTournamentBtn.textContent = 'Создание...';
 
-    // Получаем файл логотипа из нового инпута
     const logoFile = document.getElementById('tournament-logo-upload').files[0];
-    let logoUrl = null; // Инициализируем переменную для ссылки на лого
+    let logoUrl = null;
 
     try {
-        // Если пользователь выбрал файл, загружаем его
         if (logoFile) {
             logoUrl = await uploadTournamentLogo(logoFile);
         }
 
+        // *** ГЛАВНОЕ ИЗМЕНЕНИЕ ЗДЕСЬ ***
+        // Мы используем нашу новую функцию для конвертации дат
+        const tournamentDate = convertDateToISO(document.getElementById('tournament-date').value.trim());
+        const tournamentDeadline = convertDateToISO(document.getElementById('tournament-deadline').value.trim());
+
         const tournament = {
             name: document.getElementById('tournament-name').value.trim(),
-            date: document.getElementById('tournament-date').value.trim(),
+            date: tournamentDate, // Используем конвертированную дату
             city: document.getElementById('tournament-city').value,
             scale: document.getElementById('tournament-scale').value,
-            logo: logoUrl, // Сохраняем ссылку на загруженный логотип
+            logo: logoUrl,
             desc: document.getElementById('tournament-desc').value.trim(),
             address: document.getElementById('tournament-address').value.trim(),
-            deadline: document.getElementById('tournament-deadline').value.trim(),
+            deadline: tournamentDeadline, // Используем конвертированный дедлайн
             creator_id: userData.telegramUsername,
             timestamp: new Date().toISOString(),
             tab_published: false
@@ -964,18 +979,19 @@ createTournamentForm.addEventListener('submit', async (e) => {
             return;
         }
 
-        await supabaseFetch('tournaments', 'POST', tournament);
+        // Отправляем запрос в Supabase
+        const result = await supabaseFetch('tournaments', 'POST', tournament);
+
         alert('Турнир создан!');
         createTournamentForm.classList.add('form-hidden');
         createTournamentForm.reset(); 
-        // Сбрасываем текст имени файла
         document.getElementById('logo-file-name').textContent = 'Файл не выбран';
         loadTournaments(true);
 
     } catch (error) {
+        console.error("Ошибка при создании турнира:", error);
         alert('Ошибка создания турнира: ' + error.message);
     } finally {
-        // Возвращаем кнопку в исходное состояние в любом случае
         submitTournamentBtn.disabled = false;
         submitTournamentBtn.textContent = 'Создать';
     }
