@@ -14,13 +14,13 @@ tg.ready();
 
 // Вспомогательная функция для конвертации даты в формат ISO (ГГГГ-ММ-ДД)
 function convertDateToISO(dateString) {
-  // Если строка пустая или не соответствует формату ДД.ММ.ГГГГ, возвращаем null
   if (!dateString || !/^\d{2}\.\d{2}\.\d{4}$/.test(dateString)) {
     return null;
   }
   const [day, month, year] = dateString.split('.');
   return `${year}-${month}-${day}`;
 }
+
 
 const registrationModal = document.getElementById('registration-modal');
 const appContainer = document.getElementById('app-container');
@@ -88,7 +88,19 @@ async function supabaseFetch(endpoint, method, body = null, retries = 3) {
         },
         body: body ? JSON.stringify(body) : null
       });
-      if (!response.ok) throw new Error(`Supabase error: ${response.status}`);
+
+      if (!response.ok) {
+        // Улучшенная обработка ошибок: пытаемся прочитать ответ сервера
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          throw new Error(`Supabase error: ${response.status} ${response.statusText}`);
+        }
+        // Выводим более детальное сообщение об ошибке
+        throw new Error(`Supabase error: ${response.status}. ${errorData.message || ''} (${errorData.hint || ''})`);
+      }
+
       const text = await response.text();
       return text ? JSON.parse(text) : null;
     } catch (error) {
@@ -107,25 +119,18 @@ async function uploadImage(file) {
   return urlData.publicUrl;
 }
 
-// Вставьте этот код после функции uploadImage(file)
-
 async function uploadTournamentLogo(file) {
-  // Генерируем уникальное имя файла
   const fileExt = file.name.split('.').pop();
   const fileName = `logo-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-  
-  // Загружаем файл в бакет 'tournament-logos'
   const { data, error } = await supabaseClient.storage.from('tournament-logos').upload(fileName, file);
   if (error) {
-    // Если произошла ошибка, выводим ее в консоль и в виде алерта
     console.error('Logo upload error:', error);
     throw new Error(`Ошибка загрузки логотипа: ${error.message}`);
   }
-  
-  // Получаем публичную ссылку на загруженный файл
   const { data: urlData } = supabaseClient.storage.from('tournament-logos').getPublicUrl(fileName);
   return urlData.publicUrl;
 }
+
 
 async function saveChatId(userId) {
   if (tg.initDataUnsafe.user?.id) {
@@ -918,84 +923,80 @@ function initTournaments() {
     const filterCity = document.getElementById('filter-city');
     const filterScale = document.getElementById('filter-scale');
 
-    createTournamentBtn.addEventListener('click', () => {
-        createTournamentForm.classList.toggle('form-hidden');
-
-    // Добавьте этот код внутрь функции initTournaments()
-
     const logoUploadInput = document.getElementById('tournament-logo-upload');
     const logoFileNameSpan = document.getElementById('logo-file-name');
-
-    logoUploadInput.addEventListener('change', () => {
-    if (logoUploadInput.files.length > 0) {
-        logoFileNameSpan.textContent = logoUploadInput.files[0].name;
-    } else {
-        logoFileNameSpan.textContent = 'Файл не выбран';
+    if (logoUploadInput && logoFileNameSpan) {
+        logoUploadInput.addEventListener('change', () => {
+            if (logoUploadInput.files.length > 0) {
+                logoFileNameSpan.textContent = logoUploadInput.files[0].name;
+            } else {
+                logoFileNameSpan.textContent = 'Файл не выбран';
+            }
+        });
     }
-});
+
+
+    createTournamentBtn.addEventListener('click', () => {
+        createTournamentForm.classList.toggle('form-hidden');
     });
 
-// Замените старый обработчик на этот
+    createTournamentForm.addEventListener('submit', async (e) => {
+        e.preventDefault(); 
+        const submitTournamentBtn = document.getElementById('submit-tournament');
+        submitTournamentBtn.disabled = true;
+        submitTournamentBtn.textContent = 'Создание...';
 
-// Замените существующий обработчик createTournamentForm на этот
+        const logoFile = document.getElementById('tournament-logo-upload').files[0];
+        let logoUrl = null;
 
-createTournamentForm.addEventListener('submit', async (e) => {
-    e.preventDefault(); 
-    const submitTournamentBtn = document.getElementById('submit-tournament');
-    submitTournamentBtn.disabled = true;
-    submitTournamentBtn.textContent = 'Создание...';
+        try {
+            if (logoFile) {
+                logoUrl = await uploadTournamentLogo(logoFile);
+            }
 
-    const logoFile = document.getElementById('tournament-logo-upload').files[0];
-    let logoUrl = null;
+            const tournamentDate = convertDateToISO(document.getElementById('tournament-date').value.trim());
+            const tournamentDeadline = convertDateToISO(document.getElementById('tournament-deadline').value.trim());
 
-    try {
-        if (logoFile) {
-            logoUrl = await uploadTournamentLogo(logoFile);
-        }
+            const tournament = {
+                name: document.getElementById('tournament-name').value.trim(),
+                date: tournamentDate,
+                city: document.getElementById('tournament-city').value,
+                scale: document.getElementById('tournament-scale').value,
+                logo: logoUrl,
+                desc: document.getElementById('tournament-desc').value.trim(),
+                address: document.getElementById('tournament-address').value.trim(),
+                deadline: tournamentDeadline,
+                creator_id: userData.telegramUsername,
+                timestamp: new Date().toISOString(),
+                tab_published: false
+            };
 
-        // *** ГЛАВНОЕ ИЗМЕНЕНИЕ ЗДЕСЬ ***
-        // Мы используем нашу новую функцию для конвертации дат
-        const tournamentDate = convertDateToISO(document.getElementById('tournament-date').value.trim());
-        const tournamentDeadline = convertDateToISO(document.getElementById('tournament-deadline').value.trim());
+            if (!tournament.name || !tournament.date || !tournament.city || !tournament.scale) {
+                alert('Пожалуйста, заполните все обязательные поля: Название, Дата, Город и Масштаб.');
+                submitTournamentBtn.disabled = false;
+                submitTournamentBtn.textContent = 'Создать';
+                return;
+            }
+            
+            console.log('--- ДАННЫЕ ДЛЯ ОТЛАДКИ ---', tournament);
+            const result = await supabaseFetch('tournaments', 'POST', tournament);
 
-        const tournament = {
-            name: document.getElementById('tournament-name').value.trim(),
-            date: tournamentDate, // Используем конвертированную дату
-            city: document.getElementById('tournament-city').value,
-            scale: document.getElementById('tournament-scale').value,
-            logo: logoUrl,
-            desc: document.getElementById('tournament-desc').value.trim(),
-            address: document.getElementById('tournament-address').value.trim(),
-            deadline: tournamentDeadline, // Используем конвертированный дедлайн
-            creator_id: userData.telegramUsername,
-            timestamp: new Date().toISOString(),
-            tab_published: false
-        };
+            alert('Турнир создан!');
+            createTournamentForm.classList.add('form-hidden');
+            createTournamentForm.reset(); 
+            if (logoFileNameSpan) {
+                logoFileNameSpan.textContent = 'Файл не выбран';
+            }
+            loadTournaments(true);
 
-        if (!tournament.name || !tournament.date || !tournament.city || !tournament.scale) {
-            alert('Пожалуйста, заполните все обязательные поля: Название, Дата, Город и Масштаб.');
+        } catch (error) {
+            console.error("Подробная ошибка при создании турнира:", error);
+            alert('Ошибка создания турнира: ' + error.message);
+        } finally {
             submitTournamentBtn.disabled = false;
             submitTournamentBtn.textContent = 'Создать';
-            return;
         }
-
-        // Отправляем запрос в Supabase
-        const result = await supabaseFetch('tournaments', 'POST', tournament);
-
-        alert('Турнир создан!');
-        createTournamentForm.classList.add('form-hidden');
-        createTournamentForm.reset(); 
-        document.getElementById('logo-file-name').textContent = 'Файл не выбран';
-        loadTournaments(true);
-
-    } catch (error) {
-        console.error("Ошибка при создании турнира:", error);
-        alert('Ошибка создания турнира: ' + error.message);
-    } finally {
-        submitTournamentBtn.disabled = false;
-        submitTournamentBtn.textContent = 'Создать';
-    }
-});
+    });
 
     activeTab.addEventListener('click', () => {
         activeTab.classList.add('active');
@@ -1027,7 +1028,6 @@ async function loadTournaments(forceReload = false) {
     }
 }
 
-// ЗАМЕНИТЕ НА ЭТОТ ОБНОВЛЕННЫЙ БЛОК
 function renderFilteredTournaments() {
     const tournamentList = document.getElementById('tournament-list');
     const selectedCity = document.getElementById('filter-city').value;
@@ -1037,8 +1037,7 @@ function renderFilteredTournaments() {
     today.setHours(0, 0, 0, 0);
 
     let filtered = allTournaments.filter(t => {
-        if (!t.date) return false; // Пропускаем турниры без даты
-        // Даты из базы приходят в формате ГГГГ-ММ-ДД, создаем объект Date
+        if (!t.date) return false;
         const tournamentDate = new Date(t.date);
         return isArchive ? tournamentDate < today : tournamentDate >= today;
     });
@@ -1050,7 +1049,6 @@ function renderFilteredTournaments() {
         filtered = filtered.filter(t => t.scale === selectedScale);
     }
     
-    // Сортируем по дате
     filtered.sort((a, b) => {
         const dateA = new Date(a.date);
         const dateB = new Date(b.date);
@@ -1064,8 +1062,7 @@ function renderFilteredTournaments() {
             card.className = `tournament-card ${isArchive ? 'archived' : ''}`;
             card.dataset.tournamentId = tournament.id;
             
-            // Форматируем дату обратно в ДД.ММ.ГГГГ для красивого отображения
-            const displayDate = new Date(tournament.date).toLocaleDateString('ru-RU');
+            const displayDate = t.date ? new Date(t.date).toLocaleDateString('ru-RU') : 'Дата не указана';
 
             card.innerHTML = `
               <img src="${tournament.logo || 'https://via.placeholder.com/64'}" class="tournament-logo" alt="Логотип">
@@ -1082,6 +1079,7 @@ function renderFilteredTournaments() {
     }
 }
 
+
 async function showTournamentDetails(tournamentId) {
     try {
         const tournamentData = await supabaseFetch(`tournaments?id=eq.${tournamentId}&select=*`, 'GET');
@@ -1091,11 +1089,13 @@ async function showTournamentDetails(tournamentId) {
         const tournament = tournamentData[0];
         const isCreator = tournament.creator_id === userData.telegramUsername;
         
+        const displayDate = tournament.date ? new Date(tournament.date).toLocaleDateString('ru-RU') : 'Не указана';
+        
         const header = document.getElementById('tournament-header');
         header.innerHTML = `
           <img src="${tournament.logo || 'https://via.placeholder.com/180'}" alt="Логотип турнира">
           <strong>${tournament.name}</strong>
-          <p>Дата: ${tournament.date}</p>
+          <p>Дата: ${displayDate}</p>
           <p>Масштаб: ${tournament.scale || 'Не указан'}</p>
           <p>Город: ${tournament.city || 'Не указан'}</p>
         `;
@@ -2319,15 +2319,14 @@ function renderPlayoffBracket(playoffData, isCreator) {
             const roundDiv = document.createElement('div');
             roundDiv.className = 'playoff-round';
             
-            // Добавляем класс с количеством матчей для CSS-стилизации
             const matchCount = round.matches.length;
             roundDiv.classList.add('match-count-' + matchCount);
 
             roundDiv.innerHTML = `<h4>${getRoundName(round.round, league.rounds.length)}</h4>`;
 
             round.matches.forEach((match, matchIndex) => {
-                const matchWrapper = document.createElement('div'); // Новый обёртчик
-                matchWrapper.className = 'playoff-match-wrapper'; // Класс для обёртчика
+                const matchWrapper = document.createElement('div');
+                matchWrapper.className = 'playoff-match-wrapper';
 
                 const matchDiv = document.createElement('div');
                 matchDiv.className = 'playoff-match';
@@ -2342,11 +2341,11 @@ function renderPlayoffBracket(playoffData, isCreator) {
                                  onclick="${(isCreator && !team.placeholder && !window.currentBracketData.final_results_published) ? `openResultsModal(${roundIndex}, ${matchIndex}, true, '${leagueName}')` : ''}">
                                  ${seedHtml} ${teamName}
                             </div>`;
-                }).join('<hr style="border-color: #333; margin: 4px 0; border-style: dashed;">'); // Изменил margin здесь
+                }).join('<hr style="border-color: #333; margin: 4px 0; border-style: dashed;">');
 
                 matchDiv.innerHTML = teamsHtml;
-                matchWrapper.appendChild(matchDiv); // Добавляем matchDiv в обёртчик
-                roundDiv.appendChild(matchWrapper); // Добавляем обёртчик в roundDiv
+                matchWrapper.appendChild(matchDiv);
+                roundDiv.appendChild(matchWrapper);
             });
             bracketDiv.appendChild(roundDiv);
         });
@@ -2505,7 +2504,6 @@ function getLeaguePlacement(league, teamStats, leagueName) {
             const teamA_stats = teamStats[semiFinalLosers[0].original_reg_id];
             const teamB_stats = teamStats[semiFinalLosers[1].original_reg_id];
             
-            // Если для одной из команд нет статистики (маловероятно, но возможно), отдаем предпочтение той, у которой есть
             if (!teamA_stats) {
                 placements['3'] = semiFinalLosers[1];
                 placements['4'] = semiFinalLosers[0];
