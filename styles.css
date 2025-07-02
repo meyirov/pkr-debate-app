@@ -1119,17 +1119,17 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
 }
 
 
-/* --- Стили для сетки Плей-офф --- */
+/* --- Стили для сетки Плей-офф (Улучшенная версия) --- */
 #playoff-display {
     display: flex;
     overflow-x: auto;
-    padding: 20px 0;
+    padding: 20px;
+    background-color: #0f0f0f; /* Фон для всей области прокрутки */
 }
 
 .playoff-bracket-container {
-    padding: 10px;
-    flex-shrink: 0; /* Важно, чтобы контейнеры лиг не сжимались */
-    margin-right: 30px; /* Отступ между лигами */
+    flex-shrink: 0;
+    margin-right: 20px;
 }
 
 .playoff-bracket-container:last-child {
@@ -1139,24 +1139,25 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
 .playoff-bracket-container h3 {
     text-align: center;
     color: #a78bfa;
-    margin-bottom: 20px;
-    white-space: nowrap; /* Чтобы название лиги не переносилось */
+    margin-bottom: 30px;
+    white-space: nowrap;
 }
 
 .playoff-bracket {
     display: flex;
     flex-direction: row;
-    align-items: stretch; /* Растягиваем колонки по высоте */
 }
 
 .playoff-round {
     display: flex;
     flex-direction: column;
-    justify-content: space-around;
-    min-width: 200px; /* Уменьшил ширину для лучшего отображения на мобильных */
-    padding: 0 25px; 
-    position: relative;
-    flex: 1; /* Чтобы раунды занимали равное пространство */
+    justify-content: space-around; /* Равномерно распределяет матчи по вертикали */
+    margin-right: 50px; /* Расстояние между раундами */
+    min-width: 180px;
+}
+
+.playoff-round:last-child {
+    margin-right: 0;
 }
 
 .playoff-round h4 {
@@ -1167,127 +1168,13 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
     white-space: nowrap;
 }
 
-.playoff-match-wrapper { /* Новый обёртчик для каждого матча и его линий */
-    position: relative;
-    margin-bottom: 40px; /* Отступ между матчами внутри раунда */
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    min-height: 80px; /* Минимальная высота для матча, чтобы линии не накладывались */
-}
-
-.playoff-round:last-child .playoff-match-wrapper {
-    margin-bottom: 0; /* Последнему матчу в раунде отступ не нужен */
-}
-
-
 .playoff-match {
     background: #1a1a1a;
-    padding: 10px 15px;
+    padding: 10px;
     border-radius: 8px;
     border: 1px solid #333;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    min-width: 160px; /* Уменьшил ширину матча */
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-/* --- Линии-коннекторы --- */
-
-/* Линия, идущая вправо от каждого матча */
-.playoff-match-wrapper::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 100%;
-    width: 25px; /* Длина горизонтальной части до изгиба */
-    height: 2px;
-    background-color: #444;
-    transform: translateY(-1px);
-    z-index: 1;
-}
-
-/* Вертикальные линии и второй горизонтальный участок */
-.playoff-round:not(:last-child) .playoff-match-wrapper:nth-child(odd)::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: calc(100% + 25px); /* После первой горизонтальной части */
-    width: 2px; /* Толщина вертикальной линии */
-    height: calc(100% + 40px); /* Высота, чтобы соединить с следующим матчем в паре, включая margin-bottom */
-    background-color: #444;
-    transform: translateY(-1px);
-    z-index: 1;
-}
-
-.playoff-round:not(:last-child) .playoff-match-wrapper:nth-child(even)::after {
-    content: '';
-    position: absolute;
-    top: -40px; /* Начало над текущим матчем, чтобы соединиться с верхним */
-    left: calc(100% + 25px);
-    width: 2px;
-    height: calc(50% + 40px); /* Высота до середины текущего матча, включая margin-bottom */
-    background-color: #444;
-    transform: translateY(-1px);
-    z-index: 1;
-}
-
-/* Вторая горизонтальная линия, идущая в следующий раунд */
-.playoff-round:not(:last-child) .playoff-match-wrapper:nth-child(odd)::before {
-    top: calc(50% + (20px + 20px) / 2); /* Смещаем к середине между двумя матчами */
-    /* top: 50%; */
-    left: calc(100% + 25px);
-    width: 25px; /* Длина второй горизонтальной части */
-    height: 2px;
-    background-color: #444;
-}
-
-.playoff-round:not(:last-child) .playoff-match-wrapper:nth-child(even)::before {
-    top: calc(50% - (20px + 20px) / 2); /* Смещаем к середине между двумя матчами */
-    /* top: 50%; */
-    left: calc(100% + 25px);
-    width: 25px; /* Длина второй горизонтальной части */
-    height: 2px;
-    background-color: #444;
-}
-
-
-/* Добавляем горизонтальную линию от вертикальной к следующему матчу */
-.playoff-round:not(:last-child) .playoff-match-wrapper:nth-child(odd)::after {
-    height: calc(50% + 20px + 20px); /* Увеличиваем высоту для соединения */
-    border-bottom: 2px solid #444; /* Создаем нижнюю горизонтальную часть */
-    border-left: 2px solid #444; /* Создаем вертикальную часть */
-    border-bottom-left-radius: 5px; /* Скругление угла */
-}
-
-.playoff-round:not(:last-child) .playoff-match-wrapper:nth-child(even)::after {
-    height: calc(50% + 20px + 20px); /* Увеличиваем высоту для соединения */
-    top: -40px; /* Начало выше текущего матча */
-    border-top: 2px solid #444; /* Создаем верхнюю горизонтальную часть */
-    border-left: 2px solid #444; /* Создаем вертикальную часть */
-    border-top-left-radius: 5px; /* Скругление угла */
-}
-
-/* Корректировка для последней линии раунда, чтобы она шла прямо в следующий раунд */
-.playoff-round:not(:last-child) .playoff-match-wrapper::before {
-    left: calc(100% + 25px);
-    width: 25px;
-    height: 2px;
-    background-color: #444;
-    top: 50%;
-    transform: translateY(-1px);
-}
-
-
-/* Сокрытие последних псевдоэлементов, где не нужны линии */
-.playoff-round:last-child .playoff-match-wrapper::before,
-.playoff-round:last-child .playoff-match-wrapper::after {
-    content: none;
-}
-.playoff-round:last-child .playoff-match-wrapper {
-    margin-bottom: 0; /* Убираем отступ у последних матчей */
+    position: relative; /* Необходимо для позиционирования линий */
+    z-index: 2; /* Матч должен быть над линиями */
 }
 
 /* Команда внутри матча */
@@ -1297,13 +1184,9 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
     justify-content: space-between;
     align-items: center;
     border-radius: 4px;
-    flex-wrap: wrap; /* Чтобы текст команды мог переноситься */
 }
-.playoff-team hr { /* Стилизуем <hr> для разделения команд */
-    border: none;
+.playoff-team + .playoff-team { /* Разделитель между командами */
     border-top: 1px dashed #444;
-    margin: 4px 0 !important;
-    width: 100%; /* Растягиваем разделитель на всю ширину */
 }
 .playoff-team.winner {
     font-weight: bold;
@@ -1324,6 +1207,56 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
 .playoff-team .placeholder {
     color: #555;
     font-style: italic;
+}
+
+/* --- Линии-коннекторы (Улучшенная версия) --- */
+
+/* Обёртка для матча, чтобы позиционировать линии относительно неё */
+.playoff-match-wrapper {
+    position: relative;
+}
+
+/* Отступ между матчами (кроме последнего) */
+.playoff-match-wrapper:not(:last-child) {
+    margin-bottom: 50px;
+}
+
+/* Горизонтальная линия, выходящая из КАЖДОГО матча */
+.playoff-round:not(:last-child) .playoff-match::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 100%;
+    width: 25px; /* Половина расстояния до вертикального коннектора */
+    height: 2px;
+    background: #444;
+    transform: translateY(-50%);
+    z-index: 1;
+}
+
+/* Вертикальная линия, соединяющая ПАРЫ матчей */
+.playoff-round:not(:last-child) .playoff-match-wrapper:nth-child(odd)::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: calc(100% + 25px);
+    width: 2px;
+    height: calc(100% + 50px); /* 100% высоты + отступ */
+    background: #444;
+    z-index: 1;
+}
+
+/* Горизонтальная линия, выходящая из вертикального коннектора к следующему раунду */
+.playoff-round:not(:last-child) .playoff-match-wrapper:nth-child(odd)::before {
+    content: '';
+    position: absolute;
+    /* Позиционируем ровно посередине между двумя матчами */
+    top: calc(100% + 25px); /* 100% высоты + половина отступа */
+    left: calc(100% + 25px);
+    width: 25px; /* Вторая половина расстояния */
+    height: 2px;
+    background: #444;
+    z-index: 1;
 }
 /* --- КОНЕЦ СТИЛЕЙ ДЛЯ ПЛЕЙ-ОФФ --- */
 
