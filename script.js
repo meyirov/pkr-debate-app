@@ -97,6 +97,26 @@ async function uploadImage(file) {
   return urlData.publicUrl;
 }
 
+// Вставьте этот код после функции uploadImage(file)
+
+async function uploadTournamentLogo(file) {
+  // Генерируем уникальное имя файла
+  const fileExt = file.name.split('.').pop();
+  const fileName = `logo-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+  
+  // Загружаем файл в бакет 'tournament-logos'
+  const { data, error } = await supabaseClient.storage.from('tournament-logos').upload(fileName, file);
+  if (error) {
+    // Если произошла ошибка, выводим ее в консоль и в виде алерта
+    console.error('Logo upload error:', error);
+    throw new Error(`Ошибка загрузки логотипа: ${error.message}`);
+  }
+  
+  // Получаем публичную ссылку на загруженный файл
+  const { data: urlData } = supabaseClient.storage.from('tournament-logos').getPublicUrl(fileName);
+  return urlData.publicUrl;
+}
+
 async function saveChatId(userId) {
   if (tg.initDataUnsafe.user?.id) {
     try {
@@ -890,19 +910,45 @@ function initTournaments() {
 
     createTournamentBtn.addEventListener('click', () => {
         createTournamentForm.classList.toggle('form-hidden');
+
+    // Добавьте этот код внутрь функции initTournaments()
+
+    const logoUploadInput = document.getElementById('tournament-logo-upload');
+    const logoFileNameSpan = document.getElementById('logo-file-name');
+
+    logoUploadInput.addEventListener('change', () => {
+    if (logoUploadInput.files.length > 0) {
+        logoFileNameSpan.textContent = logoUploadInput.files[0].name;
+    } else {
+        logoFileNameSpan.textContent = 'Файл не выбран';
+    }
+});
     });
 
-    createTournamentForm.addEventListener('submit', async (e) => {
-        e.preventDefault(); 
-        const submitTournamentBtn = document.getElementById('submit-tournament');
-        submitTournamentBtn.disabled = true;
+// Замените старый обработчик на этот
+
+createTournamentForm.addEventListener('submit', async (e) => {
+    e.preventDefault(); 
+    const submitTournamentBtn = document.getElementById('submit-tournament');
+    submitTournamentBtn.disabled = true;
+    submitTournamentBtn.textContent = 'Создание...'; // Меняем текст кнопки на время загрузки
+
+    // Получаем файл логотипа из нового инпута
+    const logoFile = document.getElementById('tournament-logo-upload').files[0];
+    let logoUrl = null; // Инициализируем переменную для ссылки на лого
+
+    try {
+        // Если пользователь выбрал файл, загружаем его
+        if (logoFile) {
+            logoUrl = await uploadTournamentLogo(logoFile);
+        }
 
         const tournament = {
             name: document.getElementById('tournament-name').value.trim(),
             date: document.getElementById('tournament-date').value.trim(),
             city: document.getElementById('tournament-city').value,
             scale: document.getElementById('tournament-scale').value,
-            logo: document.getElementById('tournament-logo').value.trim(),
+            logo: logoUrl, // Сохраняем ссылку на загруженный логотип
             desc: document.getElementById('tournament-desc').value.trim(),
             address: document.getElementById('tournament-address').value.trim(),
             deadline: document.getElementById('tournament-deadline').value.trim(),
@@ -914,21 +960,26 @@ function initTournaments() {
         if (!tournament.name || !tournament.date || !tournament.city || !tournament.scale) {
             alert('Пожалуйста, заполните все обязательные поля: Название, Дата, Город и Масштаб.');
             submitTournamentBtn.disabled = false;
+            submitTournamentBtn.textContent = 'Создать';
             return;
         }
 
-        try {
-            await supabaseFetch('tournaments', 'POST', tournament);
-            alert('Турнир создан!');
-            createTournamentForm.classList.add('form-hidden');
-            createTournamentForm.reset(); 
-            loadTournaments(true);
-        } catch (error) {
-            alert('Ошибка создания турнира: ' + error.message);
-        } finally {
-            submitTournamentBtn.disabled = false;
-        }
-    });
+        await supabaseFetch('tournaments', 'POST', tournament);
+        alert('Турнир создан!');
+        createTournamentForm.classList.add('form-hidden');
+        createTournamentForm.reset(); 
+        // Сбрасываем текст имени файла
+        document.getElementById('logo-file-name').textContent = 'Файл не выбран';
+        loadTournaments(true);
+
+    } catch (error) {
+        alert('Ошибка создания турнира: ' + error.message);
+    } finally {
+        // Возвращаем кнопку в исходное состояние в любом случае
+        submitTournamentBtn.disabled = false;
+        submitTournamentBtn.textContent = 'Создать';
+    }
+});
 
     activeTab.addEventListener('click', () => {
         activeTab.classList.add('active');
