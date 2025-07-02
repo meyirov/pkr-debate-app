@@ -58,7 +58,11 @@
                         <option value="Городской">Городской</option>
                         <option value="Республиканский">Республиканский</option>
                     </select>
-                    <input id="tournament-logo" type="text" placeholder="Ссылка на логотип">
+                    <label for="tournament-logo-upload" class="logo-upload-label">
+    <span>🖼️</span> Загрузить логотип
+</label>
+<span id="logo-file-name" class="file-name-display">Файл не выбран</span>
+<input id="tournament-logo-upload" type="file" accept="image/*" style="display: none;">
                     <textarea id="tournament-desc" placeholder="Описание турнира"></textarea>
                     <input id="tournament-address" type="text" placeholder="Ссылка на 2GIS">
                     <input id="tournament-deadline" type="text" placeholder="Дедлайн (например, 05.04.2025)">
