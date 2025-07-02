@@ -1554,3 +1554,34 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
     color: #1c1c1c;
     font-weight: 700;
 }
+
+/* Стили для загрузки логотипа турнира */
+.logo-upload-label {
+    display: inline-block;
+    padding: 8px 12px;
+    background: #262626;
+    color: #e6e6e6;
+    border: 1px solid #333;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s ease;
+    margin-top: 5px;
+}
+
+.logo-upload-label:hover {
+    background: #3a3a3a;
+}
+
+.logo-upload-label span {
+    margin-right: 8px;
+}
+
+.file-name-display {
+    display: block;
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 5px;
+    margin-bottom: 5px;
+    margin-left: 2px;
+}
