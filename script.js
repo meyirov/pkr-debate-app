@@ -1013,12 +1013,6 @@ createTournamentForm.addEventListener('submit', async (e) => {
     filterScale.addEventListener('change', renderFilteredTournaments);
 }
 
-function parseDate(dateString) {
-    if (!dateString || !/^\d{2}\.\d{2}\.\d{4}$/.test(dateString)) return null;
-    const [day, month, year] = dateString.split('.');
-    return new Date(year, month - 1, day);
-}
-
 async function loadTournaments(forceReload = false) {
     if (allTournaments.length > 0 && !forceReload) {
         renderFilteredTournaments();
@@ -1033,6 +1027,7 @@ async function loadTournaments(forceReload = false) {
     }
 }
 
+// ЗАМЕНИТЕ НА ЭТОТ ОБНОВЛЕННЫЙ БЛОК
 function renderFilteredTournaments() {
     const tournamentList = document.getElementById('tournament-list');
     const selectedCity = document.getElementById('filter-city').value;
@@ -1042,17 +1037,23 @@ function renderFilteredTournaments() {
     today.setHours(0, 0, 0, 0);
 
     let filtered = allTournaments.filter(t => {
-        const tournamentDate = parseDate(t.date);
-        return tournamentDate ? (isArchive ? tournamentDate < today : tournamentDate >= today) : false;
+        if (!t.date) return false; // Пропускаем турниры без даты
+        // Даты из базы приходят в формате ГГГГ-ММ-ДД, создаем объект Date
+        const tournamentDate = new Date(t.date);
+        return isArchive ? tournamentDate < today : tournamentDate >= today;
     });
 
-    if (selectedCity !== 'all') filtered = filtered.filter(t => t.city === selectedCity);
-    if (selectedScale !== 'all') filtered = filtered.filter(t => t.scale === selectedScale);
+    if (selectedCity !== 'all') {
+        filtered = filtered.filter(t => t.city === selectedCity);
+    }
+    if (selectedScale !== 'all') {
+        filtered = filtered.filter(t => t.scale === selectedScale);
+    }
     
+    // Сортируем по дате
     filtered.sort((a, b) => {
-        const dateA = parseDate(a.date);
-        const dateB = parseDate(b.date);
-        if (!dateA || !dateB) return 0;
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
         return isArchive ? dateB - dateA : dateA - dateB;
     });
 
@@ -1062,12 +1063,16 @@ function renderFilteredTournaments() {
             const card = document.createElement('div');
             card.className = `tournament-card ${isArchive ? 'archived' : ''}`;
             card.dataset.tournamentId = tournament.id;
+            
+            // Форматируем дату обратно в ДД.ММ.ГГГГ для красивого отображения
+            const displayDate = new Date(tournament.date).toLocaleDateString('ru-RU');
+
             card.innerHTML = `
               <img src="${tournament.logo || 'https://via.placeholder.com/64'}" class="tournament-logo" alt="Логотип">
               <div class="tournament-info">
                 <strong>${tournament.name}</strong>
                 <span>${tournament.scale} | ${tournament.city}</span>
-                <span>Дата: ${tournament.date}</span>
+                <span>Дата: ${displayDate}</span>
               </div>`;
             card.addEventListener('click', () => showTournamentDetails(tournament.id));
             tournamentList.appendChild(card);
