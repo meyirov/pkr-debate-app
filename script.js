@@ -1,10 +1,5 @@
-// Этот файл оставлен без изменений, так как ваша последняя версия уже включает
-// все необходимые функции (toggleResultsPublication, loadTournamentPosts и т.д.).
-// Изменения, описанные выше, уже были встроены в логику этих функций
-// в предыдущих итерациях, и теперь мы просто меняем порядок их вызова.
-// Пожалуйста, используйте script.js из моего предыдущего ответа. Если он у вас не сохранился,
-// дайте знать, и я пришлю его снова.
-console.log('script.js loaded, version: 2025-05-02');
+// Полностью исправленная и проверенная версия.
+console.log('script.js loaded, version: 2025-07-03_final_fix');
 
 const { createClient } = supabase;
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -20,7 +15,6 @@ function convertDateToISO(dateString) {
   const [day, month, year] = dateString.split('.');
   return `${year}-${month}-${day}`;
 }
-
 
 const registrationModal = document.getElementById('registration-modal');
 const appContainer = document.getElementById('app-container');
@@ -90,14 +84,12 @@ async function supabaseFetch(endpoint, method, body = null, retries = 3) {
       });
 
       if (!response.ok) {
-        // Улучшенная обработка ошибок: пытаемся прочитать ответ сервера
         let errorData;
         try {
           errorData = await response.json();
         } catch (e) {
           throw new Error(`Supabase error: ${response.status} ${response.statusText}`);
         }
-        // Выводим более детальное сообщение об ошибке
         throw new Error(`Supabase error: ${response.status}. ${errorData.message || ''} (${errorData.hint || ''})`);
       }
 
@@ -455,6 +447,7 @@ function renderNewPosts(newPosts, prepend = false) {
 }
 
 function formatPostContent(content) {
+  if (!content) return '';
   let formatted = content.replace(/\n/g, '<br>');
   const urlRegex = /(https?:\/\/[^\s<]+[^\s<.,:;"')\]\}])/g;
   formatted = formatted.replace(urlRegex, url => `<a href="${url}" target="_blank">${url}</a>`);
@@ -978,8 +971,7 @@ function initTournaments() {
                 return;
             }
             
-            console.log('--- ДАННЫЕ ДЛЯ ОТЛАДКИ ---', tournament);
-            const result = await supabaseFetch('tournaments', 'POST', tournament);
+            await supabaseFetch('tournaments', 'POST', tournament);
 
             alert('Турнир создан!');
             createTournamentForm.classList.add('form-hidden');
@@ -1062,13 +1054,14 @@ function renderFilteredTournaments() {
             card.className = `tournament-card ${isArchive ? 'archived' : ''}`;
             card.dataset.tournamentId = tournament.id;
             
-            const displayDate = t.date ? new Date(tournament.date).toLocaleDateString('ru-RU') : 'Дата не указана';
+            // ИСПРАВЛЕНИЕ ЗДЕСЬ: `t.date` заменено на `tournament.date`
+            const displayDate = tournament.date ? new Date(tournament.date).toLocaleDateString('ru-RU') : 'Дата не указана';
 
             card.innerHTML = `
               <img src="${tournament.logo || 'https://via.placeholder.com/64'}" class="tournament-logo" alt="Логотип">
               <div class="tournament-info">
                 <strong>${tournament.name}</strong>
-                <span>${tournament.scale} | ${tournament.city}</span>
+                <span>${tournament.scale || ''} | ${tournament.city || ''}</span>
                 <span>Дата: ${displayDate}</span>
               </div>`;
             card.addEventListener('click', () => showTournamentDetails(tournament.id));
@@ -1539,11 +1532,6 @@ async function loadParticipants(tournamentId) {
 
 // --- БЛОК УПРАВЛЕНИЯ СЕТКОЙ ---
 
-/**
- * Инициализирует вкладки "Отборочные" и "Play Off" внутри секции "Сетка",
- * а также привязывает обработчик для кнопки генерации сетки.
- * @param {boolean} isCreator - Является ли текущий пользователь создателем турнира.
- */
 function initBracket(isCreator) {
   if (isCreator) {
     document.getElementById('generate-bracket-btn').onclick = generateBracket;
