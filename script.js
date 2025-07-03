@@ -1062,7 +1062,7 @@ function renderFilteredTournaments() {
             card.className = `tournament-card ${isArchive ? 'archived' : ''}`;
             card.dataset.tournamentId = tournament.id;
             
-            const displayDate = t.date ? new Date(t.date).toLocaleDateString('ru-RU') : 'Дата не указана';
+            const displayDate = t.date ? new Date(tournament.date).toLocaleDateString('ru-RU') : 'Дата не указана';
 
             card.innerHTML = `
               <img src="${tournament.logo || 'https://via.placeholder.com/64'}" class="tournament-logo" alt="Логотип">
