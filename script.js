@@ -1656,22 +1656,19 @@ async function generateNextRound() {
     if (!confirm(`Вы уверены, что хотите сгенерировать раунд ${currentRoundNumber + 1}?`)) return;
 
     let teamPoints = {};
-    let pastOpponents = {};
     const BPF_POINTS = { 1: 3, 2: 2, 3: 1, 4: 0 };
     const APF_POINTS = { 1: 3, 2: 0 };
     const pointsSystem = bracket.format === 'БПФ' ? BPF_POINTS : APF_POINTS;
 
     bracket.matches.forEach(round => {
         round.matches.forEach(match => {
-            const teamNames = match.teams.map(t => t.faction_name);
-            teamNames.forEach(name => {
-                if (!teamPoints[name]) teamPoints[name] = 0;
-                if (!pastOpponents[name]) pastOpponents[name] = new Set();
-                teamNames.forEach(opp => { if (opp !== name) pastOpponents[name].add(opp); });
-            });
             match.teams.forEach(team => {
+                const teamName = team.faction_name;
+                if (!teamPoints[teamName]) {
+                    teamPoints[teamName] = 0;
+                }
                 if (team.rank > 0) {
-                    teamPoints[team.faction_name] += pointsSystem[team.rank] || 0;
+                    teamPoints[teamName] += pointsSystem[team.rank] || 0;
                 }
             });
         });
@@ -1682,32 +1679,52 @@ async function generateNextRound() {
     let teamsByPoints = {};
     Object.keys(teamPoints).forEach(name => {
         const totalPoints = teamPoints[name];
-        if (!teamsByPoints[totalPoints]) teamsByPoints[totalPoints] = [];
+        if (!teamsByPoints[totalPoints]) {
+            teamsByPoints[totalPoints] = [];
+        }
         const teamData = allTeamsFromBracket.find(t => t.faction_name === name);
-        if (teamData) teamsByPoints[totalPoints].push(teamData);
+        if (teamData) {
+            teamsByPoints[totalPoints].push(teamData);
+        }
     });
 
     const newRoundMatches = [];
     const teamsPerMatch = bracket.format === 'АПФ' ? 2 : 4;
+    const sortedPointBrackets = Object.keys(teamsByPoints).sort((a, b) => parseInt(b) - parseInt(a));
+    
+    let leftovers = [];
 
-    const sortedPointBrackets = Object.keys(teamsByPoints).sort((a, b) => b - a);
     for (const points of sortedPointBrackets) {
-        let bucket = teamsByPoints[points].sort(() => Math.random() - 0.5);
+        let currentTeams = teamsByPoints[points];
+        let bucket = [...leftovers, ...currentTeams];
+        leftovers = [];
+
+        bucket.sort(() => Math.random() - 0.5);
 
         while (bucket.length >= teamsPerMatch) {
              let matchTeams = bucket.splice(0, teamsPerMatch);
-             newRoundMatches.push({ teams: matchTeams, room:'', judge:''});
+             newRoundMatches.push({ teams: matchTeams, room:'', judge:'' });
         }
+        
         if (bucket.length > 0) {
-            console.warn("Остались команды в бакете:", bucket);
+            leftovers = bucket;
         }
     }
     
+    if (leftovers.length > 0) {
+        console.error("Не удалось составить пары для всех команд. Остались:", leftovers);
+        alert("Внимание: Не удалось составить пары для всех команд. Проверьте консоль для получения дополнительной информации.");
+    }
+
     const positions = bracket.format === 'АПФ' ? ['Правительство', 'Оппозиция'] : ['ОП', 'ОО', 'ЗП', 'ЗО'];
     newRoundMatches.forEach(match => {
         match.teams.forEach((team, idx) => {
             team.position = positions[idx];
             team.rank = 0;
+            // Сбрасываем спикерские баллы для нового раунда
+            if(team.speakers) {
+                team.speakers.forEach(s => s.points = 0);
+            }
         });
     });
 
