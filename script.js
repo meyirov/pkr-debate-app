@@ -1800,7 +1800,7 @@ async function openResultsModal(roundIndex, matchIndex, isPlayoff = false, leagu
     if (match.teams.some(t => t.speakers && t.speakers.length > 0 && !t.placeholder)) {
         modalHtml += '<hr><h4>Введите баллы спикеров:</h4>';
         match.teams.forEach(team => {
-            if (team.speakers && team.speakers.length > 0 && !t.placeholder) {
+            if (team.speakers && team.speakers.length > 0 && !team.placeholder) { // <<< FIX: Corrected 't' to 'team'
                 modalHtml += `<div class="team-block"><h5>${team.faction_name}</h5>`;
                 team.speakers.forEach(speaker => {
                     const fullName = profilesCache.get(speaker.username) || speaker.username;
