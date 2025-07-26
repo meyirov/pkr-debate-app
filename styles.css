@@ -1119,12 +1119,12 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
 }
 
 
-/* --- Стили для сетки Плей-офф (Улучшенная версия) --- */
+/* --- Стили для сетки Плей-офф (ИСПРАВЛЕННАЯ ВЕРСИЯ) --- */
 #playoff-display {
     display: flex;
     overflow-x: auto;
     padding: 20px;
-    background-color: #0f0f0f; /* Фон для всей области прокрутки */
+    background-color: #0f0f0f;
 }
 
 .playoff-bracket-container {
@@ -1151,8 +1151,7 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
 .playoff-round {
     display: flex;
     flex-direction: column;
-    justify-content: space-around; /* Равномерно распределяет матчи по вертикали */
-    margin-right: 50px; /* Расстояние между раундами */
+    margin-right: 50px;
     min-width: 180px;
 }
 
@@ -1173,11 +1172,10 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
     padding: 10px;
     border-radius: 8px;
     border: 1px solid #333;
-    position: relative; /* Необходимо для позиционирования линий */
-    z-index: 2; /* Матч должен быть над линиями */
+    position: relative;
+    z-index: 2;
 }
 
-/* Команда внутри матча */
 .playoff-team {
     padding: 5px;
     display: flex;
@@ -1185,7 +1183,7 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
     align-items: center;
     border-radius: 4px;
 }
-.playoff-team + .playoff-team { /* Разделитель между командами */
+.playoff-team + .playoff-team {
     border-top: 1px dashed #444;
 }
 .playoff-team.winner {
@@ -1209,16 +1207,12 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
     font-style: italic;
 }
 
-/* --- Линии-коннекторы (Улучшенная версия) --- */
-
 /* Обёртка для матча, чтобы позиционировать линии относительно неё */
 .playoff-match-wrapper {
     position: relative;
 }
-
-/* Отступ между матчами (кроме последнего) */
 .playoff-match-wrapper:not(:last-child) {
-    margin-bottom: 50px;
+    margin-bottom: 80px; /* Увеличенный и предсказуемый отступ */
 }
 
 /* Горизонтальная линия, выходящая из КАЖДОГО матча */
@@ -1227,7 +1221,7 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
     position: absolute;
     top: 50%;
     left: 100%;
-    width: 25px; /* Половина расстояния до вертикального коннектора */
+    width: 25px;
     height: 2px;
     background: #444;
     transform: translateY(-50%);
@@ -1241,7 +1235,7 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
     top: 50%;
     left: calc(100% + 25px);
     width: 2px;
-    height: calc(100% + 50px); /* 100% высоты + отступ */
+    height: calc(100% + 80px); /* Высота = 100% блока + полный отступ до следующего */
     background: #444;
     z-index: 1;
 }
@@ -1250,15 +1244,14 @@ li.rank-2 { background-color: rgba(192, 192, 192, 0.1); }
 .playoff-round:not(:last-child) .playoff-match-wrapper:nth-child(odd)::before {
     content: '';
     position: absolute;
-    /* Позиционируем ровно посередине между двумя матчами */
-    top: calc(100% + 25px); /* 100% высоты + половина отступа */
+    top: calc(100% + 40px); /* Позиционируем ровно посередине между двумя матчами */
     left: calc(100% + 25px);
-    width: 25px; /* Вторая половина расстояния */
+    width: 25px;
     height: 2px;
     background: #444;
     z-index: 1;
 }
-/* --- КОНЕЦ СТИЛЕЙ ДЛЯ ПЛЕЙ-ОФФ --- */
+/* --- КОНЕЦ ИСПРАВЛЕННЫХ СТИЛЕЙ ДЛЯ ПЛЕЙ-ОФФ --- */
 
 
 .navbar {
