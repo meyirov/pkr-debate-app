@@ -1800,7 +1800,7 @@ async function openResultsModal(roundIndex, matchIndex, isPlayoff = false, leagu
     if (match.teams.some(t => t.speakers && t.speakers.length > 0 && !t.placeholder)) {
         modalHtml += '<hr><h4>Введите баллы спикеров:</h4>';
         match.teams.forEach(team => {
-            if (team.speakers && team.speakers.length > 0 && !team.placeholder) { // <<< FIX: Corrected 't' to 'team'
+            if (team.speakers && team.speakers.length > 0 && !team.placeholder) {
                 modalHtml += `<div class="team-block"><h5>${team.faction_name}</h5>`;
                 team.speakers.forEach(speaker => {
                     const fullName = profilesCache.get(speaker.username) || speaker.username;
@@ -1826,69 +1826,76 @@ async function openResultsModal(roundIndex, matchIndex, isPlayoff = false, leagu
 }
 
 async function saveMatchResults(roundIndex, matchIndex, isPlayoff, leagueName) {
-    const modal = document.getElementById('results-modal');
-    const bracket = window.currentBracketData;
-    let match;
-    let format;
-    
-    if (isPlayoff) {
-        match = bracket.playoff_data[leagueName].rounds[roundIndex].matches[matchIndex];
-        format = bracket.playoff_data[leagueName].format;
-    } else {
-        match = bracket.matches[roundIndex].matches[matchIndex];
-        format = bracket.format;
-    }
-
-     if (match.teams.some(t => t.speakers && t.speakers.length > 0)) {
-        match.teams.forEach(team => {
-            if (team.speakers) {
-                team.speakers.forEach(speaker => {
-                    const input = document.getElementById(`score-${speaker.username}`);
-                    if(input) speaker.points = parseInt(input.value) || 0;
-                });
-            }
-        });
-    }
-
-
-    if (format === 'БПФ') {
-        const ranks = new Set();
-        let hasDuplicates = false;
-        match.teams.forEach(team => {
-            const select = document.getElementById(`rank-for-${team.faction_name.replace(/\s+/g, '-')}`);
-            const rank = parseInt(select.value);
-            if (rank > 0) {
-                if (ranks.has(rank)) {
-                    hasDuplicates = true;
-                }
-                ranks.add(rank);
-            }
-            team.rank = rank;
-        });
-
-        if (hasDuplicates) {
-            alert('Ошибка: Ранги команд должны быть уникальными.');
-            return;
+    try {
+        const modal = document.getElementById('results-modal');
+        const bracket = window.currentBracketData;
+        let match;
+        let format;
+        
+        if (isPlayoff) {
+            match = bracket.playoff_data[leagueName].rounds[roundIndex].matches[matchIndex];
+            format = bracket.playoff_data[leagueName].format;
+        } else {
+            match = bracket.matches[roundIndex].matches[matchIndex];
+            format = bracket.format;
         }
-    } else { 
-        const winnerInput = document.querySelector('input[name="winner"]:checked');
-        const winnerName = winnerInput ? winnerInput.value : null;
-        match.teams.forEach(team => {
-            if(team.placeholder) return;
-            if (!winnerName) {
-                team.rank = 0;
-            } else {
-                team.rank = (team.faction_name === winnerName) ? 1 : 2;
+
+        if (match.teams.some(t => t.speakers && t.speakers.length > 0)) {
+            match.teams.forEach(team => {
+                if (team.speakers) {
+                    team.speakers.forEach(speaker => {
+                        const input = document.getElementById(`score-${speaker.username}`);
+                        if(input) speaker.points = parseInt(input.value) || 0;
+                    });
+                }
+            });
+        }
+
+        if (format === 'БПФ') {
+            const ranks = new Set();
+            let hasDuplicates = false;
+            match.teams.forEach(team => {
+                const select = document.getElementById(`rank-for-${team.faction_name.replace(/\s+/g, '-')}`);
+                if (!select) {
+                    throw new Error(`Не удалось найти элемент select для команды "${team.faction_name}". Проверьте название на спецсимволы.`);
+                }
+                const rank = parseInt(select.value);
+                if (rank > 0) {
+                    if (ranks.has(rank)) {
+                        hasDuplicates = true;
+                    }
+                    ranks.add(rank);
+                }
+                team.rank = rank;
+            });
+
+            if (hasDuplicates) {
+                alert('Ошибка: Ранги команд должны быть уникальными.');
+                return;
             }
-        });
-    }
+        } else { // АПФ
+            const winnerInput = document.querySelector('input[name="winner"]:checked');
+            const winnerName = winnerInput ? winnerInput.value : null;
+            match.teams.forEach(team => {
+                if(team.placeholder) return;
+                if (!winnerName) {
+                    team.rank = 0;
+                } else {
+                    team.rank = (team.faction_name === winnerName) ? 1 : 2;
+                }
+            });
+        }
 
-    if (isPlayoff) {
-        await advancePlayoffWinner(leagueName, roundIndex, matchIndex);
-    }
+        if (isPlayoff) {
+            await advancePlayoffWinner(leagueName, roundIndex, matchIndex);
+        }
 
-    await saveBracketSetup(true); 
-    modal.style.display = 'none';
+        await saveBracketSetup(true); 
+        modal.style.display = 'none';
+    } catch (error) {
+        alert(`Произошла ошибка при сохранении: ${error.message}`);
+        console.error("Error in saveMatchResults:", error);
+    }
 }
 
 
