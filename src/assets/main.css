@@ -1,0 +1,188 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #0f0f0f;
+    color: #e6e6e6;
+    height: 100vh;
+  }
+  #app {
+    height: 100%;
+    width: 100%;
+  }
+  /* --- СТИЛИ ДЛЯ ЛЕНТЫ --- */
+
+/* Форма создания нового поста */
+.new-post-form {
+    margin-bottom: 15px;
+    background: #1a1a1a;
+    padding: 15px;
+    border-radius: 12px;
+}
+.new-post-form textarea {
+    width: 100%;
+    height: 80px;
+    padding: 10px;
+    border: 1px solid #333;
+    border-radius: 8px;
+    background: #262626;
+    color: #e6e6e6;
+    resize: none;
+    font-size: 16px;
+    font-family: inherit;
+    margin-bottom: 10px;
+}
+.new-post-form button {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background: #8b5cf6;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+}
+.new-post-form button:disabled {
+    background: #555;
+    cursor: not-allowed;
+}
+
+/* Стили для постов */
+.post {
+    background: #1a1a1a;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 12px;
+}
+.post-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    gap: 10px;
+}
+.post-user {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-grow: 1;
+    word-break: break-all;
+}
+.post-user strong { font-weight: 600; font-size: 16px; color: #ffffff; }
+.post-user span { color: #6b7280; font-size: 14px; }
+.post-time { color: #6b7280; font-size: 12px; flex-shrink: 0; }
+.post-content {
+    font-size: 15px;
+    color: #d1d5db;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+.post-image {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin-top: 10px;
+    display: block;
+}
+.post-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+    border-top: 1px solid #262626;
+    padding-top: 10px;
+}
+.reaction-btn {
+    background: #262626;
+    color: #e6e6e6;
+    border: none;
+    border-radius: 8px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 14px;
+}
+.reaction-btn.active {
+    background-color: #8b5cf6;
+    color: white;
+    border-color: #8b5cf6;
+}
+/* --- СТИЛИ ДЛЯ ЗАГРУЗКИ ФОТО --- */
+.new-post-form .form-actions {
+  margin-bottom: 10px;
+}
+.file-upload-label {
+  display: inline-block;
+  padding: 8px 12px;
+  background: #333;
+  color: #e6e6e6;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.image-preview {
+  position: relative;
+  margin-bottom: 10px;
+  max-width: 150px;
+}
+.image-preview img {
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+.remove-image-btn {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 24px;
+  text-align: center;
+}
+/* --- СТИЛИ ДЛЯ ЗАГРУЗКИ ФОТО --- */
+.new-post-form .form-actions {
+    margin-bottom: 10px;
+  }
+  .file-upload-label {
+    display: inline-block;
+    padding: 8px 12px;
+    background: #333;
+    color: #e6e6e6;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .image-preview {
+    position: relative;
+    margin-bottom: 10px;
+    max-width: 150px;
+  }
+  .image-preview img {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+  }
+  .remove-image-btn {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 24px;
+    text-align: center;
+  }
