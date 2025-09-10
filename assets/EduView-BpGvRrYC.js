@@ -1,0 +1,1 @@
+import{_ as r}from"./index-CXEiTLZ-.js";import{c as s,o as n,e as o}from"./vendor-Dblg9kNh.js";import"./supabase-VbYwDtW3.js";const e=r({},[["render",function(r,e){return n(),s("div",null,[...e[0]||(e[0]=[o("h2",null,"EDU",-1),o("p",null,"Этот раздел скоро появится!",-1)])])}]]);export{e as default};
