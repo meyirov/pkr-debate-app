@@ -1,15 +1,31 @@
 // src/router/index.js
 import { createRouter, createWebHistory } from 'vue-router'
-import FeedView from '../views/FeedView.vue'
+import FeedView from '../views/Feedview.vue'
 import TournamentsView from '../views/TournamentsView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
+  scrollBehavior(to, from, savedPosition) {
+    // Don't scroll to top when navigating to post detail
+    if (to.name === 'post-detail') {
+      return { top: 0 }
+    }
+    // Restore saved position when going back to feed
+    if (savedPosition) {
+      return savedPosition
+    }
+    return { top: 0 }
+  },
   routes: [
     {
       path: '/',
       name: 'feed',
       component: FeedView
+    },
+    {
+      path: '/compose',
+      name: 'compose',
+      component: () => import('../views/ComposeView.vue')
     },
     {
       path: '/tournaments',
@@ -38,6 +54,11 @@ const router = createRouter({
       path: '/edu',
       name: 'edu',
       component: () => import('../views/EduView.vue')
+    },
+    {
+      path: '/post/:id',
+      name: 'post-detail',
+      component: () => import('../views/PostDetailView.vue')
     }
   ]
 })

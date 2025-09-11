@@ -3,186 +3,861 @@
     margin: 0;
     padding: 0;
   }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #0f0f0f;
-    color: #e6e6e6;
-    height: 100vh;
-  }
-  #app {
-    height: 100%;
-    width: 100%;
-  }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #1a1a1a;
+  color: #e6e6e6;
+  height: 100vh;
+}
+#app {
+  height: 100%;
+  width: 100%;
+}
   /* --- СТИЛИ ДЛЯ ЛЕНТЫ --- */
+
+/* Feed Container */
+.feed-container {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  background: #1a1a1a;
+  min-height: 100vh;
+}
 
 /* Форма создания нового поста */
 .new-post-form {
-    margin-bottom: 15px;
+    margin-bottom: 0;
     background: #1a1a1a;
-    padding: 15px;
-    border-radius: 12px;
+    padding: 20px;
+    border-radius: 0;
+    border: none;
+    border-bottom: 1px solid #2a2a2a;
+    box-shadow: none;
+    transition: all 0.3s ease;
 }
+
+.new-post-form:hover {
+    background: #1e1e1e;
+}
+
 .new-post-form textarea {
     width: 100%;
-    height: 80px;
-    padding: 10px;
-    border: 1px solid #333;
-    border-radius: 8px;
+    height: 100px;
+    padding: 16px;
+    border: 2px solid #333;
+    border-radius: 12px;
     background: #262626;
     color: #e6e6e6;
     resize: none;
     font-size: 16px;
     font-family: inherit;
-    margin-bottom: 10px;
+    margin-bottom: 16px;
+    transition: all 0.3s ease;
+    line-height: 1.5;
 }
+
+.new-post-form textarea:focus {
+    outline: none;
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
 .new-post-form button {
     display: block;
     width: 100%;
-    padding: 10px;
-    background: #8b5cf6;
+    padding: 14px;
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
     color: #ffffff;
     border: none;
-    border-radius: 8px;
+    border-radius: 12px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
 }
+
+.new-post-form button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(139, 92, 246, 0.4);
+}
+
 .new-post-form button:disabled {
     background: #555;
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
-/* Стили для постов */
-.post {
+/* Twitter-like Tweet Styles */
+.tweet {
     background: #1a1a1a;
-    padding: 15px;
-    margin-bottom: 10px;
-    border-radius: 12px;
+    border-bottom: 1px solid #2a2a2a;
+    padding: 12px 0;
+    transition: background-color 0.2s;
+    position: relative;
+    width: 100%;
+    margin: 0;
 }
-.post-header {
+
+.tweet:hover {
+    background: #1e1e1e;
+}
+
+.tweet-header {
     display: flex;
+    align-items: flex-start;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-    gap: 10px;
+    margin-bottom: 4px;
+    padding: 0 20px;
 }
-.post-user {
+
+.tweet-user-info {
     display: flex;
-    align-items: baseline;
-    gap: 8px;
-    flex-grow: 1;
-    word-break: break-all;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
 }
-.post-user strong { font-weight: 600; font-size: 16px; color: #ffffff; }
-.post-user span { color: #6b7280; font-size: 14px; }
-.post-time { color: #6b7280; font-size: 12px; flex-shrink: 0; }
-.post-content {
+
+.tweet-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1d9bf0 0%, #8b5cf6 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 16px;
+    color: white;
+    flex-shrink: 0;
+}
+
+.tweet-user-details {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.tweet-name {
+    font-weight: 700;
     font-size: 15px;
-    color: #d1d5db;
-    white-space: pre-wrap;
-    word-wrap: break-word;
+    color: #ffffff;
+    line-height: 1.2;
 }
-.post-image {
+
+.tweet-username {
+    color: #71767b;
+    font-size: 15px;
+    font-weight: 400;
+}
+
+.tweet-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #71767b;
+    font-size: 15px;
+}
+
+.tweet-time {
+    color: #71767b;
+    font-size: 15px;
+}
+
+.tweet-content {
+    margin-left: 52px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border-radius: 8px;
+    padding: 8px 20px 8px 8px;
+}
+
+.tweet-content:hover {
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+.tweet-text {
+    font-size: 15px;
+    color: #ffffff;
+    line-height: 1.4;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+}
+
+.tweet-image {
     max-width: 100%;
     height: auto;
-    border-radius: 8px;
-    margin-top: 10px;
+    border-radius: 16px;
+    margin-top: 12px;
     display: block;
 }
-.post-actions {
+/* Tweet Actions */
+.tweet-actions {
     display: flex;
-    gap: 10px;
-    margin-top: 15px;
-    border-top: 1px solid #262626;
-    padding-top: 10px;
+    justify-content: space-between;
+    margin-left: 52px;
+    margin-top: 12px;
+    padding: 0 20px 0 0;
 }
-.reaction-btn {
-    background: #262626;
-    color: #e6e6e6;
+
+.tweet-action-btn {
+    background: transparent;
     border: none;
-    border-radius: 8px;
-    padding: 5px 10px;
+    color: #71767b;
     cursor: pointer;
-    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 20px;
+    transition: all 0.2s;
+    font-size: 13px;
+    font-weight: 400;
 }
-.reaction-btn.active {
-    background-color: #8b5cf6;
-    color: white;
-    border-color: #8b5cf6;
+
+.tweet-action-btn:hover {
+    background: rgba(29, 155, 240, 0.1);
+}
+
+.tweet-action-btn.like-btn:hover {
+    background: rgba(249, 24, 128, 0.1);
+    color: #f91880;
+}
+
+.tweet-action-btn.dislike-btn:hover {
+    background: rgba(244, 33, 46, 0.1);
+    color: #f4212e;
+}
+
+.tweet-action-icon {
+    width: 18px;
+    height: 18px;
+    transition: all 0.2s ease;
+}
+
+.tweet-action-btn.active .tweet-action-icon {
+    fill: currentColor;
+}
+
+.tweet-action-btn.like-btn.active {
+    color: #f91880;
+}
+
+.tweet-action-btn.dislike-btn.active {
+    color: #f4212e;
+}
+
+.tweet-action-count {
+    font-size: 13px;
+    color: #71767b;
+}
+
+/* Like button */
+.like-btn:hover {
+    background: rgba(249, 24, 128, 0.1);
+    color: #f91880;
+}
+
+.like-btn:hover .tweet-action-icon,
+.like-btn:hover .tweet-action-count {
+    color: #f91880;
+}
+
+.like-btn.active {
+    color: #f91880;
+}
+
+.like-btn.active .tweet-action-icon,
+.like-btn.active .tweet-action-count {
+    color: #f91880;
+}
+
+/* Dislike button */
+.dislike-btn:hover {
+    background: rgba(255, 0, 0, 0.1);
+    color: #ff0000;
+}
+
+.dislike-btn:hover .tweet-action-icon,
+.dislike-btn:hover .tweet-action-count {
+    color: #ff0000;
+}
+
+.dislike-btn.active {
+    color: #ff0000;
+}
+
+.dislike-btn.active .tweet-action-icon,
+.dislike-btn.active .tweet-action-count {
+    color: #ff0000;
+}
+
+/* Comment button */
+.comment-btn:hover {
+    background: rgba(29, 155, 240, 0.1);
+    color: #1d9bf0;
+}
+
+.comment-btn:hover .tweet-action-icon,
+.comment-btn:hover .tweet-action-count {
+    color: #1d9bf0;
+}
+
+/* Reaction animations */
+.reaction-btn {
+    position: relative;
+    overflow: hidden;
+}
+
+.reaction-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(139, 92, 246, 0.3);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: all 0.3s ease;
+}
+
+.reaction-btn:active::before {
+    width: 100px;
+    height: 100px;
+}
+
+.reaction-btn.active::before {
+    background: rgba(255, 255, 255, 0.2);
 }
 /* --- СТИЛИ ДЛЯ ЗАГРУЗКИ ФОТО --- */
 .new-post-form .form-actions {
-  margin-bottom: 10px;
+  margin-bottom: 16px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
+
 .file-upload-label {
-  display: inline-block;
-  padding: 8px 12px;
-  background: #333;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #333 0%, #404040 100%);
   color: #e6e6e6;
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
   font-size: 14px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+  min-height: 44px;
 }
+
+.file-upload-label:hover {
+  background: linear-gradient(135deg, #404040 0%, #4a4a4a 100%);
+  border-color: #8b5cf6;
+  transform: translateY(-1px);
+}
+
 .image-preview {
   position: relative;
-  margin-bottom: 10px;
-  max-width: 150px;
+  margin-bottom: 16px;
+  max-width: 200px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
+
 .image-preview img {
   width: 100%;
   height: auto;
-  border-radius: 8px;
+  border-radius: 12px;
+  display: block;
 }
+
 .remove-image-btn {
   position: absolute;
-  top: -10px;
-  right: -10px;
-  background: rgba(0, 0, 0, 0.7);
+  top: -8px;
+  right: -8px;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: white;
   border: none;
   border-radius: 50%;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   font-size: 16px;
   cursor: pointer;
-  line-height: 24px;
+  line-height: 28px;
   text-align: center;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+  transition: all 0.3s ease;
 }
-/* --- СТИЛИ ДЛЯ ЗАГРУЗКИ ФОТО --- */
-.new-post-form .form-actions {
-    margin-bottom: 10px;
+
+.remove-image-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+/* --- СТИЛИ ДЛЯ ЗАГРУЗКИ И СОСТОЯНИЙ --- */
+.loading-screen, .loading-more { 
+  padding: 24px; 
+  text-align: center; 
+  color: #8b8b8b; 
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.loading-screen {
+  background: linear-gradient(135deg, #1a1a1a 0%, #1e1e1e 100%);
+  border-radius: 16px;
+  margin: 20px 0;
+  border: 1px solid #2a2a2a;
+}
+
+.loading-more {
+  margin: 20px 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+/* --- СТИЛИ ДЛЯ ХЕШТЕГОВ И ССЫЛОК --- */
+.hashtag {
+  color: #8b5cf6;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.hashtag:hover {
+  background: rgba(139, 92, 246, 0.1);
+  color: #a78bfa;
+}
+
+.mention {
+  color: #1d9bf0;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.mention:hover {
+  background: rgba(29, 155, 240, 0.1);
+  color: #4fc3f7;
+  text-decoration: underline;
+}
+
+.post-link {
+  color: #60a5fa;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  border-bottom: 1px solid transparent;
+}
+
+.post-link:hover {
+  color: #93c5fd;
+  border-bottom-color: #93c5fd;
+}
+
+/* --- МОБИЛЬНЫЕ УЛУЧШЕНИЯ --- */
+/* Show More/Less Button Styles */
+.show-more-container {
+  margin-top: 8px;
+}
+
+.show-more-btn {
+  background: none;
+  border: none;
+  color: #1d9bf0;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.show-more-btn:hover {
+  color: #1a8cd8;
+  text-decoration: underline;
+}
+
+.show-more-btn:active {
+  color: #0f7ae5;
+}
+
+/* Feed Animation Styles */
+.feed-container {
+  transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+  will-change: transform, opacity;
+}
+
+.feed-container.feed-animating {
+  transform: translateX(-50px) scale(0.9) !important;
+  opacity: 0.5 !important;
+  filter: blur(1px);
+}
+
+/* Floating compose button (brand purple) */
+.fab-compose {
+  position: fixed;
+  right: 20px;
+  bottom: 90px; /* above navbar */
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #7c3aed; /* brand purple */
+  color: #ffffff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.4);
+  cursor: pointer;
+  z-index: 90;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.fab-compose:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(124, 58, 237, 0.5);
+  background: #6d28d9;
+}
+
+.fab-compose:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+  .new-post-form {
+    margin-bottom: 16px;
+    padding: 16px;
+    border-radius: 12px;
   }
-  .file-upload-label {
-    display: inline-block;
-    padding: 8px 12px;
-    background: #333;
-    color: #e6e6e6;
-    border-radius: 8px;
-    cursor: pointer;
+  
+  .new-post-form textarea {
+    height: 80px;
+    padding: 12px;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+  
+  .post {
+    padding: 16px;
+    margin-bottom: 12px;
+    border-radius: 12px;
+  }
+  
+  .post-header {
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+  }
+  
+  .user-avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+  }
+  
+  .post-user strong {
+    font-size: 15px;
+  }
+  
+  .post-user span {
+    font-size: 13px;
+  }
+  
+  .post-time {
+    font-size: 12px;
+  }
+  
+  .post-content {
+    font-size: 15px;
+    margin: 12px 0;
+  }
+  
+  .post-actions {
+    gap: 12px;
+    margin-top: 16px;
+    padding-top: 12px;
+  }
+  
+  .reaction-btn {
+    padding: 10px 14px;
+    font-size: 13px;
+    min-height: 48px; /* Larger touch target */
+    min-width: 48px;
+  }
+  
+  .comment-header .user-avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+  }
+  
+  .comment-content {
+    margin-left: 40px;
     font-size: 14px;
   }
-  .image-preview {
-    position: relative;
-    margin-bottom: 10px;
-    max-width: 150px;
+  
+  .comment-form textarea {
+    height: 48px;
+    padding: 10px;
+    font-size: 16px; /* Prevents zoom on iOS */
   }
-  .image-preview img {
-    width: 100%;
-    height: auto;
-    border-radius: 8px;
+  
+  .comment-form button {
+    padding: 10px 16px;
+    min-height: 48px;
   }
-  .remove-image-btn {
-    position: absolute;
-    top: -10px;
-    right: -10px;
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 24px;
-    height: 24px;
-    font-size: 16px;
-    cursor: pointer;
-    line-height: 24px;
-    text-align: center;
+}
+
+/* Touch-friendly improvements */
+@media (hover: none) and (pointer: coarse) {
+  .reaction-btn:hover {
+    transform: none;
   }
+  
+  .reaction-btn:active {
+    transform: scale(0.95);
+    background: #3a3a3a;
+  }
+  
+  .reaction-btn.active:active {
+    transform: scale(0.95);
+    background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  }
+  
+  .new-post-form button:hover {
+    transform: none;
+  }
+  
+  .new-post-form button:active {
+    transform: scale(0.98);
+  }
+  
+  .comment-form button:hover {
+    transform: none;
+  }
+  
+  .comment-form button:active {
+    transform: scale(0.98);
+  }
+}
+
+/* --- СТИЛИ ДЛЯ РЕДАКТИРОВАНИЯ ПОСТОВ --- */
+.post-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.post-menu {
+  position: relative;
+}
+
+.menu-btn {
+  background: #ff6b6b !important;
+  border: 2px solid #ff5252 !important;
+  color: white !important;
+  font-size: 24px !important;
+  cursor: pointer;
+  padding: 10px !important;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  min-height: 48px !important;
+  min-width: 48px !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  position: relative;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
+}
+
+.menu-btn:hover {
+  background: #ff5252 !important;
+  color: white !important;
+}
+
+.simple-menu-btn {
+  background: #ff0000 !important;
+  color: white !important;
+  border: 3px solid #cc0000 !important;
+  padding: 12px !important;
+  border-radius: 8px !important;
+  font-weight: bold !important;
+  font-size: 20px !important;
+  cursor: pointer !important;
+  min-width: 50px !important;
+  min-height: 50px !important;
+  display: block !important;
+  position: absolute !important;
+  top: 10px !important;
+  right: 10px !important;
+  z-index: 999 !important;
+}
+
+/* Tweet Menu Button */
+.tweet-menu-btn {
+  background: transparent;
+  border: none;
+  color: #71767b;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 20px;
+  transition: all 0.2s;
+  font-size: 18px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+}
+
+.tweet-menu-btn:hover {
+  background: rgba(29, 155, 240, 0.1);
+  color: #1d9bf0;
+}
+
+.tweet-menu-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  min-width: 180px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.tweet-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 400;
+  transition: background-color 0.2s;
+  border-bottom: 1px solid #2f3336;
+}
+
+.menu-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.tweet-menu-item:last-child {
+  border-bottom: none;
+}
+
+.tweet-menu-item:hover {
+  background: #1e1e1e;
+}
+
+.tweet-menu-item.delete {
+  color: #f4212e;
+}
+
+.tweet-menu-item.delete:hover {
+  background: rgba(244, 33, 46, 0.1);
+}
+
+.tweet-menu-item.disabled {
+  color: #71767b;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.tweet-menu-item.disabled:hover {
+  background: transparent;
+}
+
+.tweet-edit-form {
+  margin: 12px 0;
+  padding: 16px;
+  background: #1e1e1e;
+  border-radius: 16px;
+  border: 1px solid #2a2a2a;
+}
+
+.tweet-edit-textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 12px;
+  border: 1px solid #2f3336;
+  border-radius: 8px;
+  background: #000000;
+  color: #ffffff;
+  resize: vertical;
+  font-size: 15px;
+  font-family: inherit;
+  margin-bottom: 12px;
+  transition: all 0.2s;
+}
+
+.tweet-edit-textarea:focus {
+  outline: none;
+  border-color: #1d9bf0;
+  box-shadow: 0 0 0 1px #1d9bf0;
+}
+
+.tweet-edit-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.tweet-save-btn, .tweet-cancel-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  transition: all 0.2s;
+  min-height: 36px;
+}
+
+.tweet-save-btn {
+  background: #1d9bf0;
+  color: white;
+}
+
+.tweet-save-btn:hover:not(:disabled) {
+  background: #1a8cd8;
+}
+
+.tweet-save-btn:disabled {
+  background: #71767b;
+  cursor: not-allowed;
+}
+
+.tweet-cancel-btn {
+  background: transparent;
+  color: #71767b;
+  border: 1px solid #2f3336;
+}
+
+.tweet-cancel-btn:hover {
+  background: #1e1e1e;
+  border-color: #71767b;
+}

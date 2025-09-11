@@ -7,8 +7,11 @@
       </div>
       <div v-for="comment in comments" :key="comment.id" class="comment">
         <div class="comment-header">
-          <strong>{{ getCommentAuthor(comment) }}</strong>
-          <span>@{{ getCommentUsername(comment) }}</span>
+          <div class="user-avatar">{{ getCommentInitials(comment) }}</div>
+          <div class="user-details">
+            <strong>{{ getCommentAuthor(comment) }}</strong>
+            <span>@{{ getCommentUsername(comment) }}</span>
+          </div>
         </div>
         <div class="comment-content" v-html="getCommentContent(comment)"></div>
       </div>
@@ -70,7 +73,33 @@ const handleCommentSubmit = async () => {
 // Вспомогательные функции для парсинга текста комментария
 const getCommentAuthor = (comment) => comment.text.match(/^(.*?)\s\(@(.*?)\):/)?.[1] || 'Пользователь';
 const getCommentUsername = (comment) => comment.text.match(/^(.*?)\s\(@(.*?)\):/)?.[2] || 'unknown';
-const getCommentContent = (comment) => comment.text.replace(/^(.*?)\s\(@(.*?)\):\s?/, '').replace(/\n/g, '<br>');
+const getCommentContent = (comment) => {
+  let content = comment.text.replace(/^(.*?)\s\(@(.*?)\):\s?/, '');
+  
+  // Convert mentions to clickable links
+  content = content.replace(/@(\w+)/g, '<span class="mention" onclick="handleMentionClick(\'$1\')">@$1</span>');
+  
+  // Convert hashtags to clickable links
+  content = content.replace(/#(\w+)/g, '<span class="hashtag">#$1</span>');
+  
+  // Convert URLs to clickable links
+  content = content.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="post-link">$1</a>');
+  
+  // Convert line breaks
+  content = content.replace(/\n/g, '<br>');
+  
+  return content;
+};
+const getCommentInitials = (comment) => {
+  const authorName = getCommentAuthor(comment);
+  const words = authorName.trim().split(' ');
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  } else if (words.length === 1) {
+    return words[0].substring(0, 2).toUpperCase();
+  }
+  return 'U';
+};
 
 // Загружаем комментарии, когда компонент появляется на экране
 onMounted(loadComments);
@@ -78,52 +107,111 @@ onMounted(loadComments);
 
 <style scoped>
 .comment-section {
-    margin-top: 15px;
-    border-top: 1px solid #262626;
-    padding-top: 10px;
+    margin-top: 20px;
+    border-top: 1px solid #2a2a2a;
+    padding-top: 16px;
+    background: #1a1a1a;
 }
 .comment-list {
-    max-height: 250px;
+    max-height: 300px;
     overflow-y: auto;
-    margin-bottom: 10px;
+    margin-bottom: 16px;
 }
 .comment {
-    padding: 8px 0;
-    border-bottom: 1px solid #222;
+    padding: 12px 0;
+    border-bottom: 1px solid #2a2a2a;
+    background: #1a1a1a;
 }
 .comment:last-child {
     border-bottom: none;
 }
 .comment-header {
-    font-size: 14px;
-    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
 }
-.comment-header strong { font-weight: 600; color: #f0f0f0; }
-.comment-header span { color: #888; margin-left: 5px; }
-.comment-content { font-size: 15px; color: #d1d5db; }
+.comment-header .user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 12px;
+    color: white;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3);
+}
+.comment-header .user-details {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+.comment-header strong { 
+    font-weight: 700; 
+    color: #f0f0f0; 
+    font-size: 14px;
+}
+.comment-header span { 
+    color: #8b8b8b; 
+    font-size: 12px;
+    font-weight: 500;
+}
+.comment-content { 
+    font-size: 15px; 
+    color: #d1d5db; 
+    line-height: 1.5;
+    margin-left: 44px;
+}
 
-.comment-form { display: flex; gap: 10px; margin-top: 10px; }
+.comment-form { 
+    display: flex; 
+    gap: 12px; 
+    margin-top: 16px; 
+    align-items: flex-end;
+}
 .comment-form textarea {
     flex-grow: 1;
-    height: 40px;
-    padding: 8px;
-    border: 1px solid #333;
-    border-radius: 8px;
-    background: #262626;
+    height: 44px;
+    padding: 12px;
+    border: 2px solid #2a2a2a;
+    border-radius: 12px;
+    background: #1a1a1a;
     color: #e6e6e6;
     resize: none;
     font-size: 14px;
+    font-family: inherit;
+    transition: all 0.3s ease;
+    line-height: 1.4;
+}
+.comment-form textarea:focus {
+    outline: none;
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
 }
 .comment-form button {
-    padding: 0 15px;
-    background: #8b5cf6;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
     color: #ffffff;
     border: none;
-    border-radius: 8px;
+    border-radius: 12px;
     cursor: pointer;
     font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+    min-height: 44px;
+}
+.comment-form button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
 }
 .comment-form button:disabled {
-    background: #555;
+    background: #2a2a2a;
+    transform: none;
+    box-shadow: none;
 }
 </style>

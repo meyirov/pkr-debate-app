@@ -8,7 +8,27 @@
 
   <div v-else class="app-container">
     <main class="main-content">
-      <RouterView />
+      <!-- For post detail, keep FeedView alive underneath and show overlay -->
+      <template v-if="route.name === 'post-detail'">
+        <KeepAlive>
+          <FeedView />
+        </KeepAlive>
+        <PostDetailView />
+      </template>
+      <!-- For all other routes (including feed), render the routed view only (single instance) -->
+      <template v-else>
+        <RouterView />
+      </template>
+
+      <!-- Global Floating Compose Button (visible on feed and detail) -->
+      <button v-if="route.name === 'feed' || route.name === 'post-detail'"
+              class="fab-compose"
+              @click="openCompose"
+              aria-label="Написать пост">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+      </button>
     </main>
     <TheNavbar />
   </div>
@@ -16,12 +36,20 @@
 
 <script setup>
 import { onMounted } from 'vue';
-import { RouterView } from 'vue-router';
+import { RouterView, useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/user';
 import TheNavbar from '@/components/TheNavbar.vue';
 import RegistrationModal from '@/components/RegistrationModal.vue';
+import FeedView from '@/views/Feedview.vue';
+import PostDetailView from '@/views/PostDetailView.vue';
 
 const userStore = useUserStore();
+const route = useRoute();
+const router = useRouter();
+
+const openCompose = () => {
+  router.push('/compose');
+};
 
 onMounted(() => {
   const tg = window.Telegram?.WebApp;
@@ -36,9 +64,11 @@ onMounted(() => {
 <style>
 /* Глобальные стили для основного контейнера */
 .app-container { display: flex; flex-direction: column; flex: 1; height: 100vh; overflow: hidden; }
-.main-content { flex: 1; padding: 10px; padding-bottom: 80px; overflow-y: auto; }
+.main-content { flex: 1; padding: 0; padding-bottom: 80px; overflow-y: auto; height: 100vh; }
 .loading-screen {
     display: flex; flex-direction: column; align-items: center;
     justify-content: center; height: 100vh; text-align: center;
 }
+
+/* Router transitions removed - handled at component level */
 </style>
