@@ -1,6 +1,6 @@
 // src/router/index.js
 import { createRouter, createWebHistory } from 'vue-router'
-import FeedView from '../views/Feedview.vue'
+import FeedView from '../views/FeedView.vue'
 import TournamentsView from '../views/TournamentsView.vue'
 
 const router = createRouter({
