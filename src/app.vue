@@ -40,7 +40,7 @@ import { RouterView, useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/user';
 import TheNavbar from '@/components/TheNavbar.vue';
 import RegistrationModal from '@/components/RegistrationModal.vue';
-import FeedView from '@/views/Feedview.vue';
+import FeedView from '@/views/FeedView.vue';
 import PostDetailView from '@/views/PostDetailView.vue';
 
 const userStore = useUserStore();
