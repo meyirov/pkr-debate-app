@@ -17,12 +17,25 @@ export const useUserStore = defineStore('user', () => {
     if (!tg?.initDataUnsafe?.user?.username) {
       console.warn("ВНИМАНИЕ: Данные Telegram не найдены. Включаю режим локальной разработки.");
       
-      // Создаём "фейкового" пользователя для тестов
-      userData.value = {
-        id: '1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d', // случайный ID
-        fullname: 'Тестовый Пользователь',
-        telegram_username: 'dev_user'
-      };
+      // В режиме разработки загружаем dev_user из базы данных
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('telegram_username', 'dev_user')
+        .single();
+
+      if (profile) {
+        userData.value = profile;
+        showRegistrationModal.value = false;
+      } else {
+        // Если dev_user не найден, создаём его
+        userData.value = {
+          id: '1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d',
+          fullname: 'Тестовый Пользователь',
+          telegram_username: 'dev_user'
+        };
+        showRegistrationModal.value = false;
+      }
       
       isLoading.value = false;
       return; // Завершаем функцию здесь

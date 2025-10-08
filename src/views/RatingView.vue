@@ -1,5 +1,28 @@
 <template>
   <div class="rating-container">
+    <!-- Season Info Header -->
+    <div class="season-header">
+      <div class="time-display">
+        {{ timeStore.currentTime.toLocaleTimeString('ru-RU') }}
+      </div>
+      <div class="season-info-main">
+        <div v-if="timeStore.currentSeason">
+          <h3 class="season-name">{{ timeStore.currentSeason.name }}</h3>
+          <div class="progress-bar-container">
+            <div class="progress-bar" :style="{ width: timeStore.seasonProgress + '%' }"></div>
+          </div>
+          <div class="season-details">
+            <span>Прогресс: {{ timeStore.seasonProgress.toFixed(1) }}%</span>
+            <span>Дней до конца: {{ timeStore.daysToSeasonEnd }}</span>
+          </div>
+        </div>
+        <div v-else class="no-season">
+          <p>Межсезонье</p>
+        </div>
+      </div>
+      <div class="placeholder"></div> <!-- to balance flexbox -->
+    </div>
+
     <!-- City Selection View -->
     <div v-if="currentView === 'cities'" class="cities-view">
       <div class="rating-header">
@@ -8,8 +31,8 @@
       </div>
 
       <div class="cities-grid">
-        <div 
-          v-for="city in cities" 
+        <div
+          v-for="city in cities"
           :key="city.id"
           @click="selectCity(city)"
           class="city-card"
@@ -36,14 +59,14 @@
       </div>
 
       <div class="seasons-grid">
-        <div 
-          v-for="season in seasons" 
+        <div
+          v-for="season in seasons"
           :key="season.id"
           @click="selectSeason(season)"
           class="season-card"
-          :class="{ 'current-season': season.isCurrent }"
+          :class="{ 'current-season': timeStore.currentSeason && timeStore.currentSeason.name.includes(season.name) }"
         >
-          <div class="season-badge" v-if="season.isCurrent">Текущий</div>
+          <div class="season-badge" v-if="timeStore.currentSeason && timeStore.currentSeason.name.includes(season.name)">Текущий</div>
           <h3 class="season-name">{{ season.name }}</h3>
           <p class="season-period">{{ season.period }}</p>
           <div class="season-stats">
@@ -94,8 +117,8 @@
             </tr>
           </thead>
           <tbody>
-            <tr 
-              v-for="speaker in currentRatingData" 
+            <tr
+              v-for="speaker in currentRatingData"
               :key="speaker.rank"
               class="rating-row"
               :class="{
@@ -135,7 +158,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useTimeStore } from '../stores/time';
+
+const timeStore = useTimeStore();
 
 // Cities data
 const cities = [
@@ -197,7 +223,6 @@ const seasons = [
     period: 'Сентябрь 2024 - Май 2025',
     speakersCount: 30,
     tournamentsCount: 8,
-    isCurrent: true
   },
   {
     id: '2025-2026',
@@ -205,7 +230,6 @@ const seasons = [
     period: 'Сентябрь 2025 - Май 2026',
     speakersCount: 0,
     tournamentsCount: 0,
-    isCurrent: false
   }
 ];
 
@@ -318,8 +342,13 @@ const goBackToSeasons = () => {
 };
 
 onMounted(() => {
+  timeStore.startClock();
   // Initialize with cities view
   currentView.value = 'cities';
+});
+
+onUnmounted(() => {
+  timeStore.stopClock();
 });
 </script>
 
@@ -328,8 +357,74 @@ onMounted(() => {
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
+  padding-bottom: 100px; /* Add padding to avoid overlap with navbar */
   background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
   min-height: 100vh;
+}
+
+.season-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 15px 20px;
+  margin-bottom: 30px;
+  backdrop-filter: blur(10px);
+}
+
+.time-display {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #22c55e; /* Green accent */
+  min-width: 110px;
+}
+
+.season-info-main {
+  text-align: center;
+}
+
+.season-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fff;
+  margin: 0 0 8px 0;
+}
+
+.progress-bar-container {
+  width: 250px;
+  height: 8px;
+  background-color: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 0 auto 8px auto;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #FFD700, #FFA500);
+  border-radius: 4px;
+  transition: width 0.5s ease-in-out;
+}
+
+.season-details {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: #aaa;
+}
+
+.no-season p {
+  color: #aaa;
+  font-style: italic;
+  margin: 0;
+}
+
+.placeholder {
+  min-width: 110px;
 }
 
 .rating-header {
@@ -635,41 +730,41 @@ onMounted(() => {
   .rating-container {
     padding: 15px;
   }
-  
+
   .rating-title {
     font-size: 2rem;
   }
-  
+
   .rating-subtitle {
     flex-direction: column;
     gap: 10px;
   }
-  
+
   .cities-grid, .seasons-grid {
     grid-template-columns: 1fr;
     gap: 15px;
   }
-  
+
   .city-card, .season-card {
     padding: 20px;
   }
-  
+
   .city-icon {
     font-size: 2.5rem;
   }
-  
+
   .city-name, .season-name {
     font-size: 1.3rem;
   }
-  
+
   .rating-table-container {
     overflow-x: auto;
   }
-  
+
   .rating-table {
     min-width: 600px;
   }
-  
+
   .rating-stats {
     grid-template-columns: 1fr;
   }
@@ -679,11 +774,11 @@ onMounted(() => {
   .rating-title {
     font-size: 1.8rem;
   }
-  
+
   .stat-number {
     font-size: 1.5rem;
   }
-  
+
   .rating-table th,
   .rating-table td {
     padding: 8px 6px;

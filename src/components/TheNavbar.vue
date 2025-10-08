@@ -44,7 +44,7 @@ const tabs = ref([
     justify-content: space-around;
     background: #1a1a1a; /* balanced dark */
     padding-top: 12px;
-    padding-bottom: 12px;
+    padding-bottom: calc(12px + 20px + env(safe-area-inset-bottom, 0px));
     border-top: 1px solid #2a2a2a;
 }
 .nav-btn {

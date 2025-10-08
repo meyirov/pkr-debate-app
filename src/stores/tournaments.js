@@ -188,11 +188,28 @@ export const useTournamentsStore = defineStore('tournaments', () => {
     }
   };
 
+  const getClubMembers = async (clubName) => {
+    if (!clubName) return [];
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('fullname, telegram_username')
+      .eq('club', clubName)
+      .order('fullname');
+      
+    if (error) {
+      console.error("Ошибка загрузки участников клуба:", error);
+      return [];
+    }
+    
+    return data || [];
+  };
+
   return { 
     allTournaments, isLoading, currentTournament, tournamentPosts, registrations,
     loadTournaments, loadTournamentById, createTournament, 
     loadTournamentPosts, createTournamentPost,
     loadRegistrations, submitRegistration,
-    updateRegistrationStatus, publishTab
+    updateRegistrationStatus, publishTab, getClubMembers
   };
 });

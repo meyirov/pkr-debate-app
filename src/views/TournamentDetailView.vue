@@ -1,7 +1,7 @@
 <template>
   <div class="tournament-detail-page">
     <div class="page-header">
-      <router-link to="/tournaments" class="back-button">← Все турниры</router-link>
+      <router-link to="/tournaments" class="back-button">Все турниры</router-link>
     </div>
 
     <div v-if="tournamentsStore.isLoading" class="loading-screen">
@@ -18,21 +18,26 @@
       
       <div class="tournament-description">
         <h3>Описание</h3>
-        <p>{{ tournament.desc || 'Описание отсутствует.' }}</p>
+        <div class="desc-content" :class="{ collapsed: !isDescExpanded }">
+          <div class="desc-html" v-html="processedDescription"></div>
+        </div>
+        <button class="toggle-desc" @click="isDescExpanded = !isDescExpanded">
+          {{ isDescExpanded ? 'Свернуть' : 'Показать ещё' }}
+        </button>
       </div>
 
       <div class="detail-tabs">
-        <button @click="activeTab = 'posts'" :class="{ active: activeTab === 'posts' }">Посты</button>
-        <button @click="activeTab = 'registration'" :class="{ active: activeTab === 'registration' }">Регистрация</button>
-        <button @click="activeTab = 'participants'" :class="{ active: activeTab === 'participants' }">Участники</button>
-        <button @click="activeTab = 'bracket'" :class="{ active: activeTab === 'bracket' }">Сетка</button>
+        <button @click="setTab('posts')" :class="{ active: activeTab === 'posts' }">Посты</button>
+        <button @click="setTab('registration')" :class="{ active: activeTab === 'registration' }">Регистрация</button>
+        <button @click="setTab('participants')" :class="{ active: activeTab === 'participants' }">Участники</button>
+        <button @click="setTab('bracket')" :class="{ active: activeTab === 'bracket' }">Сетка</button>
       </div>
 
       <div class="tab-content">
         <div v-if="activeTab === 'posts'">
           <div v-if="isCreator" class="new-post-form">
             <textarea v-model="newPostText" placeholder="Написать объявление от имени турнира..."></textarea>
-            <button @click="handlePostSubmit">Опубликовать</button>
+            <button class="btn-neon" @click="handlePostSubmit">Опубликовать</button>
           </div>
           <div v-if="tournamentsStore.tournamentPosts.length > 0" class="posts-list">
             <div v-for="post in tournamentsStore.tournamentPosts" :key="post.id" class="post">
@@ -40,23 +45,48 @@
                 <strong>{{ tournament.name }}</strong>
                 <span class="post-time">{{ new Date(post.timestamp).toLocaleString('ru-RU') }}</span>
               </div>
-              <p class="post-text">{{ post.text }}</p>
+              <div class="post-text" v-html="renderPost(post.text)"></div>
             </div>
           </div>
           <p v-else>Объявлений от организаторов пока нет.</p>
         </div>
 
         <div v-if="activeTab === 'registration'">
-          <button @click="isRegFormVisible = !isRegFormVisible" class="main-action-btn">
+          <button @click="isRegFormVisible = !isRegFormVisible" class="main-action-btn btn-neon">
             {{ isRegFormVisible ? 'Скрыть форму' : 'Зарегистрировать команду' }}
           </button>
           <form v-if="isRegFormVisible" @submit.prevent="handleRegistrationSubmit" class="registration-form">
             <input v-model="regForm.faction_name" type="text" placeholder="Название фракции *" required>
-            <input v-model="regForm.speaker1_username" type="text" placeholder="Username 1-го спикера (без @) *" required>
-            <input v-model="regForm.speaker2_username" type="text" placeholder="Username 2-го спикера (без @) *" required>
-            <input v-model="regForm.club" type="text" placeholder="Клуб *" required>
-            <input v-model="regForm.city" type="text" placeholder="Город">
-            <button type="submit" :disabled="isSubmittingReg">
+            
+            <div class="form-group">
+              <label>1-й спикер *</label>
+              <select v-model="regForm.speaker1_username" required :disabled="isLoadingMembers">
+                <option value="" disabled>Выберите спикера</option>
+                <option v-for="member in clubMembers" :key="member.telegram_username" :value="member.telegram_username">
+                  {{ member.fullname }} (@{{ member.telegram_username }})
+                </option>
+              </select>
+              <small v-if="isLoadingMembers">Загрузка участников клуба...</small>
+              <small v-else-if="clubMembers.length === 0 && userStore.userData?.club">В вашем клубе пока нет других участников</small>
+            </div>
+
+            <div class="form-group">
+              <label>2-й спикер *</label>
+              <select v-model="regForm.speaker2_username" required :disabled="isLoadingMembers">
+                <option value="" disabled>Выберите спикера</option>
+                <option v-for="member in clubMembers" :key="member.telegram_username" :value="member.telegram_username">
+                  {{ member.fullname }} (@{{ member.telegram_username }})
+                </option>
+              </select>
+            </div>
+
+            <input v-model="regForm.club" type="text" placeholder="Клуб *" required readonly>
+            <input v-model="regForm.city" type="text" placeholder="Город" readonly>
+            
+            <input v-model="regForm.contacts" type="text" placeholder="Контакты (необязательно)">
+            <textarea v-model="regForm.extra" placeholder="Дополнительно (достижения, опыт и т.д.)" rows="3"></textarea>
+            
+            <button type="submit" :disabled="isSubmittingReg || isLoadingMembers" class="btn-green">
               {{ isSubmittingReg ? 'Отправка...' : 'Отправить заявку' }}
             </button>
           </form>
@@ -157,7 +187,37 @@
         </div>
 
         <div v-if="activeTab === 'bracket'">
-          <QualifyingBracket :tournament-id="Number(tournamentId)" :is-creator="isCreator" />
+          <div class="bracket-type-switcher">
+            <button 
+              :class="{ active: bracketType === 'qualifying' }"
+              @click="bracketType = 'qualifying'"
+            >
+              Отборочные
+            </button>
+            <button 
+              v-if="bracketStore.bracket?.playoff_data"
+              :class="{ active: bracketType === 'playoff' }"
+              @click="bracketType = 'playoff'"
+            >
+              Play Off
+            </button>
+          </div>
+
+          <div v-if="bracketType === 'qualifying'">
+            <QualifyingBracket 
+              :tournament-id="Number(tournamentId)" 
+              :is-creator="isCreator"
+              :is-qualifying-finished="isQualifyingFinished"
+              @switchToPlayoff="bracketType = 'playoff'"
+            />
+          </div>
+          <div v-if="bracketType === 'playoff'">
+            <PlayoffBracket 
+              :tournament-id="Number(tournamentId)" 
+              :is-creator="isCreator"
+              @dataChanged="loadAllData(tournamentId)"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -175,8 +235,7 @@ import { useTournamentsStore } from '@/stores/tournaments';
 import { useUserStore } from '@/stores/user';
 import { useBracketStore } from '@/stores/bracket';
 import QualifyingBracket from '@/components/QualifyingBracket.vue';
-// Забыли импортировать CreateTournamentForm!
-import CreateTournamentForm from '@/components/CreateTournamentForm.vue';
+import PlayoffBracket from '@/components/PlayoffBracket.vue';
 
 const route = useRoute();
 const tournamentsStore = useTournamentsStore();
@@ -185,19 +244,53 @@ const bracketStore = useBracketStore();
 
 const tournamentId = ref(route.params.id);
 const activeTab = ref('posts');
+const bracketType = ref('playoff'); // Default to playoff
 const newPostText = ref('');
 const isRegFormVisible = ref(false);
 const isSubmittingReg = ref(false);
 
+const isDescExpanded = ref(false);
+
 const regForm = reactive({
-  faction_name: '', speaker1_username: '', speaker2_username: '', club: '', city: '',
+  faction_name: '', speaker1_username: '', speaker2_username: '', club: '', city: '', contacts: '', extra: '',
 });
+
+const clubMembers = ref([]);
+const isLoadingMembers = ref(false);
 
 const tournament = computed(() => tournamentsStore.currentTournament);
 const registrations = computed(() => tournamentsStore.registrations);
 
 const isCreator = computed(() => {
-  return tournament.value && userStore.userData?.telegram_username === tournament.value.creator_id;
+  if (!userStore.userData || !tournament.value) return false;
+  // Для локальной разработки создатель 'dev_user'
+  if (import.meta.env.DEV && tournament.value.creator_id === 'dev_user') {
+    return userStore.userData.telegram_username === 'dev_user';
+  }
+  return userStore.userData.telegram_username === tournament.value.creator_id;
+});
+
+const isQualifyingFinished = computed(() => {
+  const bracket = bracketStore.bracket;
+  if (!bracket || !bracket.matches || !bracket.matches.matches || !bracket.matches.setup) {
+    return false;
+  }
+  
+  const roundsPlayed = bracket.matches.matches.length;
+  const totalRounds = bracket.matches.setup.roundCount;
+  
+  if (roundsPlayed < totalRounds) {
+    return false;
+  }
+
+  const lastRound = bracket.matches.matches[roundsPlayed - 1];
+  if (!lastRound || !lastRound.matches) {
+    return false;
+  }
+  
+  return lastRound.matches.every(match => 
+    match.teams.some(team => team.rank > 0)
+  );
 });
 
 const pendingTeams = computed(() => (registrations.value || []).filter(r => r.status === 'pending'));
@@ -208,6 +301,20 @@ const handlePostSubmit = async () => {
   const success = await tournamentsStore.createTournamentPost(Number(tournamentId.value), newPostText.value);
   if (success) {
     newPostText.value = '';
+  }
+};
+
+const loadClubMembers = async () => {
+  if (!userStore.userData?.club) return;
+  
+  isLoadingMembers.value = true;
+  try {
+    clubMembers.value = await tournamentsStore.getClubMembers(userStore.userData.club);
+  } catch (error) {
+    console.error('Ошибка загрузки участников клуба:', error);
+    clubMembers.value = [];
+  } finally {
+    isLoadingMembers.value = false;
   }
 };
 
@@ -224,6 +331,33 @@ const handleRegistrationSubmit = async () => {
   isSubmittingReg.value = false;
 };
 
+const setTab = (tab) => { activeTab.value = tab; };
+
+function escapeHtml(text) {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+function linkify(text) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  return text.replace(urlRegex, (url) => {
+    const safeUrl = url.replace(/"/g, '%22');
+    return `<a href="${safeUrl}" target="_blank" rel="noopener">${safeUrl}</a>`;
+  });
+}
+const processedDescription = computed(() => {
+  const raw = tournament.value?.desc || 'Описание отсутствует.';
+  return linkify(escapeHtml(raw));
+});
+
+// Render post with preserved line breaks and links
+const renderPost = (text) => {
+  const safe = escapeHtml(text || '');
+  const withLinks = linkify(safe);
+  return withLinks.replace(/\n/g, '<br>');
+};
+
 const loadAllData = async (id) => {
   const numericId = Number(id);
   if (isNaN(numericId)) return;
@@ -233,7 +367,26 @@ const loadAllData = async (id) => {
   await bracketStore.loadBracket(numericId);
 };
 
-onMounted(() => { loadAllData(tournamentId.value); });
+// Auto-populate form when it becomes visible
+watch(isRegFormVisible, (isVisible) => {
+  if (isVisible && userStore.userData) {
+    // Auto-populate club and city from user profile
+    regForm.club = userStore.userData.club || '';
+    regForm.city = userStore.userData.city || '';
+    
+    // Load club members
+    loadClubMembers();
+  }
+});
+
+onMounted(() => { 
+  loadAllData(tournamentId.value);
+  // Load club members if user has a club
+  if (userStore.userData?.club) {
+    loadClubMembers();
+  }
+});
+
 watch(() => route.params.id, (newId) => {
   if (newId) { tournamentId.value = newId; loadAllData(newId); }
 });
@@ -241,111 +394,175 @@ watch(() => route.params.id, (newId) => {
 
 <style scoped>
 .page-header { margin-bottom: 15px; }
-.back-button { color: #8b5cf6; text-decoration: none; font-weight: 600; font-size: 16px; }
+.back-button { 
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #1e1e1e, #2a2a2a);
+  color: #c9c9c9;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  border: 1px solid #333;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.back-button:hover {
+  background: linear-gradient(135deg, #6d28d9, #7c3aed);
+  color: #ffffff;
+  border-color: #7c3aed;
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.4);
+  transform: translateY(-2px);
+}
+
+.back-button::before {
+  content: "←";
+  font-size: 16px;
+  font-weight: bold;
+}
 .tournament-header {
   background: #1a1a1a; padding: 20px; border-radius: 12px;
   text-align: center; margin-bottom: 20px;
   display: flex; flex-direction: column; align-items: center; gap: 8px;
+  position: relative;
 }
 .tournament-header img {
-  width: 100px; height: 100px; border-radius: 50%; object-fit: cover;
-  margin-bottom: 5px; border: 2px solid #333;
+  width: 120px; height: 120px; border-radius: 12px; object-fit: cover;
+  margin-bottom: 5px; border: 2px solid rgba(124, 58, 237, 0.6);
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.35);
 }
 .tournament-header h1 { font-size: 24px; margin: 0; }
 .tournament-header p { color: #aaa; margin: 0; }
+
 .tournament-description {
   background: #1a1a1a; padding: 20px; border-radius: 12px; margin-bottom: 20px;
 }
 .tournament-description h3 { margin-bottom: 10px; }
-.tournament-description p { line-height: 1.7; }
+.desc-content { position: relative; max-height: none; }
+.desc-content.collapsed { max-height: 120px; overflow: hidden; }
+.desc-content.collapsed::after {
+  content: '';
+  position: absolute; left: 0; right: 0; bottom: 0; height: 56px;
+  background: linear-gradient(180deg, rgba(26,26,26,0) 0%, rgba(26,26,26,1) 70%);
+}
+.desc-html a { color: #a77dff; text-decoration: underline; }
+.toggle-desc {
+  margin-top: 10px; padding: 8px 14px; border: none; border-radius: 8px;
+  background: linear-gradient(135deg, #6d28d9, #7c3aed); color: #fff; font-weight: 600;
+  cursor: pointer; box-shadow: 0 0 14px rgba(124,58,237,0.45);
+}
+
+/* Neon tabs */
 .detail-tabs {
-  display: flex; margin-bottom: 20px; background: #1a1a1a;
-  border-radius: 8px; padding: 5px;
+  display: flex; margin-bottom: 20px; background: #121212;
+  border-radius: 10px; padding: 6px; border: 1px solid #2a2a2a;
 }
 .detail-tabs button {
-  flex: 1; padding: 10px; background: none; border: none;
-  border-radius: 6px; color: #d1d5db; font-size: 14px;
-  cursor: pointer; transition: all 0.2s ease; font-weight: 500;
+  flex: 1; padding: 12px; background: #1e1e1e; border: 1px solid #2a2a2a;
+  border-radius: 8px; color: #c9c9c9; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: all 0.25s ease; margin-right: 6px;
 }
-.detail-tabs button.active { background: #8b5cf6; color: #ffffff; font-weight: 600; }
+.detail-tabs button:last-child { margin-right: 0; }
+.detail-tabs button:hover { box-shadow: 0 6px 18px rgba(124,58,237,0.25); }
+.detail-tabs button.active {
+  background: linear-gradient(135deg, #6d28d9, #7c3aed);
+  color: #ffffff; border-color: #7c3aed;
+  box-shadow: 0 0 20px rgba(124,58,237,0.45);
+}
+
+.bracket-type-switcher {
+  display: flex;
+  margin-bottom: 20px;
+  background: #121212;
+  border-radius: 10px;
+  padding: 6px;
+  border: 1px solid #2a2a2a;
+}
+.bracket-type-switcher button {
+  flex: 1;
+  padding: 12px;
+  background: #1e1e1e;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  color: #c9c9c9;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  margin-right: 6px;
+}
+.bracket-type-switcher button:last-child { margin-right: 0; }
+.bracket-type-switcher button.active {
+  background: linear-gradient(135deg, #6d28d9, #7c3aed);
+  color: #ffffff;
+  border-color: #7c3aed;
+  box-shadow: 0 0 20px rgba(124,58,237,0.45);
+}
+
+
 .tab-content { background: #1a1a1a; padding: 20px; border-radius: 12px; }
-.new-post-form {
-  display: flex; flex-direction: column; gap: 10px;
-  margin-bottom: 20px; padding-bottom: 20px;
-  border-bottom: 1px solid #2c2c2c;
+
+/* Neon buttons */
+.btn-neon {
+  padding: 10px 16px; background: linear-gradient(135deg, #6d28d9, #7c3aed);
+  color: #fff; border: none; border-radius: 10px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 0 18px rgba(124,58,237,0.45); transition: transform 0.15s ease;
 }
+.btn-neon:hover { transform: translateY(-1px); }
+.btn-green {
+  padding: 10px 16px; background: linear-gradient(135deg, #16a34a, #22c55e);
+  color: #fff; border: none; border-radius: 10px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 0 18px rgba(34,197,94,0.35);
+}
+
+.new-post-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #2c2c2c; }
 .new-post-form textarea {
   width: 100%; min-height: 80px; padding: 10px; border: 1px solid #333;
   border-radius: 8px; background: #262626; color: #e6e6e6; font-size: 14px;
 }
-.new-post-form button {
-  padding: 8px 15px; background: #8b5cf6; color: #ffffff;
-  border: none; border-radius: 8px; cursor: pointer;
-  font-size: 14px; font-weight: 600; align-self: flex-end;
+
+.list-header { margin-top: 10px; margin-bottom: 10px; font-size: 18px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+
+.registration-form { display: flex; flex-direction: column; gap: 15px; background: #222; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+.registration-form input { width: 100%; padding: 10px; border: 1px solid #333; border-radius: 8px; background: #262626; color: #e6e6e6; font-size: 14px; }
+.registration-form input[readonly] { background: #1a1a1a; color: #888; cursor: not-allowed; }
+.registration-form textarea { 
+  width: 100%; padding: 10px; border: 1px solid #333; border-radius: 8px; 
+  background: #262626; color: #e6e6e6; font-size: 14px; resize: vertical; min-height: 60px;
 }
-.post { padding: 15px 0; border-bottom: 1px solid #2c2c2c; }
-.post:last-child { border-bottom: none; padding-bottom: 0; }
-.post-header {
-  display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 8px; color: #aaa;
+
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group label { color: #c9c9c9; font-weight: 600; font-size: 14px; }
+.form-group select { 
+  width: 100%; padding: 10px; border: 1px solid #333; border-radius: 8px; 
+  background: #262626; color: #e6e6e6; font-size: 14px; cursor: pointer;
 }
-.post-header strong { color: #fff; }
-.post-text { white-space: pre-wrap; line-height: 1.6; }
-.main-action-btn {
-  width: 100%; padding: 12px; margin-bottom: 20px;
-  background: #8b5cf6; color: #ffffff; border: none;
-  border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600;
-}
-.registration-form {
-  display: flex; flex-direction: column; gap: 15px;
-  background: #222; padding: 15px; border-radius: 8px; margin-bottom: 20px;
-}
-.registration-form input {
-  width: 100%; padding: 10px; border: 1px solid #333;
-  border-radius: 8px; background: #262626; color: #e6e6e6; font-size: 14px;
-}
-.registration-form button {
-  padding: 10px; background: #22c55e; color: #ffffff;
-  border: none; border-radius: 8px; cursor: pointer;
-  font-size: 14px; font-weight: 600;
-}
+.form-group select:disabled { background: #1a1a1a; color: #888; cursor: not-allowed; }
+.form-group small { color: #888; font-size: 12px; margin-top: 2px; }
 .registration-form button:disabled { background: #555; }
-.list-header {
-  margin-top: 10px;
-  margin-bottom: 10px; font-size: 18px;
-  border-bottom: 1px solid #333; padding-bottom: 5px;
-}
-.registration-card {
-  background: #222; padding: 15px; border-radius: 8px;
-  margin-bottom: 10px; border-left: 3px solid #8b5cf6;
-}
+
+.registration-card { background: #222; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid #8b5cf6; }
 .registration-card strong { display: block; font-size: 16px; margin-bottom: 5px; }
 .registration-card span { display: block; font-size: 14px; color: #aaa; }
 .registration-card small { display: block; font-size: 12px; color: #888; margin-top: 5px; }
+
 .admin-panel { margin-bottom: 20px; }
-.tab-stats {
-  text-align: center; background: #222; padding: 10px;
-  border-radius: 8px; margin-bottom: 15px;
-}
-.publish-btn {
-  width: 100%; padding: 10px; border: none; border-radius: 8px;
-  font-size: 16px; font-weight: 600; cursor: pointer;
-}
+.tab-stats { text-align: center; background: #222; padding: 10px; border-radius: 8px; margin-bottom: 15px; }
+.publish-btn { width: 100%; padding: 10px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; }
 .publish-btn.publish { background-color: #22c55e; color: #fff; }
 .publish-btn.unpublish { background-color: #ef4444; color: #fff; }
 
-.admin-card {
-  display: flex; justify-content: space-between; align-items: center;
-  background: #222; padding: 10px 15px; border-radius: 8px; margin-bottom: 10px;
-}
+.admin-card { display: flex; justify-content: space-between; align-items: center; background: #222; padding: 10px 15px; border-radius: 8px; margin-bottom: 10px; }
 .admin-card-info strong { display: block; }
 .admin-card-info span { font-size: 14px; color: #aaa; }
 .admin-card-actions { display: flex; gap: 8px; }
-.action-btn {
-  background: #333; border: none; color: #fff; padding: 6px 10px;
-  border-radius: 6px; cursor: pointer; font-size: 12px;
-}
+.action-btn { background: #333; border: none; color: #fff; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; }
 .action-btn.accept { color: #22c55e; }
 .action-btn.reserve { color: #eab308; }
 .action-btn.remove { color: #ef4444; }
+.post-text { white-space: normal; line-height: 1.6; }
+.post-text a { color: #a77dff; text-decoration: underline; word-break: break-word; }
 </style>

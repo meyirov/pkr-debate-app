@@ -61,7 +61,7 @@ export const useBracketStore = defineStore('bracket', () => {
       });
     }
 
-    const firstRoundData = { round: 1, matches: roundMatches };
+    const firstRoundData = { round: 1, matches: roundMatches, results_published: false };
     const bracketData = {
       setup: { format, teamCount, roundCount },
       matches: [firstRoundData]
@@ -95,6 +95,21 @@ export const useBracketStore = defineStore('bracket', () => {
     if (error) {
       alert('Не удалось сохранить изменения в сетке.');
       console.error(error);
+    }
+  };
+
+  const deleteBracket = async () => {
+    if (!bracket.value) return;
+    const { error } = await supabase
+      .from('brackets')
+      .delete()
+      .eq('id', bracket.value.id);
+    
+    if (error) {
+      alert('Не удалось удалить сетку.');
+      console.error(error);
+    } else {
+      bracket.value = null;
     }
   };
   
@@ -183,13 +198,24 @@ export const useBracketStore = defineStore('bracket', () => {
     
     const newRoundData = {
       round: bracket.value.matches.matches.length + 1,
-      matches: newRoundMatches
+      matches: newRoundMatches,
+      results_published: false
     };
     
     bracket.value.matches.matches.push(newRoundData);
     bracket.value.published = false;
     await updateBracketData();
     alert(`Раунд ${newRoundData.round} успешно сгенерирован!`);
+  };
+
+  const toggleRoundResultsPublication = async (roundIndex) => {
+    if (!bracket.value || !bracket.value.matches?.matches?.[roundIndex]) return;
+
+    const round = bracket.value.matches.matches[roundIndex];
+    round.results_published = !round.results_published;
+
+    await updateBracketData();
+    alert(`Результаты раунда ${round.round} теперь ${round.results_published ? 'опубликованы' : 'скрыты'}.`);
   };
 
   const finalizeAndPublishBreak = async (playoffSettings) => {
@@ -277,23 +303,24 @@ export const useBracketStore = defineStore('bracket', () => {
       playoffData['ld'] = createPlayoffTree(ldTeams, 'Плей-офф ЛД', playoffSettings.format);
     }
 
-    // Update bracket with playoff data
-    bracket.value.playoff_data = playoffData;
-    bracket.value.results_published = true;
-    
-    const { error } = await supabase
+    // Update bracket with playoff data and fetch the updated record
+    const { data: updatedBracket, error } = await supabase
       .from('brackets')
       .update({ 
-        playoff_data: bracket.value.playoff_data,
-        results_published: bracket.value.results_published
+        playoff_data: playoffData
       })
-      .eq('id', bracket.value.id);
+      .eq('id', bracket.value.id)
+      .select()
+      .single();
 
     if (error) {
       console.error("Ошибка сохранения playoff данных:", error);
-      alert("Не удалось сохранить playoff данные.");
+      // alert("Не удалось сохранить playoff данные."); // Move alert to component
       return false;
     }
+
+    // Force reactivity by replacing the ref's value with the new object
+    bracket.value = updatedBracket;
 
     return true;
   };
@@ -304,42 +331,94 @@ export const useBracketStore = defineStore('bracket', () => {
     const validTeamCount = Math.pow(2, Math.floor(Math.log2(teams.length)));
     const seededTeams = teams.slice(0, validTeamCount);
 
-    // Only generate the first round initially
-    const firstRound = { round: 1, matches: [] };
-    const highSeeds = seededTeams.slice(0, seededTeams.length / 2);
-    const lowSeeds = seededTeams.slice(seededTeams.length / 2);
+    // Calculate starting round based on team count
+    let startingRound;
+    if (validTeamCount === 2) startingRound = 4; // Final
+    else if (validTeamCount === 4) startingRound = 3; // Semi-final (1/2)
+    else if (validTeamCount === 8) startingRound = 2; // Quarter-final (1/4)
+    else if (validTeamCount === 16) startingRound = 1; // Eighth-final (1/8)
+    else if (validTeamCount === 32) startingRound = 0; // Sixteenth-final (1/16)
+    else startingRound = 1; // Default
 
-    for (let i = 0; i < highSeeds.length; i++) {
+    const seedOrder = [1, 16, 8, 9, 5, 12, 4, 13, 6, 11, 3, 14, 7, 10, 2, 15];
+    const bracketSize = seededTeams.length;
+    const relevantSeedOrder = seedOrder.filter(s => s <= bracketSize);
+    
+    const reorderedTeams = relevantSeedOrder.map(seed => seededTeams[seed - 1]).filter(Boolean);
+
+    const firstRound = { round: 1, matches: [], published: false };
+    const teamsPerMatch = format === 'АПФ' ? 2 : 4;
+    
+    for (let i = 0; i < reorderedTeams.length; i += teamsPerMatch) {
+      const matchTeams = reorderedTeams.slice(i, i + teamsPerMatch);
       const match = {
         room: '',
         judge: '',
-        teams: [
-          { ...highSeeds[i], position: format === 'АПФ' ? 'Правительство' : 'ОП', rank: 0 },
-          { ...lowSeeds[i], position: format === 'АПФ' ? 'Оппозиция' : 'ОО', rank: 0 }
-        ]
+        teams: matchTeams.map((team, index) => ({
+          ...team,
+          position: format === 'АПФ' ? (index === 0 ? 'Правительство' : 'Оппозиция') : ['ОП', 'ОО', 'ЗП', 'ЗО'][index],
+          rank: 0
+        }))
       };
-      if (format === 'БПФ') {
-        match.teams.push(
-          { ...highSeeds[i + highSeeds.length / 2] || {}, position: 'ЗП', rank: 0 },
-          { ...lowSeeds[i + lowSeeds.length / 2] || {}, position: 'ЗО', rank: 0 }
-        );
-      }
       firstRound.matches.push(match);
     }
 
     return { 
-      name: leagueName, 
+      name: leagueName,
       format: format, 
-      rounds: [firstRound], // Only first round initially
-      totalRounds: Math.ceil(Math.log2(validTeamCount)), // Total rounds needed
-      currentRound: 1
+      rounds: [firstRound],
+      totalRounds: Math.log2(validTeamCount),
+      currentRound: 1,
+      startingRound: startingRound
     };
+  };
+
+  const updatePlayoffMatch = async (payload) => {
+    const { leagueName, roundIndex, matchIndex, updatedMatchData } = payload;
+    if (!bracket.value?.playoff_data) return;
+
+    const league = bracket.value.playoff_data[leagueName];
+    if (!league || !league.rounds[roundIndex] || !league.rounds[roundIndex].matches[matchIndex]) {
+      console.error("Could not find match to update in store", payload);
+      return;
+    }
+    
+    league.rounds[roundIndex].matches[matchIndex] = updatedMatchData;
+    await updateBracketData();
+  };
+
+  const publishPlayoffRound = async (payload) => {
+    const { leagueName, roundIndex } = payload;
+    if (!bracket.value?.playoff_data) return;
+
+    const league = bracket.value.playoff_data[leagueName];
+    if (!league) return;
+    
+    const round = league.rounds[roundIndex];
+    if (!round) return;
+
+    round.published = !round.published; // Toggle publication status
+
+    if (round.published) {
+      const tournamentsStore = useTournamentsStore();
+      let postText = `📢 Сетка Плей-офф: ${league.name} - Раунд ${round.round}\n\n`;
+      round.matches.forEach((match, index) => {
+        const teams = match.teams.map(t => t.faction_name).join(' vs ');
+        postText += `Матч ${index + 1}: ${teams}\n`;
+        postText += `Кабинет: ${match.room || 'Не назначен'}\n`;
+        postText += `Судья: ${match.judge || 'Не назначен'}\n\n`;
+      });
+      await tournamentsStore.createTournamentPost(bracket.value.tournament_id, postText);
+    }
+    
+    await updateBracketData();
+    alert(`Раунд ${round.round} теперь ${round.published ? 'опубликован' : 'скрыт'}.`);
   };
 
   const generateNextPlayoffRound = async (leagueName) => {
     if (!bracket.value || !bracket.value.playoff_data) return false;
-
-    const playoff = bracket.value.playoff_data[leagueName.toLowerCase()];
+    
+    const playoff = bracket.value.playoff_data[leagueName];
     if (!playoff) return false;
 
     // Check if current round is finished
@@ -377,7 +456,8 @@ export const useBracketStore = defineStore('bracket', () => {
     // Generate next round
     const nextRound = { 
       round: playoff.currentRound + 1, 
-      matches: [] 
+      matches: [],
+      published: false
     };
 
     const teamsPerMatch = playoff.format === 'АПФ' ? 2 : 4;
@@ -502,143 +582,105 @@ export const useBracketStore = defineStore('bracket', () => {
   };
 
   const generateFinalResultsPost = () => {
-    if (!bracket.value) return '';
+    if (!bracket.value?.playoff_data) return 'Данные плей-офф отсутствуют.';
 
-    // Process playoff results and determine final rankings
-    const playoffResults = {};
-    const finalTeamRankings = [];
-    const finalSpeakerRankings = [];
+    const { playoff_data } = bracket.value;
+    const alphaLeague = playoff_data.alpha;
+    let postText = '🏆 Итоги турнира 🏆\n\n';
 
-    if (bracket.value.playoff_data) {
-      // Process playoff results
-      Object.entries(bracket.value.playoff_data).forEach(([leagueKey, league]) => {
-        const finalRound = league.rounds[league.rounds.length - 1];
-        if (finalRound && finalRound.matches.length > 0) {
-          const finalMatch = finalRound.matches[0];
-          const winner = finalMatch.teams.find(team => team.rank === 1);
-          const runnerUp = finalMatch.teams.find(team => team.rank === 2);
-          
-          if (winner) {
-            playoffResults[leagueKey] = {
-              winner: winner.faction_name,
-              runnerUp: runnerUp?.faction_name || 'Не определен'
+    if (alphaLeague) {
+      const finalRound = alphaLeague.rounds[alphaLeague.rounds.length - 1];
+      const finalMatch = finalRound.matches[0];
+      const winner = finalMatch.teams.find(t => t.rank === 1);
+      const runnerUp = finalMatch.teams.find(t => t.rank !== 1);
+
+      postText += `🥇 Победитель турнира:\n${winner.faction_name}\n\n`;
+      postText += `🥈 Второе место:\n${runnerUp.faction_name}\n\n`;
+
+      if (alphaLeague.rounds.length > 1) {
+        const semiFinalRound = alphaLeague.rounds[alphaLeague.rounds.length - 2];
+        const semiFinalLosers = semiFinalRound.matches
+          .flatMap(match => match.teams.filter(team => team.rank !== 1));
+        
+        const qualifyingStats = _getQualifyingStats();
+
+        semiFinalLosers.sort((a, b) => {
+          const statsA = qualifyingStats[a.reg_id] || { totalTP: 0, totalSP: 0 };
+          const statsB = qualifyingStats[b.reg_id] || { totalTP: 0, totalSP: 0 };
+          if (statsB.totalTP !== statsA.totalTP) {
+            return statsB.totalTP - statsA.totalTP;
+          }
+          return statsB.totalSP - statsA.totalSP;
+        });
+
+        postText += `🥉 Третье место:\n${semiFinalLosers[0].faction_name}\n\n`;
+        if (semiFinalLosers.length > 1) {
+          postText += `🏅 Четвертое место:\n${semiFinalLosers[1].faction_name}\n\n`;
+        }
+      }
+    }
+
+    const ldLeague = playoff_data.ld;
+    if (ldLeague) {
+      const finalRound = ldLeague.rounds[ldLeague.rounds.length - 1];
+      const finalMatch = finalRound.matches[0];
+      const bestSpeaker = finalMatch.teams.find(t => t.rank === 1);
+      if (bestSpeaker) {
+        postText += `🎤 Лучший спикер турнира:\n${bestSpeaker.faction_name}\n\n`;
+      }
+    }
+    
+    postText += '🎉 Поздравляем всех участников и победителей!';
+    return postText;
+  };
+
+  const _getQualifyingStats = () => {
+    const tournamentsStore = useTournamentsStore();
+    const allRegistrations = tournamentsStore.registrations;
+    const teamStats = {};
+    const POINT_SYSTEMS = {
+      АПФ: { 1: 3, 2: 0 },
+      БПФ: { 1: 3, 2: 2, 3: 1, 4: 0 }
+    };
+    const pointsSystem = POINT_SYSTEMS[bracket.value.format];
+
+    bracket.value.matches.matches.forEach(round => {
+      round.matches.forEach(match => {
+        match.teams.forEach(team => {
+          if (!teamStats[team.reg_id]) {
+            const regInfo = allRegistrations.find(r => r.id === team.reg_id);
+            teamStats[team.reg_id] = {
+              reg_id: team.reg_id,
+              faction_name: team.faction_name,
+              totalTP: 0,
+              totalSP: 0,
             };
           }
-        }
+          teamStats[team.reg_id].totalTP += pointsSystem[team.rank] || 0;
+          const matchSpeakerPoints = team.speakers.reduce((sum, s) => sum + (s.points || 0), 0);
+          teamStats[team.reg_id].totalSP += matchSpeakerPoints;
+        });
       });
-
-      // Create final team rankings (1st-4th place)
-      // 1st place: Main playoff winner
-      if (playoffResults.alpha?.winner) {
-        finalTeamRankings.push({
-          place: 1,
-          team: playoffResults.alpha.winner,
-          type: 'Победитель турнира'
-        });
-      }
-      
-      // 2nd place: Main playoff runner-up
-      if (playoffResults.alpha?.runnerUp) {
-        finalTeamRankings.push({
-          place: 2,
-          team: playoffResults.alpha.runnerUp,
-          type: 'Финалист'
-        });
-      }
-
-      // 3rd place: Beta playoff winner (if exists)
-      if (playoffResults.beta?.winner) {
-        finalTeamRankings.push({
-          place: 3,
-          team: playoffResults.beta.winner,
-          type: 'Победитель Бета-лиги'
-        });
-      }
-
-      // 4th place: Beta playoff runner-up (if exists)
-      if (playoffResults.beta?.runnerUp) {
-        finalTeamRankings.push({
-          place: 4,
-          team: playoffResults.beta.runnerUp,
-          type: 'Финалист Бета-лиги'
-        });
-      }
-
-      // Create final speaker rankings (1st-2nd place)
-      // 1st place: LD playoff winner (if exists)
-      if (playoffResults.ld?.winner) {
-        finalSpeakerRankings.push({
-          place: 1,
-          speaker: playoffResults.ld.winner,
-          type: 'Лучший спикер турнира'
-        });
-      }
-
-      // 2nd place: LD playoff runner-up (if exists)
-      if (playoffResults.ld?.runnerUp) {
-        finalSpeakerRankings.push({
-          place: 2,
-          speaker: playoffResults.ld.runnerUp,
-          type: 'Второй лучший спикер'
-        });
-      }
-    }
-
-    // Generate final results text - only playoff winners
-    let resultsText = '🏆 ИТОГИ ТУРНИРА 🏆\n\n';
-    
-    // Team rankings (only playoff winners)
-    if (finalTeamRankings.length > 0) {
-      resultsText += '🥇 ФИНАЛЬНЫЕ РЕЗУЛЬТАТЫ КОМАНД:\n';
-      finalTeamRankings.forEach(ranking => {
-        const medal = ranking.place === 1 ? '🥇' : ranking.place === 2 ? '🥈' : ranking.place === 3 ? '🥉' : '🏅';
-        resultsText += `${medal} ${ranking.place} место: ${ranking.team}\n`;
-      });
-      resultsText += '\n';
-    }
-    
-    // Speaker rankings (only playoff winners)
-    if (finalSpeakerRankings.length > 0) {
-      resultsText += '🎤 ФИНАЛЬНЫЕ РЕЗУЛЬТАТЫ СПИКЕРОВ:\n';
-      finalSpeakerRankings.forEach(ranking => {
-        const medal = ranking.place === 1 ? '🥇' : '🥈';
-        resultsText += `${medal} ${ranking.place} место: ${ranking.speaker}\n`;
-      });
-      resultsText += '\n';
-    }
-
-    resultsText += '🎉 Поздравляем всех участников турнира!';
-
-    return resultsText;
+    });
+    return teamStats;
   };
 
   const publishFinalResults = async () => {
     if (!bracket.value) return false;
     
     // Check if all playoffs are finished
-    if (!areAllPlayoffsFinished()) {
+    const allLeaguesFinished = Object.values(bracket.value.playoff_data || {}).every(league => {
+      if (!league.rounds || league.rounds.length < league.totalRounds) return false;
+      const finalRound = league.rounds[league.rounds.length - 1];
+      return finalRound.matches.every(m => m.teams.some(t => t.rank === 1));
+    });
+
+    if (!allLeaguesFinished) {
       alert('Не все плей-офф раунды завершены. Завершите все матчи перед публикацией итогов.');
       return false;
     }
     
     const tournamentsStore = useTournamentsStore();
-    
-    // First, publish qualifying round results if not already published
-    if (!bracket.value.results_published) {
-      const qualifyingResultsPost = generateQualifyingResultsPost();
-      const qualifyingSuccess = await tournamentsStore.createTournamentPost(
-        bracket.value.tournament_id, 
-        qualifyingResultsPost
-      );
-      
-      if (!qualifyingSuccess) {
-        alert("Не удалось опубликовать результаты отборочных раундов.");
-        return false;
-      }
-      
-      // Mark qualifying results as published
-      bracket.value.results_published = true;
-    }
     
     // Generate final results post with playoff rankings
     const resultsPost = generateFinalResultsPost();
@@ -656,20 +698,10 @@ export const useBracketStore = defineStore('bracket', () => {
     
     bracket.value.final_results_published = true;
     
-    const { error } = await supabase
-      .from('brackets')
-      .update({ 
-        final_results_published: bracket.value.final_results_published,
-        results_published: bracket.value.results_published
-      })
-      .eq('id', bracket.value.id);
+    // Update the bracket in Supabase
+    await updateBracketData();
 
-    if (error) {
-      console.error("Ошибка публикации финальных результатов:", error);
-      alert("Не удалось обновить статус публикации результатов.");
-      return false;
-    }
-
+    alert("Итоги турнира успешно опубликованы!");
     return true;
   };
 
@@ -777,6 +809,10 @@ export const useBracketStore = defineStore('bracket', () => {
     generateNextRound,
     finalizeAndPublishBreak,
     generateNextPlayoffRound,
-    publishFinalResults
+    updatePlayoffMatch,
+    publishFinalResults,
+    deleteBracket,
+    toggleRoundResultsPublication,
+    publishPlayoffRound
   };
 });
