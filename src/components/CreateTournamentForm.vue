@@ -2,7 +2,17 @@
   <form class="create-form" @submit.prevent="handleSubmit">
     <h3>Создание нового турнира</h3>
     <input v-model="name" type="text" placeholder="Название турнира" required>
-    <input v-model="date" type="text" placeholder="Дата (в формате ДД.ММ.ГГГГ)" required>
+    
+    <div class="date-group">
+      <label>Дата начала турнира</label>
+      <input v-model="startDate" type="date" required>
+    </div>
+    
+    <div class="date-group">
+      <label>Дата окончания турнира</label>
+      <input v-model="endDate" type="date" required>
+    </div>
+    
     <select v-model="city" required>
       <option value="" disabled>Выберите город</option>
       <option value="Алматы">Алматы</option>
@@ -20,14 +30,18 @@
     <input id="logo-upload" type="file" @change="onFileChange" accept="image/*" style="display: none;">
     <span v-if="logoFile" class="file-name">{{ logoFile.name }}</span>
 
-    <button type="submit" :disabled="isSubmitting">
+    <button type="submit" :disabled="isSubmitting || !isDateValid">
       {{ isSubmitting ? 'Создание...' : 'Создать турнир' }}
     </button>
+    
+    <div v-if="!isDateValid && startDate && endDate" class="error-message">
+      Дата окончания должна быть после даты начала
+    </div>
   </form>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useTournamentsStore } from '@/stores/tournaments';
 
 const tournamentsStore = useTournamentsStore();
@@ -36,22 +50,35 @@ const tournamentsStore = useTournamentsStore();
 const emit = defineEmits(['close']);
 
 const name = ref('');
-const date = ref('');
+const startDate = ref('');
+const endDate = ref('');
 const city = ref('');
 const scale = ref('');
 const desc = ref('');
 const logoFile = ref(null);
 const isSubmitting = ref(false);
 
+// Date validation
+const isDateValid = computed(() => {
+  if (!startDate.value || !endDate.value) return true; // Allow empty for now
+  return new Date(startDate.value) <= new Date(endDate.value);
+});
+
 const onFileChange = (event) => {
   logoFile.value = event.target.files[0];
 };
 
 const handleSubmit = async () => {
+  if (!isDateValid.value) {
+    alert('Пожалуйста, проверьте даты турнира');
+    return;
+  }
+  
   isSubmitting.value = true;
   const tournamentData = {
     name: name.value,
-    date: date.value,
+    startDate: startDate.value,
+    endDate: endDate.value,
     city: city.value,
     scale: scale.value,
     desc: desc.value,
@@ -84,6 +111,18 @@ const handleSubmit = async () => {
   width: 100%; padding: 10px; border: 1px solid #333;
   border-radius: 8px; background: #262626; color: #e6e6e6; font-size: 14px;
 }
+
+.date-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.date-group label {
+  color: #c9c9c9;
+  font-weight: 600;
+  font-size: 14px;
+}
+
 .file-upload-label {
   padding: 8px 12px; background: #333;
   border-radius: 8px; cursor: pointer; text-align: center;
@@ -95,4 +134,14 @@ const handleSubmit = async () => {
   font-size: 16px; font-weight: 600;
 }
 .create-form button:disabled { background: #555; }
+
+.error-message {
+  color: #ff6b6b;
+  font-size: 14px;
+  text-align: center;
+  padding: 8px;
+  background: rgba(255, 107, 107, 0.1);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 107, 107, 0.3);
+}
 </style>

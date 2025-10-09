@@ -1,9 +1,13 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
 import { useUserStore } from '@/stores/user';
+import { useLanguageStore } from '@/stores/language';
 import { supabase } from '@/supabase';
+import { useI18n } from 'vue-i18n';
 
 const userStore = useUserStore();
+const languageStore = useLanguageStore();
+const { t } = useI18n();
 
 // --- Static Data for Dropdowns ---
 const cities = ['Алматы', 'Астана'];
@@ -35,6 +39,8 @@ const isEditing = ref(false);
 const editableFullname = ref('');
 const editableCity = ref('');
 const editableClub = ref('');
+const playerStats = ref(null);
+const isLoadingStats = ref(false);
 
 // --- Computed Properties ---
 const userData = computed(() => userStore.userData);
@@ -53,15 +59,21 @@ const availableClubs = computed(() => {
 
 const isTelegramLinked = computed(() => !!userData.value?.chat_id);
 
-// --- Watchers ---
-watch(editableCity, (newCity) => {
-  // Reset club if it's not in the new city's list
-  if (!availableClubs.value.includes(editableClub.value)) {
-    editableClub.value = '';
-  }
-});
-
 // --- Methods ---
+const loadPlayerStatistics = async () => {
+  if (!userData.value?.telegram_username) return;
+  
+  isLoadingStats.value = true;
+  try {
+    playerStats.value = await userStore.calculatePlayerStatistics();
+  } catch (error) {
+    console.error('Ошибка загрузки статистики:', error);
+    playerStats.value = null;
+  } finally {
+    isLoadingStats.value = false;
+  }
+};
+
 const startEditing = () => {
   isEditing.value = true;
   editableFullname.value = userData.value?.fullname || '';
@@ -72,6 +84,20 @@ const startEditing = () => {
 const cancelEditing = () => {
   isEditing.value = false;
 };
+
+// --- Watchers ---
+watch(editableCity, (newCity) => {
+  // Reset club if it's not in the new city's list
+  if (!availableClubs.value.includes(editableClub.value)) {
+    editableClub.value = '';
+  }
+});
+
+watch(userData, (newUserData) => {
+  if (newUserData?.telegram_username) {
+    loadPlayerStatistics();
+  }
+}, { immediate: true });
 
 const saveChanges = async () => {
   if (!editableFullname.value.trim()) {
@@ -126,11 +152,9 @@ const linkTelegram = () => {
 };
 
 // --- Language Switcher ---
-const selectedLanguage = ref('ru');
+const selectedLanguage = computed(() => languageStore.currentLanguage);
 const switchLanguage = (lang) => {
-  selectedLanguage.value = lang;
-  // Here you would integrate with vue-i18n
-  console.log(`Language switched to ${lang}`);
+  languageStore.switchLanguage(lang);
 };
 
 // --- Lifecycle Hooks ---
@@ -166,33 +190,33 @@ onMounted(() => {
       <div class="profile-column">
         <!-- Statistics Card -->
         <div class="profile-card-steam">
-          <h2 class="card-title">Статистика игрока</h2>
+          <h2 class="card-title">{{ t('playerStatistics') }}</h2>
           <div class="stats-grid-steam">
             <div class="stat-item-steam">
-              <span class="stat-value">0</span>
-              <span class="stat-label">Турниров</span>
+              <span class="stat-value">{{ isLoadingStats ? '...' : (playerStats?.tournamentsPlayed || 0) }}</span>
+              <span class="stat-label">{{ t('tournamentsPlayed') }}</span>
             </div>
             <div class="stat-item-steam">
-              <span class="stat-value">0</span>
-              <span class="stat-label">Побед</span>
+              <span class="stat-value">{{ isLoadingStats ? '...' : (playerStats?.wins || 0) }}</span>
+              <span class="stat-label">{{ t('wins') }}</span>
             </div>
             <div class="stat-item-steam">
-              <span class="stat-value">0</span>
-              <span class="stat-label">Очков рейтинга</span>
+              <span class="stat-value">{{ isLoadingStats ? '...' : (playerStats?.ratingPoints || 0) }}</span>
+              <span class="stat-label">{{ t('ratingPoints') }}</span>
             </div>
             <div class="stat-item-steam">
-              <span class="stat-value">#--</span>
-              <span class="stat-label">Место в рейтинге</span>
+              <span class="stat-value">{{ isLoadingStats ? '...' : (playerStats?.rankingPosition || '#--') }}</span>
+              <span class="stat-label">{{ t('rankingPosition') }}</span>
             </div>
           </div>
-          <p class="stats-footnote">Статистика начнет собираться с вашим первым турниром.</p>
+          <p class="stats-footnote">{{ t('statisticsNote') }}</p>
         </div>
 
         <!-- Recent Activity Card (Placeholder) -->
         <div class="profile-card-steam">
-          <h2 class="card-title">Последняя активность</h2>
+          <h2 class="card-title">{{ t('recentActivity') }}</h2>
           <div class="activity-placeholder">
-            <p>Здесь будет отображаться ваша последняя активность в турнирах.</p>
+            <p>{{ t('noData') }}</p>
           </div>
         </div>
       </div>
@@ -202,45 +226,45 @@ onMounted(() => {
         <!-- Personal Info Card -->
         <div class="profile-card-steam">
           <div class="card-header-flex">
-            <h2 class="card-title">Личная информация</h2>
+            <h2 class="card-title">{{ t('profile') }}</h2>
             <button v-if="!isEditing" @click="startEditing" class="edit-btn">✏️</button>
           </div>
           <div v-if="!isEditing" class="info-view">
-            <div class="info-row"><strong>Полное имя:</strong><span>{{ userData?.fullname || 'Не указано' }}</span></div>
-            <div class="info-row"><strong>Город:</strong><span>{{ userData?.city || 'Не указан' }}</span></div>
-            <div class="info-row"><strong>Клуб:</strong><span>{{ userData?.club || 'Не указан' }}</span></div>
-            <div class="info-row"><strong>Telegram:</strong><span :class="{ 'linked': isTelegramLinked, 'unlinked': !isTelegramLinked }">{{ isTelegramLinked ? `@${userData?.telegram_username}` : 'Не привязан' }}</span></div>
+            <div class="info-row"><strong>{{ t('fullName') }}:</strong><span>{{ userData?.fullname || t('noData') }}</span></div>
+            <div class="info-row"><strong>{{ t('city') }}:</strong><span>{{ userData?.city || t('noData') }}</span></div>
+            <div class="info-row"><strong>{{ t('club') }}:</strong><span>{{ userData?.club || t('noData') }}</span></div>
+            <div class="info-row"><strong>Telegram:</strong><span :class="{ 'linked': isTelegramLinked, 'unlinked': !isTelegramLinked }">{{ isTelegramLinked ? `@${userData?.telegram_username}` : t('telegramNotLinked') }}</span></div>
           </div>
           <div v-else class="info-edit">
-            <label for="fullname">Полное имя</label>
-            <input id="fullname" type="text" v-model="editableFullname" placeholder="Имя Фамилия">
+            <label for="fullname">{{ t('fullName') }}</label>
+            <input id="fullname" type="text" v-model="editableFullname" :placeholder="t('fullName')">
             
-            <label for="city">Город</label>
+            <label for="city">{{ t('city') }}</label>
             <select id="city" v-model="editableCity">
-              <option disabled value="">Выберите город</option>
+              <option disabled value="">{{ t('city') }}</option>
               <option v-for="city in cities" :key="city" :value="city">{{ city }}</option>
             </select>
 
-            <label for="club">Клуб</label>
+            <label for="club">{{ t('club') }}</label>
             <select id="club" v-model="editableClub" :disabled="!editableCity || availableClubs.length === 0">
               <option disabled value="">
-                {{ availableClubs.length > 0 ? 'Выберите клуб' : 'Для этого города клубы не указаны' }}
+                {{ availableClubs.length > 0 ? t('club') : t('noData') }}
               </option>
               <option v-for="club in availableClubs" :key="club" :value="club">{{ club }}</option>
             </select>
             
             <div class="edit-actions">
-              <button @click="saveChanges" class="btn-save">Сохранить</button>
-              <button @click="cancelEditing" class="btn-cancel">Отмена</button>
+              <button @click="saveChanges" class="btn-save">{{ t('saveChanges') }}</button>
+              <button @click="cancelEditing" class="btn-cancel">{{ t('cancel') }}</button>
             </div>
           </div>
         </div>
 
         <!-- Settings Card -->
         <div class="profile-card-steam">
-          <h2 class="card-title">Настройки</h2>
+          <h2 class="card-title">{{ t('language') }}</h2>
           <div class="settings-content">
-            <label>Язык интерфейса</label>
+            <label>{{ t('language') }}</label>
             <div class="language-switcher">
               <button 
                 :class="{ active: selectedLanguage === 'ru' }" 
@@ -253,6 +277,12 @@ onMounted(() => {
                 @click="switchLanguage('kz')"
               >
                 Қазақша
+              </button>
+              <button 
+                :class="{ active: selectedLanguage === 'en' }" 
+                @click="switchLanguage('en')"
+              >
+                English
               </button>
             </div>
           </div>

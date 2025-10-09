@@ -26,14 +26,17 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { RouterLink } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 
-const tabs = ref([
-  { id: 'feed', path: '/', name: 'Лента' },
-  { id: 'tournaments', path: '/tournaments', name: 'Турниры' },
-  { id: 'rating', path: '/rating', name: 'Рейтинг' },
-  { id: 'profile', path: '/profile', name: 'Профиль' },
+const { t } = useI18n();
+
+const tabs = computed(() => [
+  { id: 'feed', path: '/', name: t('feed') },
+  { id: 'tournaments', path: '/tournaments', name: t('tournaments') },
+  { id: 'rating', path: '/rating', name: t('rating') },
+  { id: 'profile', path: '/profile', name: t('profile') },
   { id: 'edu', path: '/edu', name: 'EDU' },
 ]);
 </script>

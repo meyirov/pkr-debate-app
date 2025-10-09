@@ -22,18 +22,32 @@ export const useTournamentsStore = defineStore('tournaments', () => {
       return;
     }
     isLoading.value = true;
-    const { data, error } = await supabase
-      .from('tournaments')
-      .select('*')
-      .order('date', { ascending: false });
-    if (error) {
-      console.error("Ошибка загрузки турниров:", error);
-      alert("Не удалось загрузить турниры");
-    } else {
-      allTournaments.value = data;
+    
+    try {
+      // Try to load tournaments without ordering first
+      const { data, error } = await supabase
+        .from('tournaments')
+        .select('*');
+        
+      if (error) {
+        console.error("Ошибка загрузки турниров:", error);
+        alert("Не удалось загрузить турниры: " + error.message);
+        allTournaments.value = [];
+      } else {
+        allTournaments.value = data || [];
+        console.log("Загружено турниров:", data?.length || 0);
+      }
+    } catch (err) {
+      console.error("Критическая ошибка загрузки турниров:", err);
+      alert("Критическая ошибка загрузки турниров");
+      allTournaments.value = [];
     }
+    
     isLoading.value = false;
   };
+
+  // Archive function temporarily removed to avoid database schema issues
+  // const archiveExpiredTournaments = async () => { ... }
 
   const loadTournamentById = async (id) => {
     isLoading.value = true;
@@ -70,11 +84,14 @@ export const useTournamentsStore = defineStore('tournaments', () => {
       const { data } = supabase.storage.from('tournament-logos').getPublicUrl(fileName);
       logoUrl = data.publicUrl;
     }
+    // Temporarily use old format for compatibility
+    const tournamentDate = tournamentData.startDate || tournamentData.endDate || new Date().toISOString().split('T')[0];
+    
     const { error } = await supabase
       .from('tournaments')
       .insert({
         name: tournamentData.name,
-        date: convertDateToISO(tournamentData.date),
+        date: tournamentDate, // Use old date field for now
         city: tournamentData.city,
         scale: tournamentData.scale,
         desc: tournamentData.desc,
@@ -205,11 +222,106 @@ export const useTournamentsStore = defineStore('tournaments', () => {
     return data || [];
   };
 
+  const getUserNames = async (usernames) => {
+    if (!usernames || usernames.length === 0) return {};
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('fullname, telegram_username')
+      .in('telegram_username', usernames);
+      
+    if (error) {
+      console.error("Ошибка загрузки имен пользователей:", error);
+      return {};
+    }
+    
+    // Convert array to object for easy lookup
+    const nameMap = {};
+    data?.forEach(user => {
+      nameMap[user.telegram_username] = user.fullname;
+    });
+    
+    return nameMap;
+  };
+
+  const exportRegistrationsToCSV = async (tournamentId) => {
+    try {
+      // Load registrations
+      await loadRegistrations(tournamentId);
+      
+      if (!registrations.value || registrations.value.length === 0) {
+        alert('Нет зарегистрированных команд для экспорта');
+        return;
+      }
+
+      // Get all unique usernames
+      const allUsernames = [];
+      registrations.value.forEach(reg => {
+        if (reg.speaker1_username) allUsernames.push(reg.speaker1_username);
+        if (reg.speaker2_username) allUsernames.push(reg.speaker2_username);
+      });
+
+      // Get user names
+      const nameMap = await getUserNames(allUsernames);
+
+      // Create CSV content
+      const headers = [
+        'Название фракции',
+        '1-й спикер (имя)',
+        '1-й спикер (username)',
+        '2-й спикер (имя)',
+        '2-й спикер (username)',
+        'Клуб',
+        'Город',
+        'Контакты',
+        'Дополнительно',
+        'Статус',
+        'Дата регистрации'
+      ];
+
+      const csvRows = [headers.join(',')];
+
+      registrations.value.forEach(reg => {
+        const row = [
+          `"${reg.faction_name || ''}"`,
+          `"${nameMap[reg.speaker1_username] || reg.speaker1_username || ''}"`,
+          `"${reg.speaker1_username || ''}"`,
+          `"${nameMap[reg.speaker2_username] || reg.speaker2_username || ''}"`,
+          `"${reg.speaker2_username || ''}"`,
+          `"${reg.club || ''}"`,
+          `"${reg.city || ''}"`,
+          `"${reg.contacts || ''}"`,
+          `"${reg.extra || ''}"`,
+          `"${reg.status || ''}"`,
+          `"${reg.timestamp ? new Date(reg.timestamp).toLocaleString('ru-RU') : ''}"`
+        ];
+        csvRows.push(row.join(','));
+      });
+
+      // Create and download file
+      const csvContent = csvRows.join('\n');
+      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `tournament_${tournamentId}_registrations.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      alert('CSV файл успешно скачан!');
+    } catch (error) {
+      console.error('Ошибка экспорта CSV:', error);
+      alert('Ошибка при создании CSV файла');
+    }
+  };
+
   return { 
     allTournaments, isLoading, currentTournament, tournamentPosts, registrations,
     loadTournaments, loadTournamentById, createTournament, 
     loadTournamentPosts, createTournamentPost,
     loadRegistrations, submitRegistration,
-    updateRegistrationStatus, publishTab, getClubMembers
+    updateRegistrationStatus, publishTab, getClubMembers, getUserNames, exportRegistrationsToCSV
   };
 });

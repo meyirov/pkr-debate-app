@@ -2,23 +2,23 @@
   <div class="tournaments-page">
     <div class="controls-container">
       <div class="tabs">
-        <button @click="isArchive = false" :class="{ active: !isArchive }">Активные</button>
-        <button @click="isArchive = true" :class="{ active: isArchive }">Архив</button>
+        <button @click="isArchive = false" :class="{ active: !isArchive }">{{ t('active') }}</button>
+        <button @click="isArchive = true" :class="{ active: isArchive }">{{ t('archive') }}</button>
       </div>
       <div class="filters">
         <select v-model="filterCity">
-          <option value="all">Все города</option>
+          <option value="all">{{ t('all') }} {{ t('city') }}</option>
           <option v-for="city in availableCities" :key="city" :value="city">{{ city }}</option>
         </select>
         <select v-model="filterScale">
-          <option value="all">Все масштабы</option>
+          <option value="all">{{ t('all') }} {{ t('tournamentScale') }}</option>
           <option v-for="scale in availableScales" :key="scale" :value="scale">{{ scale }}</option>
         </select>
       </div>
     </div>
     
     <div v-if="tournamentsStore.isLoading" class="loading-screen">
-      <p>Загрузка турниров...</p>
+      <p>{{ t('loadingTournaments') }}</p>
     </div>
 
     <div v-else class="tournament-list">
@@ -42,12 +42,12 @@
               <span class="chip chip-scale">{{ tournament.scale }}</span>
               <span class="chip chip-city">{{ tournament.city }}</span>
               <span class="spacer"></span>
-              <span class="date-chip">{{ new Date(tournament.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }) }}</span>
+              <span class="date-chip">{{ formatTournamentDate(tournament) }}</span>
             </div>
           </div>
         </div>
       </router-link>
-      <p v-if="filteredTournaments.length === 0 && !tournamentsStore.isLoading" class="no-tournaments">Турниры не найдены.</p>
+      <p v-if="filteredTournaments.length === 0 && !tournamentsStore.isLoading" class="no-tournaments">{{ t('noTournaments') }}</p>
     </div>
 
     <!-- Navigate to dedicated creation page -->
@@ -58,8 +58,10 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useTournamentsStore } from '@/stores/tournaments';
+import { useI18n } from 'vue-i18n';
 
 const tournamentsStore = useTournamentsStore();
+const { t } = useI18n();
 const isArchive = ref(false);
 const filterCity = ref('all');
 const filterScale = ref('all');
@@ -73,21 +75,77 @@ const availableScales = computed(() => {
   return [...new Set(scales)].sort();
 });
 
-const filteredTournaments = computed(() => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+const formatTournamentDate = (tournament) => {
+  try {
+    // Use new date fields if available
+    if (tournament.start_date && tournament.end_date) {
+      const startDate = new Date(tournament.start_date);
+      const endDate = new Date(tournament.end_date);
+      
+      // Validate dates
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        throw new Error('Invalid date format');
+      }
+      
+      // If same day, show single date
+      if (startDate.toDateString() === endDate.toDateString()) {
+        return startDate.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      }
+      
+      // If different days, show range
+      const startStr = startDate.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+      const endStr = endDate.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      return `${startStr} - ${endStr}`;
+    }
+    
+    // Fallback for old tournaments with single date
+    if (tournament.date) {
+      const date = new Date(tournament.date);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      }
+    }
+    
+    return 'Дата не указана';
+  } catch (error) {
+    console.error('Error formatting tournament date:', error, tournament);
+    return 'Дата не указана';
+  }
+};
 
+const filteredTournaments = computed(() => {
   return tournamentsStore.allTournaments
     .filter(t => {
-      if (!t.date) return false;
-      const tournamentDate = new Date(t.date);
-      return isArchive.value ? tournamentDate < today : tournamentDate >= today;
+      // Use is_archived field if available
+      if (t.is_archived !== undefined) {
+        return isArchive.value ? t.is_archived : !t.is_archived;
+      }
+      
+      // Fallback for old tournaments without archive status
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // For new format tournaments (with end_date)
+      if (t.end_date) {
+        const endDate = new Date(t.end_date);
+        return isArchive.value ? endDate < today : endDate >= today;
+      }
+      
+      // For old format tournaments (with date only)
+      if (t.date) {
+        const tournamentDate = new Date(t.date);
+        return isArchive.value ? tournamentDate < today : tournamentDate >= today;
+      }
+      
+      // If no date information, show in active by default
+      return !isArchive.value;
     })
     .filter(t => filterCity.value === 'all' || t.city === filterCity.value)
     .filter(t => filterScale.value === 'all' || t.scale === filterScale.value)
     .sort((a, b) => {
-        const dateA = new Date(a.date);
-        const dateB = new Date(b.date);
+        // Use start_date for new format, date for old format
+        const dateA = new Date(a.start_date || a.date);
+        const dateB = new Date(b.start_date || b.date);
         return isArchive.value ? dateB - dateA : dateA - dateB;
     });
 });
@@ -158,9 +216,11 @@ onMounted(() => {
 }
 
 .tournament-list {
-  display: flex;
-  flex-direction: column;
-  gap: 25px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  padding: 0 10px;
+  width: 100%;
 }
 
 .tournament-card-link {
@@ -174,7 +234,10 @@ onMounted(() => {
   border: 1px solid #333;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   position: relative;
-  overflow: visible; /* allow outer glow to be visible */
+  overflow: hidden; /* Changed from visible to hidden to contain content */
+  width: 100%;
+  max-width: 300px; /* Limit maximum width */
+  margin: 0 auto; /* Center the card */
 }
 
 /* Outer neon border glow */
@@ -243,31 +306,40 @@ onMounted(() => {
 }
 
 .card-content {
-  padding: 15px;
+  padding: 12px;
 }
 
 .tournament-name {
-  font-size: 1.2rem;
+  font-size: 1rem;
   font-weight: 700;
   color: #fff;
-  margin: 0 0 15px 0;
-  line-height: 1.3;
+  margin: 0 0 10px 0;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-/* Single-line meta row */
+/* Meta row that can wrap to multiple lines */
 .meta-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex-wrap: wrap; /* Allow wrapping to next line */
+  width: 100%;
+  min-height: 24px; /* Ensure consistent height */
+}
+.meta-row .spacer { flex: 1 1 auto; min-width: 0; }
+.meta-row .chip, .meta-row .date-chip { 
+  flex-shrink: 0; 
   white-space: nowrap;
 }
-.meta-row .spacer { flex: 1 1 auto; }
-.meta-row .chip, .meta-row .date-chip { flex-shrink: 0; }
 
 .chip {
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 0.8rem;
+  padding: 3px 6px;
+  border-radius: 12px;
+  font-size: 0.7rem;
   font-weight: 600;
   border: 1px solid;
 }
@@ -287,9 +359,9 @@ onMounted(() => {
 .date-chip {
   background-color: #ffd700;
   color: #121212;
-  padding: 8px 14px;
-  border-radius: 10px;
-  font-size: 0.9rem;
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-size: 0.7rem;
   font-weight: 700;
   box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
 }
@@ -298,6 +370,30 @@ onMounted(() => {
   color: #888;
   text-align: center;
   padding: 40px;
+}
+
+/* Responsive grid adjustments */
+@media (max-width: 768px) {
+  .tournament-list {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 15px;
+    padding: 0 5px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tournament-list {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  
+  .card-content {
+    padding: 10px;
+  }
+  
+  .tournament-name {
+    font-size: 0.9rem;
+  }
 }
 
 .fab {

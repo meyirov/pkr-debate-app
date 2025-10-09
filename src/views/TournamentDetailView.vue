@@ -1,36 +1,36 @@
 <template>
   <div class="tournament-detail-page">
     <div class="page-header">
-      <router-link to="/tournaments" class="back-button">Все турниры</router-link>
+      <router-link to="/tournaments" class="back-button">{{ t('allTournaments') }}</router-link>
     </div>
 
     <div v-if="tournamentsStore.isLoading" class="loading-screen">
-      <p>Загрузка турнира...</p>
+      <p>{{ t('loading') }}</p>
     </div>
 
     <div v-else-if="tournament" class="tournament-content">
       <div class="tournament-header">
-        <img :src="tournament.logo || 'https://via.placeholder.com/128'" alt="Логотип турнира">
+        <img :src="tournament.logo || 'https://via.placeholder.com/128'" :alt="t('tournamentLogo')">
         <h1>{{ tournament.name }}</h1>
         <p>{{ tournament.scale }} | {{ tournament.city }}</p>
-        <p>Дата: {{ new Date(tournament.date).toLocaleDateString('ru-RU') }}</p>
+        <p>{{ t('tournamentDate') }}: {{ new Date(tournament.date).toLocaleDateString('ru-RU') }}</p>
       </div>
       
       <div class="tournament-description">
-        <h3>Описание</h3>
+        <h3>{{ t('tournamentDescription') }}</h3>
         <div class="desc-content" :class="{ collapsed: !isDescExpanded }">
           <div class="desc-html" v-html="processedDescription"></div>
         </div>
         <button class="toggle-desc" @click="isDescExpanded = !isDescExpanded">
-          {{ isDescExpanded ? 'Свернуть' : 'Показать ещё' }}
+          {{ isDescExpanded ? t('close') : t('showMore') }}
         </button>
       </div>
 
       <div class="detail-tabs">
-        <button @click="setTab('posts')" :class="{ active: activeTab === 'posts' }">Посты</button>
-        <button @click="setTab('registration')" :class="{ active: activeTab === 'registration' }">Регистрация</button>
-        <button @click="setTab('participants')" :class="{ active: activeTab === 'participants' }">Участники</button>
-        <button @click="setTab('bracket')" :class="{ active: activeTab === 'bracket' }">Сетка</button>
+        <button @click="setTab('posts')" :class="{ active: activeTab === 'posts' }">{{ t('posts') }}</button>
+        <button @click="setTab('registration')" :class="{ active: activeTab === 'registration' }">{{ t('registration') }}</button>
+        <button @click="setTab('participants')" :class="{ active: activeTab === 'participants' }">{{ t('participants') }}</button>
+        <button @click="setTab('bracket')" :class="{ active: activeTab === 'bracket' }">{{ t('bracket') }}</button>
       </div>
 
       <div class="tab-content">
@@ -91,10 +91,15 @@
             </button>
           </form>
           <h3 class="list-header">Зарегистрированные команды ({{ registrations?.length || 0 }})</h3>
+          <div v-if="isCreator" class="admin-actions">
+            <button @click="downloadCSV" class="btn-csv" :disabled="!registrations || registrations.length === 0">
+              📊 Скачать CSV
+            </button>
+          </div>
           <div class="registration-list">
             <div v-for="reg in registrations" :key="reg.id" class="registration-card">
               <strong>{{ reg.faction_name }}</strong>
-              <span>{{ reg.speaker1_username }} & {{ reg.speaker2_username }}</span>
+              <span>{{ getUserDisplayName(reg.speaker1_username) }} & {{ getUserDisplayName(reg.speaker2_username) }}</span>
               <small>{{ reg.club }}</small>
             </div>
             <p v-if="!registrations || registrations.length === 0">Пока нет ни одной заявки.</p>
@@ -121,7 +126,7 @@
                 <div v-for="reg in pendingTeams" :key="reg.id" class="admin-card">
                   <div class="admin-card-info">
                     <strong>{{ reg.faction_name }}</strong>
-                    <span>{{ reg.speaker1_username }} & {{ reg.speaker2_username }}</span>
+                    <span>{{ getUserDisplayName(reg.speaker1_username) }} & {{ getUserDisplayName(reg.speaker2_username) }}</span>
                   </div>
                   <div class="admin-card-actions">
                     <button @click="tournamentsStore.updateRegistrationStatus(reg.id, 'accepted')" class="action-btn accept">✅ В основу</button>
@@ -234,6 +239,7 @@ import { useRoute } from 'vue-router';
 import { useTournamentsStore } from '@/stores/tournaments';
 import { useUserStore } from '@/stores/user';
 import { useBracketStore } from '@/stores/bracket';
+import { useI18n } from 'vue-i18n';
 import QualifyingBracket from '@/components/QualifyingBracket.vue';
 import PlayoffBracket from '@/components/PlayoffBracket.vue';
 
@@ -241,10 +247,11 @@ const route = useRoute();
 const tournamentsStore = useTournamentsStore();
 const userStore = useUserStore();
 const bracketStore = useBracketStore();
+const { t } = useI18n();
 
 const tournamentId = ref(route.params.id);
 const activeTab = ref('posts');
-const bracketType = ref('playoff'); // Default to playoff
+const bracketType = ref('qualifying'); // Default to qualifying
 const newPostText = ref('');
 const isRegFormVisible = ref(false);
 const isSubmittingReg = ref(false);
@@ -257,6 +264,8 @@ const regForm = reactive({
 
 const clubMembers = ref([]);
 const isLoadingMembers = ref(false);
+const userNames = ref({});
+const isLoadingNames = ref(false);
 
 const tournament = computed(() => tournamentsStore.currentTournament);
 const registrations = computed(() => tournamentsStore.registrations);
@@ -316,6 +325,34 @@ const loadClubMembers = async () => {
   } finally {
     isLoadingMembers.value = false;
   }
+};
+
+const loadUserNames = async () => {
+  if (!registrations.value || registrations.value.length === 0) return;
+  
+  isLoadingNames.value = true;
+  try {
+    const allUsernames = [];
+    registrations.value.forEach(reg => {
+      if (reg.speaker1_username) allUsernames.push(reg.speaker1_username);
+      if (reg.speaker2_username) allUsernames.push(reg.speaker2_username);
+    });
+    
+    userNames.value = await tournamentsStore.getUserNames(allUsernames);
+  } catch (error) {
+    console.error('Ошибка загрузки имен пользователей:', error);
+  } finally {
+    isLoadingNames.value = false;
+  }
+};
+
+const getUserDisplayName = (username) => {
+  return userNames.value[username] || username;
+};
+
+const downloadCSV = async () => {
+  if (!tournament.value) return;
+  await tournamentsStore.exportRegistrationsToCSV(tournament.value.id);
 };
 
 const handleRegistrationSubmit = async () => {
@@ -378,6 +415,11 @@ watch(isRegFormVisible, (isVisible) => {
     loadClubMembers();
   }
 });
+
+// Load user names when registrations change
+watch(registrations, () => {
+  loadUserNames();
+}, { immediate: true });
 
 onMounted(() => { 
   loadAllData(tournamentId.value);
@@ -525,6 +567,35 @@ watch(() => route.params.id, (newId) => {
 }
 
 .list-header { margin-top: 10px; margin-bottom: 10px; font-size: 18px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+
+.admin-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 15px;
+}
+
+.btn-csv {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.3);
+  transition: transform 0.2s ease;
+}
+
+.btn-csv:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 0 16px rgba(34, 197, 94, 0.4);
+}
+
+.btn-csv:disabled {
+  background: #555;
+  cursor: not-allowed;
+  box-shadow: none;
+}
 
 .registration-form { display: flex; flex-direction: column; gap: 15px; background: #222; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
 .registration-form input { width: 100%; padding: 10px; border: 1px solid #333; border-radius: 8px; background: #262626; color: #e6e6e6; font-size: 14px; }
