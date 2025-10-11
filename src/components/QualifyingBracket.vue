@@ -482,46 +482,44 @@ const generateQualifyingResultsPost = async () => {
   bracketStore.bracket.matches.matches.forEach(round => {
     round.matches.forEach(match => {
       match.teams.forEach(team => {
-        // Skip teams without reg_id
-        if (!team.reg_id) {
-          console.warn('Team without reg_id:', team);
-          return;
-        }
-        
-        // Initialize team stats only once per team
-        if (!teamStats[team.reg_id]) {
-          const regInfo = allRegistrations.find(r => r.id === team.reg_id);
-          if (!regInfo) {
-            console.warn('No registration found for team reg_id:', team.reg_id);
-            return;
-          }
-          teamStats[team.reg_id] = {
-            faction_name: regInfo.faction_name || team.faction_name,
-            club: regInfo.club || 'unknown',
-            speaker1_username: regInfo.speaker1_username || '',
-            speaker2_username: regInfo.speaker2_username || '',
+        // Derive team key robustly: prefer speaker usernames; fallback to reg_id; then faction name
+        const speakerUsernames = (team.speakers || [])
+          .map(s => s?.username)
+          .filter(Boolean);
+        const sortedUsernamesKey = speakerUsernames.length > 0 ? speakerUsernames.slice().sort().join('|') : '';
+        const teamKey = sortedUsernamesKey || (team.reg_id ? String(team.reg_id) : (team.faction_name || 'unknown'));
+
+        // Initialize team stats once per teamKey
+        if (!teamStats[teamKey]) {
+          // Try to find registration for better faction name (optional)
+          const regInfo = team.reg_id ? allRegistrations.find(r => r.id === team.reg_id) : null;
+          teamStats[teamKey] = {
+            faction_name: (regInfo?.faction_name || team.faction_name || 'Неизвестная команда'),
+            speakerUsernames: speakerUsernames.length > 0
+              ? speakerUsernames
+              : [regInfo?.speaker1_username, regInfo?.speaker2_username].filter(Boolean),
             totalTP: 0,
             totalSP: 0,
             wins: 0,
           };
         }
-        
+
         // Add tournament points for this match
         const tp = pointsSystem[team.rank] || 0;
-        teamStats[team.reg_id].totalTP += tp;
-        
+        teamStats[teamKey].totalTP += tp;
+
         // Count wins (rank 1 = win)
         if (team.rank === 1) {
-          teamStats[team.reg_id].wins += 1;
+          teamStats[teamKey].wins += 1;
         }
-        
+
         // Sum speaker points for THIS SPECIFIC TEAM in this match
         const matchSpeakerPoints = (team.speakers || []).reduce((sum, s) => sum + (s.points || 0), 0);
-        teamStats[team.reg_id].totalSP += matchSpeakerPoints;
-        
+        teamStats[teamKey].totalSP += matchSpeakerPoints;
+
         // Speaker statistics - track individual speaker points
         (team.speakers || []).forEach(speaker => {
-          if (!speaker.username) return;
+          if (!speaker?.username) return;
           if (!speakerStats[speaker.username]) {
             speakerStats[speaker.username] = {
               username: speaker.username,
@@ -553,11 +551,12 @@ const generateQualifyingResultsPost = async () => {
   // Team rankings with wins and speaker names
   resultsText += '🏆 РЕЙТИНГ КОМАНД:\n';
   sortedTeams.forEach((team, index) => {
-    const s1Name = speakerNameMap.value[team.speaker1_username] || team.speaker1_username;
-    const s2Name = speakerNameMap.value[team.speaker2_username] || team.speaker2_username;
+    const [u1, u2] = team.speakerUsernames;
+    const s1Name = u1 ? (speakerNameMap.value[u1] || u1) : '';
+    const s2Name = u2 ? (speakerNameMap.value[u2] || u2) : '';
     resultsText += `${index + 1}. ${team.faction_name} (${s1Name} & ${s2Name}) - ${team.wins} побед, ${team.totalTP} TP, ${team.totalSP} SP\n`;
   });
-  
+
   resultsText += '\n👥 РЕЙТИНГ СПИКЕРОВ:\n';
   sortedSpeakers.forEach((speaker, index) => {
     const speakerName = speakerNameMap.value[speaker.username] || speaker.username;
