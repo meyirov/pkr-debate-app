@@ -257,7 +257,7 @@
               @switchToPlayoff="bracketType = 'playoff'"
             />
           </div>
-          <div v-if="bracketType === 'playoff' && canShowPlayoff">
+          <div v-if="bracketType === 'playoff'">
             <PlayoffBracket :tournament-id="Number(tournamentId)" :is-creator="isCreator" />
           </div>
         </div>
