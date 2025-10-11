@@ -155,7 +155,7 @@ onMounted(() => {
   
   const mainContent = document.querySelector('.main-content');
   if (mainContent) {
-    mainContent.addEventListener('scroll', handleScroll);
+    mainContent.addEventListener('scroll', handleScroll, { passive: true });
   }
   document.addEventListener('click', handleClickOutside);
   

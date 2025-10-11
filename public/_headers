@@ -1,0 +1,6 @@
+/
+  X-Frame-Options: ALLOW-FROM https://web.telegram.org
+  Content-Security-Policy: frame-ancestors https://web.telegram.org https://*.telegram.org https://*.t.me https://t.me
+  Referrer-Policy: no-referrer-when-downgrade
+  X-Content-Type-Options: nosniff
+  X-XSS-Protection: 1; mode=block
