@@ -199,6 +199,7 @@ export const useBracketStore = defineStore('bracket', () => {
       matches: bracket.value.matches, 
       published: bracket.value.published,
       playoff_data: bracket.value.playoff_data || null,
+      results_published: bracket.value.results_published || false,
       final_results_published: bracket.value.final_results_published || false
     }).eq('id', bracket.value.id);
 
