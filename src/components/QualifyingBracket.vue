@@ -482,14 +482,24 @@ const generateQualifyingResultsPost = async () => {
   bracketStore.bracket.matches.matches.forEach(round => {
     round.matches.forEach(match => {
       match.teams.forEach(team => {
+        // Skip teams without reg_id
+        if (!team.reg_id) {
+          console.warn('Team without reg_id:', team);
+          return;
+        }
+        
         // Initialize team stats only once per team
         if (!teamStats[team.reg_id]) {
           const regInfo = allRegistrations.find(r => r.id === team.reg_id);
+          if (!regInfo) {
+            console.warn('No registration found for team reg_id:', team.reg_id);
+            return;
+          }
           teamStats[team.reg_id] = {
-            faction_name: team.faction_name,
-            club: regInfo?.club || 'unknown',
-            speaker1_username: regInfo?.speaker1_username || '',
-            speaker2_username: regInfo?.speaker2_username || '',
+            faction_name: regInfo.faction_name || team.faction_name,
+            club: regInfo.club || 'unknown',
+            speaker1_username: regInfo.speaker1_username || '',
+            speaker2_username: regInfo.speaker2_username || '',
             totalTP: 0,
             totalSP: 0,
             wins: 0,
@@ -511,6 +521,7 @@ const generateQualifyingResultsPost = async () => {
         
         // Speaker statistics - track individual speaker points
         (team.speakers || []).forEach(speaker => {
+          if (!speaker.username) return;
           if (!speakerStats[speaker.username]) {
             speakerStats[speaker.username] = {
               username: speaker.username,
