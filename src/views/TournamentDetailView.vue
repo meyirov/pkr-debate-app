@@ -29,7 +29,6 @@
       <div class="detail-tabs">
         <button @click="setTab('posts')" :class="{ active: activeTab === 'posts' }">Посты</button>
         <button @click="setTab('registration')" :class="{ active: activeTab === 'registration' }">Регистрация</button>
-        <button @click="setTab('judges')" :class="{ active: activeTab === 'judges' }">Судьи</button>
         <button @click="setTab('participants')" :class="{ active: activeTab === 'participants' }">Участники</button>
         <button @click="setTab('bracket')" :class="{ active: activeTab === 'bracket' }">Сетка</button>
       </div>
@@ -53,6 +52,14 @@
         </div>
 
         <div v-if="activeTab === 'registration'">
+          <!-- Sub-tabs for Registration -->
+          <div class="sub-tabs">
+            <button @click="regSubTab = 'teams'" :class="{ active: regSubTab === 'teams' }">Команды</button>
+            <button @click="regSubTab = 'judges'" :class="{ active: regSubTab === 'judges' }">Судьи</button>
+          </div>
+
+          <!-- Teams sub-tab -->
+          <div v-if="regSubTab === 'teams'">
           <button @click="isRegFormVisible = !isRegFormVisible" class="main-action-btn btn-neon">
             {{ isRegFormVisible ? 'Скрыть форму' : 'Зарегистрировать команду' }}
           </button>
@@ -117,25 +124,27 @@
             </div>
             <p v-if="!registrations || registrations.length === 0">Пока нет ни одной заявки.</p>
           </div>
-        </div>
-
-        <div v-if="activeTab === 'judges'">
-          <div v-if="isCreator" class="admin-panel">
-            <div class="tab-stats">Зарегистрировано судей: {{ judgesStore.judges.length }}</div>
           </div>
-          <div class="registration-list">
-            <div :class="['registration-card', statusClass(j.status)]" v-for="j in judgesStore.judges" :key="j.id">
-              <strong>@{{ j.judge_username }}</strong>
-              <small>{{ j.club || 'Клуб не указан' }}</small>
-              <small>Статус: {{ j.status }}</small>
-              <div v-if="isCreator" class="admin-card-actions" style="margin-top:8px;">
-                <button class="action-btn accept" @click="judgesStore.updateJudgeStatus(j.id, 'accepted')">✅ Принять</button>
-                <button class="action-btn remove" @click="judgesStore.updateJudgeStatus(j.id, 'pending')">↺ В ожидании</button>
+
+          <!-- Judges sub-tab -->
+          <div v-if="regSubTab === 'judges'">
+            <div v-if="isCreator" class="admin-panel">
+              <div class="tab-stats">Зарегистрировано судей: {{ judgesStore.judges.length }}</div>
+            </div>
+            <div class="registration-list">
+              <div :class="['registration-card', statusClass(j.status)]" v-for="j in judgesStore.judges" :key="j.id">
+                <strong>@{{ j.judge_username }}</strong>
+                <small>{{ j.club || 'Клуб не указан' }}</small>
+                <small>Статус: {{ j.status }}</small>
+                <div v-if="isCreator" class="admin-card-actions" style="margin-top:8px;">
+                  <button class="action-btn accept" @click="judgesStore.updateJudgeStatus(j.id, 'accepted')">✅ Принять</button>
+                  <button class="action-btn remove" @click="judgesStore.updateJudgeStatus(j.id, 'pending')">↺ В ожидании</button>
+                </div>
               </div>
             </div>
-          </div>
-          <div style="margin-top:12px;">
-            <button class="btn-neon" @click="judgesStore.registerAsJudge(Number(tournamentId))">Зарегистрироваться судьей</button>
+            <div style="margin-top:12px;">
+              <button class="btn-neon" @click="judgesStore.registerAsJudge(Number(tournamentId))">Зарегистрироваться судьей</button>
+            </div>
           </div>
         </div>
 
@@ -283,6 +292,7 @@ const bracketType = ref('qualifying');
 const newPostText = ref('');
 const isRegFormVisible = ref(false);
 const isSubmittingReg = ref(false);
+const regSubTab = ref('teams');
 
 const isDescExpanded = ref(false);
 const showRegMenuId = ref(null);
@@ -559,6 +569,23 @@ watch(() => route.params.id, (newId) => {
 
 
 .tab-content { background: #1a1a1a; padding: 20px; border-radius: 12px; }
+
+/* Sub-tabs within Registration */
+.sub-tabs {
+  display: flex; gap: 10px; margin-bottom: 20px; background: #262626;
+  border-radius: 8px; padding: 6px;
+}
+.sub-tabs button {
+  flex: 1; padding: 10px; background: #1e1e1e; border: 1px solid #2a2a2a;
+  border-radius: 6px; color: #c9c9c9; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: all 0.25s ease;
+}
+.sub-tabs button:hover { box-shadow: 0 4px 12px rgba(124,58,237,0.2); }
+.sub-tabs button.active {
+  background: linear-gradient(135deg, #6d28d9, #7c3aed);
+  color: #ffffff; border-color: #7c3aed;
+  box-shadow: 0 0 16px rgba(124,58,237,0.4);
+}
 
 /* Neon buttons */
 .btn-neon {
