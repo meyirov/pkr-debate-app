@@ -360,14 +360,19 @@ const isAllQualifyingRoundsFinished = computed(() => {
   }
   
   const rounds = bracketStore.bracket.matches.matches;
-  
-  // Check if we have completed all planned rounds
+  const allRoundsFinished = rounds.length > 0 && rounds.every(round => isRoundFinished(round));
+
+  // If organizer published results, allow proceeding even if planned roundCount not reached
+  if (bracketStore.bracket.results_published) {
+    return allRoundsFinished;
+  }
+
+  // Otherwise require that all planned rounds are created
   if (rounds.length < setup.roundCount) {
     return false;
   }
   
-  // Check if all rounds have results entered
-  return rounds.every(round => isRoundFinished(round));
+  return allRoundsFinished;
 });
 
 const handleGenerate = async () => {
