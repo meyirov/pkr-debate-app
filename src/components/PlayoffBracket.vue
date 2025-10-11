@@ -99,7 +99,7 @@
             class="zoom-container-content" 
             :style="{ transform: `scale(${zoom})` }"
           >
-            <div class="bracket-layout-container">
+            <div class="bracket-layout-container" ref="gridRef">
               <div v-for="(round, roundIndex) in rounds" :key="roundIndex" class="round-column">
                 <div class="round-header">
                   <h3 class="round-title">{{ getRoundDisplayName(round.round) }}</h3>
