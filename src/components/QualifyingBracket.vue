@@ -457,15 +457,26 @@ const generateQualifyingResultsPost = () => {
           teamStats[team.reg_id] = {
             ...team,
             club: regInfo?.club || 'unknown',
+            speaker1_username: regInfo?.speaker1_username || '',
+            speaker2_username: regInfo?.speaker2_username || '',
             totalTP: 0,
             totalSP: 0,
+            wins: 0,
           };
         }
-        teamStats[team.reg_id].totalTP += pointsSystem[team.rank] || 0;
+        const tp = pointsSystem[team.rank] || 0;
+        teamStats[team.reg_id].totalTP += tp;
+        
+        // Count wins (rank 1 = win)
+        if (team.rank === 1) {
+          teamStats[team.reg_id].wins += 1;
+        }
+        
+        // Sum speaker points for this team in this match
         const matchSpeakerPoints = team.speakers.reduce((sum, s) => sum + (s.points || 0), 0);
         teamStats[team.reg_id].totalSP += matchSpeakerPoints;
         
-        // Speaker statistics - Only track Speaker Points (SP), not Tournament Points (TP)
+        // Speaker statistics - track individual speaker points
         team.speakers.forEach(speaker => {
           if (!speakerStats[speaker.username]) {
             speakerStats[speaker.username] = {
@@ -473,14 +484,13 @@ const generateQualifyingResultsPost = () => {
               totalPoints: 0
             };
           }
-          // Each speaker gets their individual speaker points
           speakerStats[speaker.username].totalPoints += speaker.points || 0;
         });
       });
     });
   });
 
-  // Sort teams and speakers
+  // Sort teams by TP, then by SP
   const sortedTeams = Object.values(teamStats).sort((a, b) => {
     if (b.totalTP !== a.totalTP) {
       return b.totalTP - a.totalTP;
@@ -488,23 +498,26 @@ const generateQualifyingResultsPost = () => {
     return b.totalSP - a.totalSP;
   });
 
-  // Sort speakers by Speaker Points (SP) only, not Tournament Points (TP)
+  // Sort speakers by Speaker Points
   const sortedSpeakers = Object.values(speakerStats).sort((a, b) => {
-    return b.totalPoints - a.totalPoints; // Only by Speaker Points
+    return b.totalPoints - a.totalPoints;
   });
 
   // Generate results text
-  let resultsText = `📊 РЕЗУЛЬТАТЫ ОТБОРОЧНЫХ РАУНДОВ (${bracketStore.bracket.matches.length} раундов)\n\n`;
+  let resultsText = `📊 РЕЗУЛЬТАТЫ ОТБОРОЧНЫХ РАУНДОВ (${bracketStore.bracket.matches.matches.length} раундов)\n\n`;
   
-  // Team rankings
+  // Team rankings with wins and speaker names
   resultsText += '🏆 РЕЙТИНГ КОМАНД:\n';
   sortedTeams.forEach((team, index) => {
-    resultsText += `${index + 1}. ${team.faction_name} - ${team.totalTP} TP, ${team.totalSP} SP\n`;
+    const s1Name = speakerNameMap.value[team.speaker1_username] || team.speaker1_username;
+    const s2Name = speakerNameMap.value[team.speaker2_username] || team.speaker2_username;
+    resultsText += `${index + 1}. ${team.faction_name} (${s1Name} & ${s2Name}) - ${team.wins} побед, ${team.totalTP} TP, ${team.totalSP} SP\n`;
   });
   
   resultsText += '\n👥 РЕЙТИНГ СПИКЕРОВ:\n';
   sortedSpeakers.forEach((speaker, index) => {
-    resultsText += `${index + 1}. ${speaker.username} - ${speaker.totalPoints} SP\n`;
+    const speakerName = speakerNameMap.value[speaker.username] || speaker.username;
+    resultsText += `${index + 1}. ${speakerName} - ${speaker.totalPoints} SP\n`;
   });
 
   resultsText += '\n⏳ Следующий этап: Плей-офф (скоро)';
