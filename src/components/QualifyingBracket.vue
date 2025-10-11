@@ -4,167 +4,180 @@
 
     <!-- Qualifying Bracket Content -->
     <div class="bracket-content-pane">
-      <!-- State 1: Loading -->
       <div v-if="bracketStore.isLoading">
         <p>Загрузка данных о сетке...</p>
       </div>
-
-      <!-- State 2: Bracket does NOT exist -->
-      <div v-else-if="!bracketStore.bracket">
-        <!-- Show generation form to creator -->
-        <form v-if="isCreator" @submit.prevent="handleGenerate" class="bracket-setup-form">
-          <h4>Управление сеткой отборочных</h4>
-          <p class="form-description">Выберите формат, количество команд и раундов для турнира.</p>
-          
-          <div class="tournament-progress">
-            <h5>Планируемые раунды: {{ setup.roundCount }}</h5>
-            <p class="progress-description">После завершения всех {{ setup.roundCount }} раундов вы сможете опубликовать результаты и настроить плей-офф.</p>
-          </div>
-          
-          <div class="form-group">
-            <label for="format-select">Формат:</label>
-            <select id="format-select" v-model="setup.format">
-              <option value="АПФ">АПФ (2 команды)</option>
-              <option value="БПФ">БПФ (4 команды)</option>
-            </select>
-          </div>
-          
-          <div class="form-group">
-            <label for="team-count-input">Количество фракций:</label>
-            <input id="team-count-input" v-model.number="setup.teamCount" type="number" 
-                   placeholder="Например, 16" required 
-                   :min="setup.format === 'АПФ' ? 2 : 4" 
-                   :step="setup.format === 'АПФ' ? 2 : 4">
-            <p class="input-hint">Должно быть кратно {{ setup.format === 'АПФ' ? 2 : 4 }}.</p>
-          </div>
-
-          <div class="form-group">
-            <label for="round-count-input">Количество раундов:</label>
-            <input id="round-count-input" v-model.number="setup.roundCount" type="number" 
-                   placeholder="Например, 4" required min="1">
-          </div>
-
-          <button type="submit" :disabled="isGenerating || !isFormValid">
-            {{ isGenerating ? 'Генерация...' : 'Сгенерировать 1-й раунд' }}
-          </button>
-          <p v-if="!isFormValid && !isGenerating" class="error-message">
-            Количество команд должно быть кратно {{ setup.format === 'АПФ' ? 2 : 4 }} и не превышать количество принятых команд ({{ acceptedTeamsCount }}).
-          </p>
-        </form>
-        <!-- Show message to non-creators -->
-        <div v-else>
-          <p>Сетка отборочных раундов ещё не сформирована организатором.</p>
+    
+    <div v-else-if="!bracketStore.bracket && isCreator">
+      <form @submit.prevent="handleGenerate" class="bracket-setup-form">
+        <h4>Управление сеткой отборочных</h4>
+        <p class="form-description">Выберите формат, количество команд и раундов для турнира.</p>
+        
+        <div class="tournament-progress">
+          <h5>Планируемые раунды: {{ setup.roundCount }}</h5>
+          <p class="progress-description">После завершения всех {{ setup.roundCount }} раундов вы сможете опубликовать результаты и настроить плей-офф.</p>
         </div>
+        
+        <div class="form-group">
+          <label for="format-select">Формат:</label>
+          <select id="format-select" v-model="setup.format">
+            <option value="АПФ">АПФ (2 команды)</option>
+            <option value="БПФ">БПФ (4 команды)</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="team-count-input">Количество фракций:</label>
+          <input id="team-count-input" v-model.number="setup.teamCount" type="number" 
+                 placeholder="Например, 16" required 
+                 :min="setup.format === 'АПФ' ? 2 : 4" 
+                 :step="setup.format === 'АПФ' ? 2 : 4">
+          <p class="input-hint">Должно быть кратно {{ setup.format === 'АПФ' ? 2 : 4 }}.</p>
+        </div>
+
+        <div class="form-group">
+          <label for="round-count-input">Количество раундов:</label>
+          <input id="round-count-input" v-model.number="setup.roundCount" type="number" 
+                 placeholder="Например, 4" required min="1">
+        </div>
+
+        <div class="form-group">
+          <label for="rooms-input">Кабинеты (через запятую):</label>
+          <input id="rooms-input" v-model="setup.roomsText" type="text" placeholder="101, 102, 201, 202">
+          <p class="input-hint">Пример: 101, 102, 201, 202 — будет назначено по порядку на матчи.</p>
+        </div>
+
+        <button type="submit" :disabled="isGenerating || !isFormValid">
+          {{ isGenerating ? 'Генерация...' : 'Сгенерировать 1-й раунд' }}
+        </button>
+        <p v-if="!isFormValid && !isGenerating" class="error-message">
+          Количество команд должно быть кратно {{ setup.format === 'АПФ' ? 2 : 4 }} и не превышать количество принятых команд ({{ acceptedTeamsCount }}).
+        </p>
+      </form>
+    </div>
+
+    <div v-else-if="bracketStore.bracket">
+      <!-- Round Tabs Navigation -->
+      <div 
+        class="bracket-sub-nav" 
+        v-if="(rounds && rounds.length > 0)"
+      >
+        <button
+          v-for="(r, idx) in rounds"
+          :key="r.round"
+          class="bracket-sub-nav-btn"
+          :class="{ active: idx === activeRoundIndex }"
+          @click="activeRoundIndex = idx"
+        >
+          Раунд {{ r.round }}
+          <span v-if="isRoundFinished(r)"> ✅</span>
+        </button>
       </div>
 
-      <!-- State 3: Bracket EXISTS -->
-      <div v-else>
-        <div v-if="isCreator" class="round-admin-panel">
-          <div class="tournament-status">
-            <h5>Прогресс турнира: {{ bracketStore.bracket.matches?.matches?.length || 0 }} / {{ setup.roundCount }} раундов</h5>
-            <div class="progress-bar">
-              <div class="progress-fill" :style="{ width: `${((bracketStore.bracket.matches?.matches?.length || 0) / setup.roundCount) * 100}%` }"></div>
-            </div>
-            <div class="debug-info" v-if="isCreator">
-              <small>Debug: Раундов создано: {{ bracketStore.bracket.matches?.matches?.length || 0 }} / {{ setup.roundCount }} | Все раунды завершены: {{ isCurrentRoundFinished }} | Результаты опубликованы: {{ bracketStore.bracket?.results_published }} | Playoff данные: {{ !!bracketStore.bracket?.playoff_data }}</small>
-            </div>
+      <div v-if="isCreator" class="round-admin-panel">
+        <div class="tournament-status">
+          <h5>Прогресс турнира: {{ bracketStore.bracket.matches?.matches?.length || 0 }} / {{ setup.roundCount }} раундов</h5>
+          <div class="progress-bar">
+            <div class="progress-fill" :style="{ width: `${((bracketStore.bracket.matches?.matches?.length || 0) / setup.roundCount) * 100}%` }"></div>
           </div>
-          
+          <div class="debug-info" v-if="isCreator">
+            <small>Debug: Раундов создано: {{ bracketStore.bracket.matches?.matches?.length || 0 }} / {{ setup.roundCount }} | Все раунды завершены: {{ isAllQualifyingRoundsFinished }} | Результаты опубликованы: {{ bracketStore.bracket?.results_published }} | Playoff данные: {{ !!bracketStore.bracket?.playoff_data }}</small>
+          </div>
+        </div>
+        
+        <button 
+          @click="togglePublication"
+          :class="['admin-action-btn', bracketStore.bracket.published ? 'unpublish' : 'publish']"
+        >
+          {{ bracketStore.bracket.published ? 'Скрыть сетку' : 'Опубликовать сетку' }}
+        </button>
+        <button 
+          v-if="isCreator && isCurrentRoundFinished && (bracketStore.bracket.matches?.matches?.length || 0) < setup.roundCount"
+          @click="bracketStore.generateNextRound()" 
+          class="admin-action-btn generate"
+        >
+          Сгенерировать Раунд {{ (bracketStore.bracket.matches?.matches?.length || 0) + 1 }}
+        </button>
+        
+        <!-- Show qualifying results publication when all planned rounds are done -->
+        <button 
+          v-if="isCreator && isAllQualifyingRoundsFinished && !bracketStore.bracket?.results_published"
+          @click="publishQualifyingResults" 
+          class="admin-action-btn publish-qualifying"
+        >
+          📊 Опубликовать результаты отборочных
+        </button>
+        
+        <!-- Show playoff setup only after qualifying results are published -->
+        <button 
+          v-if="isCreator && isAllQualifyingRoundsFinished && (bracketStore.bracket?.results_published || false) && !bracketStore.bracket?.playoff_data"
+          @click="switchToPlayoffTab" 
+          class="admin-action-btn setup-playoff"
+        >
+          Настроить Плей-офф
+        </button>
+      </div>
+
+      <div v-if="visibleRound" :key="visibleRound.round" class="round-section">
+        <div class="round-header">
+          <h4 class="round-title">Раунд {{ visibleRound.round }}</h4>
           <button 
-            @click="togglePublication"
-            :class="['admin-action-btn', bracketStore.bracket.published ? 'unpublish' : 'publish']"
+            v-if="isCreator"
+            @click="openResultsModal(activeRoundIndex)" 
+            class="round-results-btn"
+            :class="{ 'results-complete': isRoundFinished(visibleRound) }"
           >
-            {{ bracketStore.bracket.published ? 'Скрыть сетку' : 'Опубликовать сетку' }}
-          </button>
-          <button 
-            v-if="isCreator && isCurrentRoundFinished && (bracketStore.bracket.matches?.matches?.length || 0) < setup.roundCount"
-            @click="bracketStore.generateNextRound()" 
-            class="admin-action-btn generate"
-          >
-            Сгенерировать Раунд {{ (bracketStore.bracket.matches?.matches?.length || 0) + 1 }}
-          </button>
-          
-          <!-- Show qualifying results publication when all planned rounds are done -->
-          <button 
-            v-if="isCreator && isQualifyingFinished && !bracketStore.bracket?.results_published"
-            @click="publishQualifyingResults" 
-            class="admin-action-btn publish-qualifying"
-          >
-            📊 Опубликовать результаты отборочных
-          </button>
-          
-          <!-- Show playoff setup only after qualifying results are published -->
-          <button 
-            v-if="isCreator && isQualifyingFinished && (bracketStore.bracket?.results_published || false) && !bracketStore.bracket?.playoff_data"
-            @click="switchToPlayoffTab" 
-            class="admin-action-btn setup-playoff"
-          >
-            Настроить Плей-офф
+            {{ isRoundFinished(visibleRound) ? '✅ Результаты введены' : '📝 Ввести результаты' }}
           </button>
         </div>
-
-        <div v-for="(round, roundIndex) in (bracketStore.bracket.matches?.matches || [])" :key="round.round" class="round-section">
-          <div class="round-header">
-            <h4 class="round-title">Раунд {{ round.round }}</h4>
-            <button 
-              v-if="isCreator"
-              @click="openResultsModal(roundIndex)" 
-              class="round-results-btn"
-              :class="{ 'results-complete': isRoundFinished(round) }"
-            >
-              {{ isRoundFinished(round) ? '✅ Результаты введены' : '📝 Ввести результаты' }}
-            </button>
-            <button
-              v-if="isCreator && isRoundFinished(round)"
-              @click="bracketStore.toggleRoundResultsPublication(roundIndex)"
-              :class="['publish-results-btn', round.results_published ? 'unpublish' : 'publish']"
-            >
-              {{ round.results_published ? '🙈 Скрыть результаты' : '📢 Опубликовать результаты' }}
-            </button>
+        <div v-for="(match, matchIndex) in visibleRound.matches" :key="matchIndex" class="match-card">
+          <div class="match-info-row">
+            <span class="match-number">Матч {{ matchIndex + 1 }}</span>
+            <span class="match-status"></span>
           </div>
-          <template v-if="Array.isArray(round.matches)">
-            <div v-for="(match, matchIndex) in round.matches" :key="matchIndex" class="match-card">
-              <div class="match-info-row">
-                <span class="match-number">Матч {{ matchIndex + 1 }}</span>
-                <span class="match-status"></span>
-              </div>
-              
-              <div v-if="isCreator" class="match-details-editor">
-                <div class="input-group">
-                  <label>Кабинет:</label>
-                  <input v-model="match.room" type="text" placeholder="№ Кабинета" @input="debouncedSave">
-                </div>
-                <div class="input-group">
-                  <label>Судья:</label>
-                  <input v-model="match.judge" type="text" placeholder="Имя судьи" @input="debouncedSave">
-                </div>
-              </div>
-              <div v-else-if="bracketStore.bracket.published" class="match-details-public">
-                <span><strong>Кабинет:</strong> {{ match.room || 'Не назначен' }}</span>
-                <span><strong>Судья:</strong> {{ match.judge || 'Не назначен' }}</span>
-              </div>
-              <div v-else class="match-details-public">
-                <span>Информация о матче скрыта организатором.</span>
-              </div>
-
-              <ul class="team-list">
-                <li v-for="team in match.teams" :key="team.reg_id" :class="`team-position-${team.position.toLowerCase().replace(/[^a-z0-9]/g, '')}`">
-                  <strong>{{ team.position }}:</strong> {{ team.faction_name }}
-                  <span v-if="team.rank > 0 && (isCreator || round.results_published)" class="team-result">(Ранг: {{ team.rank }})</span>
-                </li>
-              </ul>
+          
+          <div v-if="isCreator" class="match-details-editor">
+            <div class="input-group">
+              <label>Кабинет:</label>
+              <input v-model="match.room" type="text" placeholder="№ Кабинета" @input="debouncedSave">
             </div>
-          </template>
-           <div v-else class="data-error-message">
-            <p>Ошибка в данных сетки для Раунда {{ round.round }}. Обратитесь к администратору.</p>
-            <button v-if="isCreator" @click="deleteBracket" class="delete-bracket-btn">
-              Удалить сетку и начать заново
-            </button>
+            <div class="input-group">
+              <label>Судья:</label>
+              <input v-model="match.judge" type="text" placeholder="Имя судьи" @input="debouncedSave">
+            </div>
           </div>
+          <div v-else-if="bracketStore.bracket.published" class="match-details-public">
+            <span><strong>Кабинет:</strong> {{ match.room || 'Не назначен' }}</span>
+            <span><strong>Судья:</strong> {{ match.judge || 'Не назначен' }}</span>
+          </div>
+          <div v-else class="match-details-public">
+            <span>Информация о матче скрыта организатором.</span>
+          </div>
+
+          <ul class="team-list">
+            <li v-for="(team, teamIdx) in match.teams" :key="team.reg_id" :class="`team-position-${team.position.toLowerCase().replace(/[^a-z0-9]/g, '')}`">
+              <div class="team-row">
+                <div class="team-left">
+                  <strong>{{ team.position }}:</strong> {{ team.faction_name }}
+                  <small class="team-club" v-if="teamClub(team)"> — {{ teamClub(team) }}</small>
+                  <span 
+                    v-if="team.rank > 0 && (isCreator || (bracketStore.bracket && bracketStore.bracket.results_published))" 
+                    class="team-result"
+                  >(Ранг: {{ team.rank }})</span>
+                </div>
+                <!-- Team replace control removed as requested -->
+              </div>
+            </li>
+          </ul>
         </div>
       </div>
     </div>
     
+      <div v-else>
+        <p>Сетка отборочных раундов ещё не сформирована организатором.</p>
+      </div>
+    </div>
+
     <!-- Playoff Bracket Content REMOVED -->
 
     <MatchResultsModal 
@@ -182,11 +195,12 @@ import { reactive, ref, computed, onMounted, onUnmounted, watch, defineEmits } f
 import { useBracketStore } from '@/stores/bracket';
 import { useTournamentsStore } from '@/stores/tournaments';
 import MatchResultsModal from '@/components/MatchResultsModal.vue';
+// PlayoffBracket import removed as it's no longer rendered here
+// import PlayoffBracket from '@/components/PlayoffBracket.vue';
 
 const props = defineProps({
   tournamentId: { type: Number, required: true },
-  isCreator: { type: Boolean, required: true },
-  isQualifyingFinished: { type: Boolean, default: false }
+  isCreator: { type: Boolean, required: true }
 });
 
 const emit = defineEmits(['switchToPlayoff']);
@@ -195,6 +209,7 @@ const bracketStore = useBracketStore();
 const tournamentsStore = useTournamentsStore();
 const isGenerating = ref(false);
 const showResultsModal = ref(false);
+// activeBracketTab ref removed
 const selectedRound = ref(null);
 const selectedRoundIndex = ref(0);
 
@@ -202,9 +217,25 @@ const setup = reactive({
   format: 'АПФ',
   teamCount: 8,
   roundCount: 4,
-  tournamentId: props.tournamentId
+  tournamentId: props.tournamentId,
+  roomsText: ''
 });
 
+// Round tabs state
+const activeRoundIndex = ref(0);
+const rounds = computed(() => bracketStore.bracket?.matches?.matches || []);
+const visibleRound = computed(() => rounds.value?.[activeRoundIndex.value] || null);
+
+// Initialize activeRoundIndex to latest round whenever rounds change
+watch(rounds, (rs) => {
+  if (rs && rs.length > 0) {
+    activeRoundIndex.value = rs.length - 1;
+  } else {
+    activeRoundIndex.value = 0;
+  }
+}, { immediate: true });
+
+// Load setup from tournament data if available
 onMounted(() => {
   if (bracketStore.bracket && bracketStore.bracket.matches && bracketStore.bracket.matches.setup) {
     setup.format = bracketStore.bracket.matches.setup.format || 'АПФ';
@@ -217,6 +248,7 @@ onMounted(() => {
   }
 });
 
+// Watch for bracket changes and update setup
 watch(() => bracketStore.bracket, (newBracket) => {
   if (newBracket && newBracket.matches && newBracket.matches.setup) {
     setup.format = newBracket.matches.setup.format || 'АПФ';
@@ -241,6 +273,51 @@ const acceptedTeamsCount = computed(() => {
   return tournamentsStore.registrations.filter(r => r.status === 'accepted').length;
 });
 
+const acceptedRegistrations = computed(() => (tournamentsStore.registrations || []).filter(r => r.status === 'accepted'));
+
+const onReplaceTeam = async (roundIdx, matchIdx, teamIdx, newRegId) => {
+  if (!bracketStore.bracket || newRegId == null) return;
+  const reg = acceptedRegistrations.value.find(r => r.id === newRegId);
+  if (!reg) return;
+  const round = bracketStore.bracket.matches?.matches?.[roundIdx];
+  if (!round) return;
+  const match = round.matches?.[matchIdx];
+  if (!match) return;
+  const oldTeam = match.teams[teamIdx];
+  match.teams[teamIdx] = {
+    ...oldTeam,
+    reg_id: reg.id,
+    faction_name: reg.faction_name,
+    speakers: [
+      { username: reg.speaker1_username, points: oldTeam?.speakers?.[0]?.points ?? 75 },
+      { username: reg.speaker2_username, points: oldTeam?.speakers?.[1]?.points ?? 75 }
+    ],
+    rank: 0
+  };
+  await bracketStore.updateBracketData();
+};
+
+// Show profile names instead of usernames when available
+import { supabase } from '@/supabase';
+const speakerNameMap = ref({});
+const loadSpeakerNames = async () => {
+  const usernames = new Set();
+  const allRounds = bracketStore.bracket?.matches?.matches || [];
+  allRounds.forEach(r => r.matches.forEach(m => m.teams.forEach(t => t.speakers.forEach(s => { if (s?.username) usernames.add(s.username); }))));
+  if (usernames.size === 0) return;
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('telegram_username, fullname')
+    .in('telegram_username', Array.from(usernames));
+  if (!error && data) {
+    const map = {};
+    data.forEach(p => { map[p.telegram_username] = p.fullname || p.telegram_username; });
+    speakerNameMap.value = map;
+  }
+};
+
+watch(() => bracketStore.bracket, () => { loadSpeakerNames(); }, { immediate: true });
+
 const isFormValid = computed(() => {
   const isTeamCountValid = setup.format === 'АПФ' 
     ? setup.teamCount % 2 === 0 
@@ -260,7 +337,7 @@ const currentRound = computed(() => {
 });
 
 const isCurrentRoundFinished = computed(() => {
-  if (!bracketStore.bracket || !currentRound.value || !Array.isArray(currentRound.value.matches) || currentRound.value.matches.length === 0) {
+  if (!bracketStore.bracket || currentRound.value.matches.length === 0) {
     return false;
   }
   return currentRound.value.matches.every(match => 
@@ -269,7 +346,7 @@ const isCurrentRoundFinished = computed(() => {
 });
 
 const isRoundFinished = (round) => {
-  if (!round || !Array.isArray(round.matches) || round.matches.length === 0) {
+  if (!round || round.matches.length === 0) {
     return false;
   }
   return round.matches.every(match => 
@@ -277,14 +354,21 @@ const isRoundFinished = (round) => {
   );
 };
 
-const deleteBracket = async () => {
-  if (!bracketStore.bracket) return;
-  const confirmation = confirm("Вы уверены, что хотите удалить всю сетку? Это действие необратимо.");
-  if (confirmation) {
-    await bracketStore.deleteBracket();
-    alert("Сетка была удалена. Теперь вы можете сгенерировать новую.");
+const isAllQualifyingRoundsFinished = computed(() => {
+  if (!bracketStore.bracket || !bracketStore.bracket.matches || !bracketStore.bracket.matches.matches) {
+    return false;
   }
-};
+  
+  const rounds = bracketStore.bracket.matches.matches;
+  
+  // Check if we have completed all planned rounds
+  if (rounds.length < setup.roundCount) {
+    return false;
+  }
+  
+  // Check if all rounds have results entered
+  return rounds.every(round => isRoundFinished(round));
+});
 
 const handleGenerate = async () => {
   isGenerating.value = true;
@@ -300,17 +384,12 @@ const togglePublication = () => {
 };
 
 const openResultsModal = (roundIndex) => {
-  const bracket = bracketStore.bracket;
-  if (!bracket || !bracket.matches?.matches || !Array.isArray(bracket.matches.matches) || !bracket.matches.matches[roundIndex]) {
-    console.error("Cannot open results modal: Round data is invalid or missing.", bracket?.matches?.matches);
-    alert("Ошибка: Не удалось открыть модальное окно. Данные о раунде некорректны.");
-    return;
-  }
+  if (!bracketStore.bracket || !bracketStore.bracket.matches?.matches?.[roundIndex]) return;
   
   selectedRoundIndex.value = roundIndex;
   selectedRound.value = {
-    round: bracket.matches.matches[roundIndex].round,
-    matches: bracket.matches.matches[roundIndex].matches
+    round: bracketStore.bracket.matches.matches[roundIndex].round,
+    matches: bracketStore.bracket.matches.matches[roundIndex].matches
   };
   showResultsModal.value = true;
 };
@@ -318,10 +397,13 @@ const openResultsModal = (roundIndex) => {
 const handleSaveResults = (updatedMatches) => {
   if (!bracketStore.bracket || !bracketStore.bracket.matches?.matches) return;
   
+  // Update the specific round's matches
   bracketStore.bracket.matches.matches[selectedRoundIndex.value].matches = updatedMatches;
   
+  // Save to database
   bracketStore.updateBracketData();
   
+  // Close modal
   showResultsModal.value = false;
   selectedRound.value = null;
 };
@@ -333,8 +415,10 @@ const switchToPlayoffTab = () => {
 const publishQualifyingResults = async () => {
   if (!bracketStore.bracket) return;
   
+  // Generate qualifying results post
   const resultsPost = generateQualifyingResultsPost();
   
+  // Create tournament post with results
   const success = await tournamentsStore.createTournamentPost(
     bracketStore.bracket.tournament_id, 
     resultsPost
@@ -345,6 +429,7 @@ const publishQualifyingResults = async () => {
     return;
   }
   
+  // Mark qualifying results as published
   bracketStore.bracket.results_published = true;
   await bracketStore.updateBracketData();
   
@@ -363,8 +448,8 @@ const generateQualifyingResultsPost = () => {
   };
   const pointsSystem = POINT_SYSTEMS[bracketStore.bracket.format];
 
+  // Calculate team and speaker statistics from qualifying rounds only
   bracketStore.bracket.matches.matches.forEach(round => {
-    if (!Array.isArray(round.matches)) return;
     round.matches.forEach(match => {
       match.teams.forEach(team => {
         if (!teamStats[team.reg_id]) {
@@ -380,6 +465,7 @@ const generateQualifyingResultsPost = () => {
         const matchSpeakerPoints = team.speakers.reduce((sum, s) => sum + (s.points || 0), 0);
         teamStats[team.reg_id].totalSP += matchSpeakerPoints;
         
+        // Speaker statistics - Only track Speaker Points (SP), not Tournament Points (TP)
         team.speakers.forEach(speaker => {
           if (!speakerStats[speaker.username]) {
             speakerStats[speaker.username] = {
@@ -387,12 +473,14 @@ const generateQualifyingResultsPost = () => {
               totalPoints: 0
             };
           }
+          // Each speaker gets their individual speaker points
           speakerStats[speaker.username].totalPoints += speaker.points || 0;
         });
       });
     });
   });
 
+  // Sort teams and speakers
   const sortedTeams = Object.values(teamStats).sort((a, b) => {
     if (b.totalTP !== a.totalTP) {
       return b.totalTP - a.totalTP;
@@ -400,12 +488,15 @@ const generateQualifyingResultsPost = () => {
     return b.totalSP - a.totalSP;
   });
 
+  // Sort speakers by Speaker Points (SP) only, not Tournament Points (TP)
   const sortedSpeakers = Object.values(speakerStats).sort((a, b) => {
-    return b.totalPoints - a.totalPoints;
+    return b.totalPoints - a.totalPoints; // Only by Speaker Points
   });
 
-  let resultsText = `📊 РЕЗУЛЬТАТЫ ОТБОРОЧНЫХ РАУНДОВ (${bracketStore.bracket.matches.matches.length} раундов)\n\n`;
+  // Generate results text
+  let resultsText = `📊 РЕЗУЛЬТАТЫ ОТБОРОЧНЫХ РАУНДОВ (${bracketStore.bracket.matches.length} раундов)\n\n`;
   
+  // Team rankings
   resultsText += '🏆 РЕЙТИНГ КОМАНД:\n';
   sortedTeams.forEach((team, index) => {
     resultsText += `${index + 1}. ${team.faction_name} - ${team.totalTP} TP, ${team.totalSP} SP\n`;
@@ -419,6 +510,26 @@ const generateQualifyingResultsPost = () => {
   resultsText += '\n⏳ Следующий этап: Плей-офф (скоро)';
 
   return resultsText;
+};
+
+// Helper: map reg_id -> registration
+const registrationById = computed(() => {
+  const map = new Map();
+  (tournamentsStore.registrations || []).forEach(r => map.set(r.id, r));
+  return map;
+});
+
+// Determine team club: for legacy brackets, prefer club from registrations; otherwise use profile-based club if present in team
+const teamClub = (team) => {
+  const isLegacy = !!bracketStore.bracket?._legacy;
+  if (isLegacy) {
+    const reg = registrationById.value.get(team.reg_id);
+    if (reg?.club) return reg.club;
+  }
+  // Current/future: try embedded team.club if present (some code paths enrich it), fallback to registration
+  if (team.club) return team.club;
+  const reg = registrationById.value.get(team.reg_id);
+  return reg?.club || '';
 };
 
 onUnmounted(() => {
@@ -435,25 +546,6 @@ watch(() => setup.format, (newFormat) => {
 </script>
 
 <style scoped>
-.data-error-message {
-  background: #442222;
-  color: #ffaaaa;
-  padding: 15px;
-  border-radius: 8px;
-  border: 1px solid #ef4444;
-  text-align: center;
-  margin-top: 15px;
-}
-.delete-bracket-btn {
-  margin-top: 10px;
-  padding: 8px 12px;
-  background: #ef4444;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-}
 /* Стили для формы генерации сетки */
 .bracket-setup-form {
   background: #222; padding: 20px; border-radius: 12px;
@@ -540,27 +632,6 @@ watch(() => setup.format, (newFormat) => {
 .round-results-btn:hover {
   background: #a78bfa;
 }
-
-.publish-results-btn {
-  padding: 8px 12px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  transition: background-color 0.2s ease;
-}
-
-.publish-results-btn.publish {
-  background-color: #3b82f6;
-  color: white;
-}
-
-.publish-results-btn.unpublish {
-  background-color: #f59e0b;
-  color: white;
-}
-
 .round-results-btn.results-complete {
   background: #22c55e;
 }
@@ -617,10 +688,39 @@ watch(() => setup.format, (newFormat) => {
 .team-position-зп { color: #8b5cf6; }
 .team-position-зо { color: #ec4899; }
 
+/* Bracket Sub-navigation */
+.bracket-sub-nav {
+  display: flex;
+  background: #262626;
+  border-radius: 8px;
+  padding: 4px;
+  margin-bottom: 20px;
+}
+
+.bracket-sub-nav-btn {
+  flex: 1;
+  padding: 10px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: #d1d5db;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.bracket-sub-nav-btn.active {
+  background: #8b5cf6;
+  color: #ffffff;
+  font-weight: 600;
+}
+
 .bracket-content-pane {
   min-height: 200px;
 }
 
+/* Tournament Progress Styles */
 .tournament-progress {
   background: #1a1a1a;
   padding: 15px;

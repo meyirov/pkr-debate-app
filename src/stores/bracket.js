@@ -2,10 +2,87 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { supabase } from '@/supabase';
 import { useTournamentsStore } from './tournaments';
+import { useJudgesStore } from './judges';
 
 export const useBracketStore = defineStore('bracket', () => {
   const bracket = ref(null);
   const isLoading = ref(true);
+
+  // Normalize club name to improve matching reliability
+  const _normalizeClub = (club) => (club || '').toString().trim().toLowerCase();
+
+  // Select a group of teams for one match, trying to avoid same-club clashes.
+  // Mutates the provided pool by removing the selected teams, and returns them.
+  const _pickTeamsForMatchAvoidingSameClub = (pool, teamsPerMatch, options = {}) => {
+    const getRegId = options.getRegId || (t => t.reg_id ?? t.id);
+    const playedTogether = options.playedTogether || new Set();
+    if (pool.length < teamsPerMatch) return pool.splice(0, pool.length);
+
+    const idxs = Array.from({ length: pool.length }, (_, i) => i).sort(() => Math.random() - 0.5);
+
+    // Try greedy construction starting from different seeds to find distinct clubs
+    for (let s = 0; s < idxs.length; s++) {
+      const startIdx = idxs[s];
+      const selectedIdxs = [startIdx];
+      const usedClubs = new Set([_normalizeClub(pool[startIdx]?.club)]);
+      const selectedIds = new Set([getRegId(pool[startIdx])]);
+
+      for (let j = 0; j < idxs.length && selectedIdxs.length < teamsPerMatch; j++) {
+        const cand = idxs[j];
+        if (cand === startIdx || selectedIdxs.includes(cand)) continue;
+        const candClub = _normalizeClub(pool[cand]?.club);
+        const candId = getRegId(pool[cand]);
+        // Check repeat pairings with any already selected
+        let repeats = false;
+        for (const id of selectedIds) {
+          const a = Math.min(id, candId);
+          const b = Math.max(id, candId);
+          if (playedTogether.has(`${a}-${b}`)) { repeats = true; break; }
+        }
+        if (repeats) continue;
+        if (usedClubs.has(candClub)) continue;
+        selectedIdxs.push(cand);
+        usedClubs.add(candClub);
+        selectedIds.add(candId);
+      }
+
+      if (selectedIdxs.length === teamsPerMatch) {
+        // Splice out selected items from the pool without disturbing indices
+        const sortedDesc = [...selectedIdxs].sort((a, b) => b - a);
+        const picked = [];
+        for (const i of sortedDesc) {
+          picked.unshift(pool.splice(i, 1)[0]);
+        }
+        return picked;
+      }
+    }
+
+    // Fallback: cannot avoid clash completely; pick the first K from shuffled order
+    const fallbackIdxs = idxs.slice(0, teamsPerMatch).sort((a, b) => b - a);
+    const picked = [];
+    for (const i of fallbackIdxs) {
+      picked.unshift(pool.splice(i, 1)[0]);
+    }
+    return picked;
+  };
+
+  const _buildPlayedTogetherSet = () => {
+    const set = new Set();
+    if (!bracket.value?.matches?.matches) return set;
+    bracket.value.matches.matches.forEach(round => {
+      round.matches.forEach(match => {
+        const ids = match.teams.map(t => t.reg_id).filter(Boolean);
+        for (let i = 0; i < ids.length; i++) {
+          for (let j = i + 1; j < ids.length; j++) {
+            const a = Math.min(ids[i], ids[j]);
+            const b = Math.max(ids[i], ids[j]);
+            set.add(`${a}-${b}`);
+          }
+        }
+      });
+    });
+    return set;
+  };
 
   const loadBracket = async (tournamentId) => {
     isLoading.value = true;
@@ -19,13 +96,36 @@ export const useBracketStore = defineStore('bracket', () => {
     if (error && error.code !== 'PGRST116') {
       console.error("Ошибка загрузки сетки:", error);
     } else {
-      bracket.value = data;
+      // Normalize legacy shapes: older records stored matches as an array directly
+      if (data && data.matches && Array.isArray(data.matches)) {
+        const legacyRounds = data.matches;
+        const format = data.format || 'АПФ';
+        const firstRound = legacyRounds[0] || { matches: [] };
+        const firstMatch = firstRound.matches?.[0];
+        const inferredTeamsPerMatch = firstMatch?.teams?.length || (format === 'АПФ' ? 2 : 4);
+        const teamCount = (firstRound.matches || []).length * inferredTeamsPerMatch;
+        const roundCount = data.round_count || legacyRounds.length || 1;
+        bracket.value = {
+          ...data,
+          matches: {
+            setup: { format, teamCount, roundCount },
+            matches: legacyRounds
+          },
+          _legacy: true
+        };
+      } else {
+        bracket.value = data ? { ...data, _legacy: false } : data;
+      }
     }
     isLoading.value = false;
   };
 
   const generateBracket = async (setupData) => {
     const { tournamentId, format, teamCount, roundCount } = setupData;
+    const roomsList = (setupData.roomsText || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
     const tournamentsStore = useTournamentsStore();
     const acceptedTeams = tournamentsStore.registrations.filter(r => r.status === 'accepted');
     const teamsPerMatch = format === 'АПФ' ? 2 : 4;
@@ -39,14 +139,23 @@ export const useBracketStore = defineStore('bracket', () => {
       return false;
     }
 
-    let teams = acceptedTeams.slice(0, teamCount).sort(() => Math.random() - 0.5);
+    // Keep club info for pairing constraints
+    let teams = acceptedTeams
+      .slice(0, teamCount)
+      .map(t => ({ ...t, club: t.club }))
+      .sort(() => Math.random() - 0.5);
     const positions = format === 'АПФ' ? ['Правительство', 'Оппозиция'] : ['ОП', 'ОО', 'ЗП', 'ЗО'];
     const roundMatches = [];
 
+    const playedTogether = _buildPlayedTogetherSet();
+    let roomIndex = 0;
     while(teams.length >= teamsPerMatch) {
-      const matchTeams = teams.splice(0, teamsPerMatch);
+      const matchTeams = _pickTeamsForMatchAvoidingSameClub(teams, teamsPerMatch, {
+        getRegId: t => t.id,
+        playedTogether
+      });
       roundMatches.push({
-        room: '',
+        room: roomsList.length > 0 ? (roomsList[roomIndex % roomsList.length]) : '',
         judge: '',
         teams: matchTeams.map((team, index) => ({
           reg_id: team.id,
@@ -59,9 +168,10 @@ export const useBracketStore = defineStore('bracket', () => {
           ]
         }))
       });
+      roomIndex++;
     }
 
-    const firstRoundData = { round: 1, matches: roundMatches, results_published: false };
+    const firstRoundData = { round: 1, matches: roundMatches };
     const bracketData = {
       setup: { format, teamCount, roundCount },
       matches: [firstRoundData]
@@ -97,26 +207,12 @@ export const useBracketStore = defineStore('bracket', () => {
       console.error(error);
     }
   };
-
-  const deleteBracket = async () => {
-    if (!bracket.value) return;
-    const { error } = await supabase
-      .from('brackets')
-      .delete()
-      .eq('id', bracket.value.id);
-    
-    if (error) {
-      alert('Не удалось удалить сетку.');
-      console.error(error);
-    } else {
-      bracket.value = null;
-    }
-  };
   
   const generateNextRound = async () => {
     if (!bracket.value) return;
 
     const tournamentsStore = useTournamentsStore();
+    const judgesStore = useJudgesStore();
     const allRegistrations = tournamentsStore.registrations;
     const teamStats = {};
     const POINT_SYSTEMS = {
@@ -165,6 +261,13 @@ export const useBracketStore = defineStore('bracket', () => {
     
     let leftovers = [];
 
+    const playedTogether = _buildPlayedTogetherSet();
+    let roomIndex = 0;
+    const roomsList = (bracket.value.matches?.setup?.roomsText || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+
     for (const key of sortedKeys) {
       let currentTeams = pointBrackets[key];
       let bucket = [...leftovers, ...currentTeams];
@@ -173,9 +276,12 @@ export const useBracketStore = defineStore('bracket', () => {
       bucket.sort(() => Math.random() - 0.5);
 
       while (bucket.length >= teamsPerMatch) {
-        const matchTeams = bucket.splice(0, teamsPerMatch);
+        const matchTeams = _pickTeamsForMatchAvoidingSameClub(bucket, teamsPerMatch, {
+          getRegId: t => t.reg_id,
+          playedTogether
+        });
         newRoundMatches.push({
-          room: '', judge: '',
+          room: roomsList.length > 0 ? (roomsList[roomIndex % roomsList.length]) : '', judge: '',
           teams: matchTeams.map((team, index) => ({
             reg_id: team.reg_id,
             faction_name: team.faction_name,
@@ -184,6 +290,7 @@ export const useBracketStore = defineStore('bracket', () => {
             speakers: team.speakers.map(s => ({ username: s.username, points: 75 }))
           }))
         });
+        roomIndex++;
       }
       
       if (bucket.length > 0) {
@@ -191,31 +298,70 @@ export const useBracketStore = defineStore('bracket', () => {
       }
     }
     
-    if (leftovers.length > 0) {
-      console.error("Не удалось составить пары для всех команд. Остались:", leftovers);
-      alert("Внимание: Не удалось составить пары для всех команд. Проверьте консоль для получения дополнительной информации.");
+    // Final safeguard: ensure no leftovers by relaxing constraints if needed
+    while (leftovers.length >= teamsPerMatch) {
+      const matchTeams = leftovers.splice(0, teamsPerMatch);
+      newRoundMatches.push({
+        room: roomsList.length > 0 ? (roomsList[roomIndex % roomsList.length]) : '', judge: '',
+        teams: matchTeams.map((team, index) => ({
+          reg_id: team.reg_id,
+          faction_name: team.faction_name,
+          position: positions[index],
+          rank: 0,
+          speakers: team.speakers.map(s => ({ username: s.username, points: 75 }))
+        }))
+      });
+      roomIndex++;
     }
     
     const newRoundData = {
       round: bracket.value.matches.matches.length + 1,
-      matches: newRoundMatches,
-      results_published: false
+      matches: newRoundMatches
     };
     
+    // Assign judges avoiding club conflicts
+    try {
+      const acceptedJudges = judgesStore.acceptedJudges;
+      const registrations = tournamentsStore.registrations;
+      const regIdToClub = new Map(registrations.map(r => [r.id, (r.club || '').toString().trim().toLowerCase()]));
+      let judgeIdx = 0;
+
+      const canJudgeMatch = (judge, match) => {
+        const jClub = (judge.club || '').toString().trim().toLowerCase();
+        if (!jClub) return true; // if no club, no conflict known
+        return !match.teams.some(t => regIdToClub.get(t.reg_id) === jClub);
+      };
+
+      for (const m of newRoundData.matches) {
+        if (!acceptedJudges || acceptedJudges.length === 0) break;
+        // simple round-robin with skipping conflicts
+        let attempts = 0;
+        let assigned = false;
+        while (attempts < acceptedJudges.length && !assigned) {
+          const j = acceptedJudges[(judgeIdx + attempts) % acceptedJudges.length];
+          if (canJudgeMatch(j, m)) {
+            m.judge = '@' + j.judge_username;
+            judgeIdx = (judgeIdx + attempts + 1) % acceptedJudges.length;
+            assigned = true;
+          } else {
+            attempts++;
+          }
+        }
+        if (!assigned) {
+          // fallback assign next judge even if conflict (should be rare if many judges)
+          const j = acceptedJudges[judgeIdx];
+          m.judge = '@' + j.judge_username;
+          judgeIdx = (judgeIdx + 1) % acceptedJudges.length;
+        }
+      }
+    } catch (e) {
+      console.warn('Не удалось автоматически назначить судей:', e);
+    }
+
     bracket.value.matches.matches.push(newRoundData);
     bracket.value.published = false;
     await updateBracketData();
     alert(`Раунд ${newRoundData.round} успешно сгенерирован!`);
-  };
-
-  const toggleRoundResultsPublication = async (roundIndex) => {
-    if (!bracket.value || !bracket.value.matches?.matches?.[roundIndex]) return;
-
-    const round = bracket.value.matches.matches[roundIndex];
-    round.results_published = !round.results_published;
-
-    await updateBracketData();
-    alert(`Результаты раунда ${round.round} теперь ${round.results_published ? 'опубликованы' : 'скрыты'}.`);
   };
 
   const finalizeAndPublishBreak = async (playoffSettings) => {
@@ -303,24 +449,23 @@ export const useBracketStore = defineStore('bracket', () => {
       playoffData['ld'] = createPlayoffTree(ldTeams, 'Плей-офф ЛД', playoffSettings.format);
     }
 
-    // Update bracket with playoff data and fetch the updated record
-    const { data: updatedBracket, error } = await supabase
+    // Update bracket with playoff data
+    bracket.value.playoff_data = playoffData;
+    bracket.value.results_published = true;
+    
+    const { error } = await supabase
       .from('brackets')
       .update({ 
-        playoff_data: playoffData
+        playoff_data: bracket.value.playoff_data,
+        results_published: bracket.value.results_published
       })
-      .eq('id', bracket.value.id)
-      .select()
-      .single();
+      .eq('id', bracket.value.id);
 
     if (error) {
       console.error("Ошибка сохранения playoff данных:", error);
-      // alert("Не удалось сохранить playoff данные."); // Move alert to component
+      alert("Не удалось сохранить playoff данные.");
       return false;
     }
-
-    // Force reactivity by replacing the ref's value with the new object
-    bracket.value = updatedBracket;
 
     return true;
   };
@@ -331,94 +476,42 @@ export const useBracketStore = defineStore('bracket', () => {
     const validTeamCount = Math.pow(2, Math.floor(Math.log2(teams.length)));
     const seededTeams = teams.slice(0, validTeamCount);
 
-    // Calculate starting round based on team count
-    let startingRound;
-    if (validTeamCount === 2) startingRound = 4; // Final
-    else if (validTeamCount === 4) startingRound = 3; // Semi-final (1/2)
-    else if (validTeamCount === 8) startingRound = 2; // Quarter-final (1/4)
-    else if (validTeamCount === 16) startingRound = 1; // Eighth-final (1/8)
-    else if (validTeamCount === 32) startingRound = 0; // Sixteenth-final (1/16)
-    else startingRound = 1; // Default
+    // Only generate the first round initially
+    const firstRound = { round: 1, matches: [] };
+    const highSeeds = seededTeams.slice(0, seededTeams.length / 2);
+    const lowSeeds = seededTeams.slice(seededTeams.length / 2);
 
-    const seedOrder = [1, 16, 8, 9, 5, 12, 4, 13, 6, 11, 3, 14, 7, 10, 2, 15];
-    const bracketSize = seededTeams.length;
-    const relevantSeedOrder = seedOrder.filter(s => s <= bracketSize);
-    
-    const reorderedTeams = relevantSeedOrder.map(seed => seededTeams[seed - 1]).filter(Boolean);
-
-    const firstRound = { round: 1, matches: [], published: false };
-    const teamsPerMatch = format === 'АПФ' ? 2 : 4;
-    
-    for (let i = 0; i < reorderedTeams.length; i += teamsPerMatch) {
-      const matchTeams = reorderedTeams.slice(i, i + teamsPerMatch);
+    for (let i = 0; i < highSeeds.length; i++) {
       const match = {
         room: '',
         judge: '',
-        teams: matchTeams.map((team, index) => ({
-          ...team,
-          position: format === 'АПФ' ? (index === 0 ? 'Правительство' : 'Оппозиция') : ['ОП', 'ОО', 'ЗП', 'ЗО'][index],
-          rank: 0
-        }))
+        teams: [
+          { ...highSeeds[i], position: format === 'АПФ' ? 'Правительство' : 'ОП', rank: 0 },
+          { ...lowSeeds[i], position: format === 'АПФ' ? 'Оппозиция' : 'ОО', rank: 0 }
+        ]
       };
+      if (format === 'БПФ') {
+        match.teams.push(
+          { ...highSeeds[i + highSeeds.length / 2] || {}, position: 'ЗП', rank: 0 },
+          { ...lowSeeds[i + lowSeeds.length / 2] || {}, position: 'ЗО', rank: 0 }
+        );
+      }
       firstRound.matches.push(match);
     }
 
     return { 
-      name: leagueName,
+      name: leagueName, 
       format: format, 
-      rounds: [firstRound],
-      totalRounds: Math.log2(validTeamCount),
-      currentRound: 1,
-      startingRound: startingRound
+      rounds: [firstRound], // Only first round initially
+      totalRounds: Math.ceil(Math.log2(validTeamCount)), // Total rounds needed
+      currentRound: 1
     };
-  };
-
-  const updatePlayoffMatch = async (payload) => {
-    const { leagueName, roundIndex, matchIndex, updatedMatchData } = payload;
-    if (!bracket.value?.playoff_data) return;
-
-    const league = bracket.value.playoff_data[leagueName];
-    if (!league || !league.rounds[roundIndex] || !league.rounds[roundIndex].matches[matchIndex]) {
-      console.error("Could not find match to update in store", payload);
-      return;
-    }
-    
-    league.rounds[roundIndex].matches[matchIndex] = updatedMatchData;
-    await updateBracketData();
-  };
-
-  const publishPlayoffRound = async (payload) => {
-    const { leagueName, roundIndex } = payload;
-    if (!bracket.value?.playoff_data) return;
-
-    const league = bracket.value.playoff_data[leagueName];
-    if (!league) return;
-    
-    const round = league.rounds[roundIndex];
-    if (!round) return;
-
-    round.published = !round.published; // Toggle publication status
-
-    if (round.published) {
-      const tournamentsStore = useTournamentsStore();
-      let postText = `📢 Сетка Плей-офф: ${league.name} - Раунд ${round.round}\n\n`;
-      round.matches.forEach((match, index) => {
-        const teams = match.teams.map(t => t.faction_name).join(' vs ');
-        postText += `Матч ${index + 1}: ${teams}\n`;
-        postText += `Кабинет: ${match.room || 'Не назначен'}\n`;
-        postText += `Судья: ${match.judge || 'Не назначен'}\n\n`;
-      });
-      await tournamentsStore.createTournamentPost(bracket.value.tournament_id, postText);
-    }
-    
-    await updateBracketData();
-    alert(`Раунд ${round.round} теперь ${round.published ? 'опубликован' : 'скрыт'}.`);
   };
 
   const generateNextPlayoffRound = async (leagueName) => {
     if (!bracket.value || !bracket.value.playoff_data) return false;
-    
-    const playoff = bracket.value.playoff_data[leagueName];
+
+    const playoff = bracket.value.playoff_data[leagueName.toLowerCase()];
     if (!playoff) return false;
 
     // Check if current round is finished
@@ -456,8 +549,7 @@ export const useBracketStore = defineStore('bracket', () => {
     // Generate next round
     const nextRound = { 
       round: playoff.currentRound + 1, 
-      matches: [],
-      published: false
+      matches: [] 
     };
 
     const teamsPerMatch = playoff.format === 'АПФ' ? 2 : 4;
@@ -486,6 +578,21 @@ export const useBracketStore = defineStore('bracket', () => {
     await updateBracketData();
     alert(`Раунд ${nextRound.round} плей-офф ${leagueName} успешно сгенерирован!`);
     return true;
+  };
+
+  const updatePlayoffMatch = (leagueName, matchId, updatedMatch) => {
+    if (!bracket.value?.playoff_data) return;
+    const league = bracket.value.playoff_data[leagueName];
+    if (!league) return;
+
+    for (const round of league.rounds) {
+      const matchIndex = round.matches.findIndex(m => m.id === matchId);
+      if (matchIndex !== -1) {
+        round.matches[matchIndex] = updatedMatch;
+        break;
+      }
+    }
+    updateBracketData();
   };
 
   const areAllPlayoffsFinished = () => {
@@ -810,9 +917,6 @@ export const useBracketStore = defineStore('bracket', () => {
     finalizeAndPublishBreak,
     generateNextPlayoffRound,
     updatePlayoffMatch,
-    publishFinalResults,
-    deleteBracket,
-    toggleRoundResultsPublication,
-    publishPlayoffRound
+    publishFinalResults
   };
 });

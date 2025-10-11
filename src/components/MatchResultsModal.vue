@@ -18,10 +18,16 @@
                 </div>
                 <div class="speakers-editor">
                   <div v-for="(speaker, speakerIndex) in team.speakers" :key="speakerIndex" class="speaker-input">
-                    <label>{{ speaker.username }}:</label>
-                    <select v-model.number="speaker.points">
-                      <option v-for="points in pointOptions" :key="points" :value="points">{{ points }}</option>
-                    </select>
+                    <label>{{ speakerName(speaker.username) }}:</label>
+                    <input
+                      v-model.number="speaker.points"
+                      type="number"
+                      inputmode="numeric"
+                      :min="60"
+                      :max="100"
+                      step="0.5"
+                      placeholder="—"
+                    >
                   </div>
                 </div>
               </div>
@@ -40,6 +46,7 @@
 
 <script setup>
 import { ref, watch, defineProps, defineEmits } from 'vue';
+import { supabase } from '@/supabase';
 
 const props = defineProps({
   round: {
@@ -56,7 +63,7 @@ const emit = defineEmits(['close', 'save']);
 
 const localMatches = ref([]);
 
-const pointOptions = Array.from({ length: 41 }, (_, i) => 60 + i);
+// Removed dropdown options; using manual numeric inputs instead
 
 watch(() => props.round, (newRound) => {
   if (newRound && newRound.matches) {
@@ -65,6 +72,29 @@ watch(() => props.round, (newRound) => {
     localMatches.value = [];
   }
 }, { immediate: true, deep: true });
+
+// Map usernames to full names
+const nameCache = ref({});
+const loadNamesForRound = async () => {
+  const usernames = new Set();
+  localMatches.value.forEach(m => m.teams.forEach(t => t.speakers.forEach(s => { if (s?.username) usernames.add(s.username); })));
+  if (usernames.size === 0) return;
+  const missing = Array.from(usernames).filter(u => !nameCache.value[u]);
+  if (missing.length === 0) return;
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('telegram_username, fullname')
+    .in('telegram_username', missing);
+  if (!error && data) {
+    const map = { ...nameCache.value };
+    data.forEach(p => { map[p.telegram_username] = p.fullname || p.telegram_username; });
+    nameCache.value = map;
+  }
+};
+
+watch(localMatches, () => { loadNamesForRound(); }, { immediate: true, deep: true });
+
+const speakerName = (username) => nameCache.value[username] || username;
 
 const setWinner = (match) => {
   match.participants.forEach(p => {

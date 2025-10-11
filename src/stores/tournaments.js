@@ -150,6 +150,25 @@ export const useTournamentsStore = defineStore('tournaments', () => {
       alert('Пожалуйста, заполните все обязательные поля.');
       return false;
     }
+
+    // Prevent duplicate registration by speakers within the same tournament
+    try {
+      const { data: existingRegs, error: dupErr } = await supabase
+        .from('registrations')
+        .select('id, faction_name, status, speaker1_username, speaker2_username')
+        .eq('tournament_id', regData.tournament_id)
+        .or(
+          `speaker1_username.eq.${regData.speaker1_username},speaker2_username.eq.${regData.speaker1_username},speaker1_username.eq.${regData.speaker2_username},speaker2_username.eq.${regData.speaker2_username}`
+        );
+      if (dupErr) {
+        console.error('Ошибка проверки дубликатов регистрации:', dupErr);
+      } else if (existingRegs && existingRegs.length > 0) {
+        alert('Один из выбранных спикеров уже зарегистрирован в этом турнире.');
+        return false;
+      }
+    } catch (e) {
+      console.warn('Не удалось выполнить проверку дубликатов регистрации:', e);
+    }
     const { error } = await supabase
       .from('registrations')
       .insert({
@@ -186,6 +205,63 @@ export const useTournamentsStore = defineStore('tournaments', () => {
       if (regIndex !== -1) {
         registrations.value[regIndex] = data;
       }
+    }
+  };
+
+  // Organizer edit: update team fields with duplicate checks on speakers
+  const updateRegistrationFields = async (registrationId, updates) => {
+    // Prevent selecting same speaker twice
+    if (updates.speaker1_username && updates.speaker2_username && updates.speaker1_username === updates.speaker2_username) {
+      alert('Спикеры должны быть разными.');
+      return false;
+    }
+
+    try {
+      // Load current registration for tournament id
+      const current = registrations.value.find(r => r.id === registrationId);
+      if (!current) return false;
+      const tournamentId = current.tournament_id;
+
+      // Duplicate speakers across tournament
+      const s1 = updates.speaker1_username;
+      const s2 = updates.speaker2_username;
+      if (s1 || s2) {
+        const { data: existing, error: dupErr } = await supabase
+          .from('registrations')
+          .select('id, speaker1_username, speaker2_username')
+          .eq('tournament_id', tournamentId)
+          .neq('id', registrationId)
+          .or(
+            [
+              s1 ? `speaker1_username.eq.${s1},speaker2_username.eq.${s1}` : '',
+              s2 ? `speaker1_username.eq.${s2},speaker2_username.eq.${s2}` : ''
+            ].filter(Boolean).join(',') || 'id.eq.-1'
+          );
+        if (!dupErr && existing && existing.length > 0) {
+          alert('Один из выбранных спикеров уже зарегистрирован в этом турнире.');
+          return false;
+        }
+      }
+
+      const { data, error } = await supabase
+        .from('registrations')
+        .update(updates)
+        .eq('id', registrationId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Ошибка обновления регистрации:', error);
+        alert('Не удалось обновить регистрацию.');
+        return false;
+      }
+      const idx = registrations.value.findIndex(r => r.id === registrationId);
+      if (idx !== -1) registrations.value[idx] = data;
+      return true;
+    } catch (e) {
+      console.error('Критическая ошибка обновления регистрации:', e);
+      alert('Критическая ошибка обновления регистрации.');
+      return false;
     }
   };
 
@@ -322,6 +398,6 @@ export const useTournamentsStore = defineStore('tournaments', () => {
     loadTournaments, loadTournamentById, createTournament, 
     loadTournamentPosts, createTournamentPost,
     loadRegistrations, submitRegistration,
-    updateRegistrationStatus, publishTab, getClubMembers, getUserNames, exportRegistrationsToCSV
+    updateRegistrationStatus, updateRegistrationFields, publishTab, getClubMembers, getUserNames, exportRegistrationsToCSV
   };
 });
