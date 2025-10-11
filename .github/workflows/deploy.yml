@@ -34,6 +34,7 @@ jobs:
         run: npm run build
         env:
           NODE_ENV: production
+          VITE_BASE: /pkr-debate-app/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

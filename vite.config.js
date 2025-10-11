@@ -19,7 +19,8 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
   },
-  base: process.env.NODE_ENV === 'production' ? '/pkr-debate-app/' : '/',
+  // Make base path configurable for different hosts (GitHub Pages vs Netlify/Vercel)
+  base: process.env.VITE_BASE ?? (process.env.NODE_ENV === 'production' ? '/pkr-debate-app/' : '/'),
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
