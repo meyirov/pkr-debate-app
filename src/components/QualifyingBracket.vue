@@ -415,8 +415,11 @@ const switchToPlayoffTab = () => {
 const publishQualifyingResults = async () => {
   if (!bracketStore.bracket) return;
   
+  // Load speaker names first to ensure the map is populated
+  await loadSpeakerNames();
+  
   // Generate qualifying results post
-  const resultsPost = generateQualifyingResultsPost();
+  const resultsPost = await generateQualifyingResultsPost();
   
   // Create tournament post with results
   const success = await tournamentsStore.createTournamentPost(
@@ -436,7 +439,7 @@ const publishQualifyingResults = async () => {
   alert("Результаты отборочных раундов успешно опубликованы!");
 };
 
-const generateQualifyingResultsPost = () => {
+const generateQualifyingResultsPost = async () => {
   if (!bracketStore.bracket) return '';
   
   const allRegistrations = tournamentsStore.registrations;
@@ -448,14 +451,42 @@ const generateQualifyingResultsPost = () => {
   };
   const pointsSystem = POINT_SYSTEMS[bracketStore.bracket.format];
 
+  // Collect all usernames for name loading
+  const allUsernames = new Set();
+  allRegistrations.forEach(r => {
+    if (r.speaker1_username) allUsernames.add(r.speaker1_username);
+    if (r.speaker2_username) allUsernames.add(r.speaker2_username);
+  });
+  bracketStore.bracket.matches.matches.forEach(round => {
+    round.matches.forEach(match => {
+      match.teams.forEach(team => {
+        team.speakers?.forEach(s => { if (s?.username) allUsernames.add(s.username); });
+      });
+    });
+  });
+
+  // Load all speaker names
+  if (allUsernames.size > 0) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('telegram_username, fullname')
+      .in('telegram_username', Array.from(allUsernames));
+    if (!error && data) {
+      data.forEach(p => { 
+        speakerNameMap.value[p.telegram_username] = p.fullname || p.telegram_username; 
+      });
+    }
+  }
+
   // Calculate team and speaker statistics from qualifying rounds only
   bracketStore.bracket.matches.matches.forEach(round => {
     round.matches.forEach(match => {
       match.teams.forEach(team => {
+        // Initialize team stats only once per team
         if (!teamStats[team.reg_id]) {
           const regInfo = allRegistrations.find(r => r.id === team.reg_id);
           teamStats[team.reg_id] = {
-            ...team,
+            faction_name: team.faction_name,
             club: regInfo?.club || 'unknown',
             speaker1_username: regInfo?.speaker1_username || '',
             speaker2_username: regInfo?.speaker2_username || '',
@@ -464,6 +495,8 @@ const generateQualifyingResultsPost = () => {
             wins: 0,
           };
         }
+        
+        // Add tournament points for this match
         const tp = pointsSystem[team.rank] || 0;
         teamStats[team.reg_id].totalTP += tp;
         
@@ -472,19 +505,19 @@ const generateQualifyingResultsPost = () => {
           teamStats[team.reg_id].wins += 1;
         }
         
-        // Sum speaker points for this team in this match
-        const matchSpeakerPoints = team.speakers.reduce((sum, s) => sum + (s.points || 0), 0);
+        // Sum speaker points for THIS SPECIFIC TEAM in this match
+        const matchSpeakerPoints = (team.speakers || []).reduce((sum, s) => sum + (s.points || 0), 0);
         teamStats[team.reg_id].totalSP += matchSpeakerPoints;
         
         // Speaker statistics - track individual speaker points
-        team.speakers.forEach(speaker => {
+        (team.speakers || []).forEach(speaker => {
           if (!speakerStats[speaker.username]) {
             speakerStats[speaker.username] = {
               username: speaker.username,
               totalPoints: 0
             };
           }
-          speakerStats[speaker.username].totalPoints += speaker.points || 0;
+          speakerStats[speaker.username].totalPoints += (speaker.points || 0);
         });
       });
     });
