@@ -1,63 +1,21 @@
 <template>
   <div class="playoff-bracket">
-    <!-- Playoff Setup Form (for creator, if not yet generated) -->
-    <div v-if="isCreator && !bracket?.playoff_data" class="playoff-setup-container">
-      <h3>Настройка Плей-офф</h3>
-      <form @submit.prevent="handleGeneratePlayoffs" class="playoff-setup-form">
-        <!-- Main Break Settings -->
-        <fieldset>
-          <legend>Основной брейк (Альфа Лига)</legend>
-          <div class="form-group">
-            <label>Формат Плей-офф</label>
-            <select v-model="playoffSettings.format">
-              <option value="АПФ">АПФ</option>
-              <option value="БПФ">БПФ</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Команды в брейке</label>
-            <select v-model.number="playoffSettings.mainBreakCount">
-              <option v-for="opt in breakOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-            </select>
-          </div>
-        </fieldset>
-
-        <!-- Beta League Settings -->
-        <fieldset>
-          <legend>Бета Лига</legend>
-          <div class="form-group-checkbox">
-            <input type="checkbox" id="enableLeagues" v-model="playoffSettings.enableLeagues">
-            <label for="enableLeagues">Включить Бета Лигу (для новичков/продолжающих)</label>
-          </div>
-          <div v-if="playoffSettings.enableLeagues" class="form-group-inline">
-            <label>Команды с</label>
-            <input type="number" v-model.number="playoffSettings.betaStart" min="1">
-            <label>по</label>
-            <input type="number" v-model.number="playoffSettings.betaEnd" min="1">
-          </div>
-        </fieldset>
-
-        <!-- LD League Settings -->
-        <fieldset>
-          <legend>Лига Лучших Спикеров (ЛД)</legend>
-          <div class="form-group-checkbox">
-            <input type="checkbox" id="enableLD" v-model="playoffSettings.enableLD">
-            <label for="enableLD">Включить ЛД</label>
-          </div>
-          <div v-if="playoffSettings.enableLD" class="form-group">
-            <label>Количество спикеров в брейке</label>
-            <select v-model.number="playoffSettings.ldCount">
-              <option v-for="opt in breakOptions" :key="opt.value" :value="opt.value">{{ opt.label.replace('команды', 'спикеров').replace('команд', 'спикеров') }}</option>
-            </select>
-          </div>
-        </fieldset>
-
-        <button type="submit" class="generate-playoff-btn">Сгенерировать Плей-офф</button>
-      </form>
+    <!-- New Canvas Constructor (default when no playoff data) -->
+    <div v-if="isCreator && showConstructor" class="playoff-constructor-container">
+      <div class="constructor-header">
+        <h3>Конструктор Плей-офф</h3>
+        <button class="reset-button" @click="showConstructor = false" v-if="bracket?.playoff_data">Закрыть</button>
+      </div>
+      <PlayoffBracketConstructor
+        :available-teams="availableTeamsFromQualifying"
+        :available-speakers="availableSpeakersFromQualifying"
+        :initial-bracket="null"
+        @save="handleSaveConstructor"
+      />
     </div>
 
     <!-- Playoff Bracket Display (if generated) -->
-    <div v-else-if="bracket?.playoff_data" class="bracket-display-container">
+    <div v-else-if="bracket?.playoff_data && !showConstructor" class="bracket-display-container">
       <div class="bracket-controls-container">
         <div class="publish-container">
           <template v-if="isCreator">
@@ -222,9 +180,11 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick, reactive, defineEmits } from 'vue';
+import { supabase } from '@/supabase';
 import { useBracketStore } from '@/stores/bracket';
 import { storeToRefs } from 'pinia';
 import PlayoffMatchModal from '@/components/PlayoffMatchModal.vue';
+import PlayoffBracketConstructor from '@/components/PlayoffBracketConstructor.vue';
 
 const props = defineProps({
   tournamentId: {
@@ -243,6 +203,7 @@ const bracketStore = useBracketStore();
 const { bracket } = storeToRefs(bracketStore);
 
 const activeLeagueName = ref(null);
+const showConstructor = ref(true);
 const showModal = ref(false);
 const selectedMatch = ref(null);
 const selectedMatchInfo = ref(null);
@@ -265,14 +226,164 @@ const breakOptions = [
   { value: 32, label: '1/16 финала (32 команды)' },
 ];
 
-const handleGeneratePlayoffs = async () => {
-  const success = await bracketStore.finalizeAndPublishBreak(playoffSettings);
-  if (success) {
-    alert('Плей-офф успешно сгенерирован!');
-    emit('dataChanged');
-  } else {
-    alert('Не удалось сгенерировать плей-офф. Проверьте настройки и количество команд.');
+// Teams for constructor: compute from qualifying rounds (published or not)
+const availableTeamsFromQualifying = computed(() => {
+  const m = bracket.value?.matches?.matches;
+  if (!Array.isArray(m) || m.length === 0) return [];
+
+  const POINTS = {
+    АПФ: { 1: 3, 2: 0 },
+    БПФ: { 1: 3, 2: 2, 3: 1, 4: 0 }
+  };
+  const system = POINTS[bracket.value?.format] || POINTS['АПФ'];
+  const stats = new Map();
+
+  m.forEach(round => {
+    round.matches?.forEach(match => {
+      match.teams?.forEach(team => {
+        const key = team.reg_id || team.faction_name;
+        if (!key) return;
+        if (!stats.has(key)) {
+          stats.set(key, {
+            reg_id: team.reg_id || team.faction_name,
+            faction_name: team.faction_name || `Team` ,
+            totalTP: 0,
+            totalSP: 0
+          });
+        }
+        const s = stats.get(key);
+        s.totalTP += system[team.rank] || 0;
+        const sp = Array.isArray(team.speakers) ? team.speakers.reduce((sum, s) => sum + (s.points || 0), 0) : 0;
+        s.totalSP += sp;
+      });
+    });
+  });
+
+  const ranked = Array.from(stats.values()).sort((a, b) => {
+    if (b.totalTP !== a.totalTP) return b.totalTP - a.totalTP;
+    return b.totalSP - a.totalSP;
+  });
+
+  return ranked.map((t, idx) => ({
+    reg_id: t.reg_id || `rank-${idx+1}`,
+    faction_name: t.faction_name || `Team ${idx+1}`
+  }));
+});
+
+// Speakers for LD: compute by total SP, then resolve full names via profiles
+const availableSpeakersFromQualifying = ref([]);
+const rankedSpeakersRaw = computed(() => {
+  const m = bracket.value?.matches?.matches;
+  if (!Array.isArray(m) || m.length === 0) return [];
+  const speakerPoints = new Map();
+  m.forEach(round => {
+    round.matches?.forEach(match => {
+      match.teams?.forEach(team => {
+        (team.speakers || []).forEach(s => {
+          const key = s.username || s.id;
+          if (!key) return;
+          if (!speakerPoints.has(key)) speakerPoints.set(key, { username: key, points: 0 });
+          speakerPoints.get(key).points += s.points || 0;
+        });
+      });
+    });
+  });
+  return Array.from(speakerPoints.values()).sort((a,b) => b.points - a.points);
+});
+
+watch(rankedSpeakersRaw, async (ranked) => {
+  if (!ranked || ranked.length === 0) {
+    availableSpeakersFromQualifying.value = [];
+    return;
   }
+  try {
+    const usernames = ranked.map(s => s.username);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('telegram_username, fullname')
+      .in('telegram_username', usernames);
+    const nameMap = new Map();
+    if (!error && data) data.forEach(p => nameMap.set(p.telegram_username, p.fullname || p.telegram_username));
+    availableSpeakersFromQualifying.value = ranked.map(s => ({ username: s.username, fullname: nameMap.get(s.username) || s.username, totalPoints: s.points }));
+  } catch (e) {
+    availableSpeakersFromQualifying.value = ranked.map(s => ({ username: s.username, fullname: s.username, totalPoints: s.points }));
+  }
+}, { immediate: true });
+
+// Convert free-form canvas data (nodes + connections) into a simple rounds structure
+// Group by stageLabel if present; otherwise put into the first round
+const convertCanvasToRounds = (matches = [], connections = []) => {
+  // Group matches by stage label
+  const groupsMap = new Map();
+  const order = [];
+  (matches || []).forEach((m) => {
+    const key = m.stageLabel || 'Stage 1';
+    if (!groupsMap.has(key)) { groupsMap.set(key, []); order.push(key); }
+    groupsMap.get(key).push(m);
+  });
+
+  // Build rounds array with round numbers starting at 1
+  const rounds = order.map((key, idx) => {
+    const ms = groupsMap.get(key) || [];
+    const roundMatches = ms.map((m, i) => {
+      const teams = Array.isArray(m.teams)
+        ? m.teams.map((t, ti) => t || { reg_id: `tbd-${m.id}-${ti}`, faction_name: 'TBD', rank: null })
+        : [];
+      return {
+        id: m.id,
+        room: m.room || '',
+        judge: m.judge || '',
+        teams,
+        match_in_round: i + 1,
+      };
+    });
+    return { round: idx + 1, label: key, published: false, matches: roundMatches };
+  });
+
+  if (rounds.length === 0) {
+    // Fallback: create a single empty round so display view stays stable
+    rounds.push({ round: 1, label: 'Stage 1', published: false, matches: [] });
+  }
+  return rounds;
+};
+
+const calculateTotalRounds = (matches = [], connections = []) => {
+  // Total rounds equals number of unique stage labels or 1 if none
+  const labels = new Set();
+  (matches || []).forEach(m => labels.add(m.stageLabel || 'Stage 1'));
+  return Math.max(1, labels.size);
+};
+
+const handleSaveConstructor = async (constructorData) => {
+  // Support new constructor payload structure: { format, ldEnabled, alpha: {matches, connections}, ld?: {...} }
+  const alpha = constructorData.alpha || { matches: constructorData.matches || [], connections: constructorData.connections || [] };
+  const ld = constructorData.ldEnabled && constructorData.ld ? constructorData.ld : null;
+
+  const playoffData = {};
+  playoffData.alpha = {
+    name: 'Альфа',
+    format: constructorData.format,
+    rounds: convertCanvasToRounds(alpha.matches, alpha.connections),
+    totalRounds: calculateTotalRounds(alpha.matches, alpha.connections),
+    currentRound: 1,
+    connections: (alpha.connections || []).map(c => ({ from: c.from, to: c.to }))
+  };
+  if (ld) {
+    playoffData.ld = {
+      name: 'ЛД',
+      format: 'ЛД',
+      rounds: convertCanvasToRounds(ld.matches, ld.connections),
+      totalRounds: calculateTotalRounds(ld.matches, ld.connections),
+      currentRound: 1,
+      connections: (ld.connections || []).map(c => ({ from: c.from, to: c.to }))
+    };
+  }
+
+  // Persist
+  bracket.value.playoff_data = playoffData;
+  await bracketStore.updateBracketData();
+  showConstructor.value = false;
+  emit('dataChanged');
 };
 
 let saveTimeout = null;
@@ -311,9 +422,43 @@ const handleSaveResults = async (updatedMatchData) => {
     ...selectedMatchInfo.value,
     updatedMatchData
   });
+  // After saving results, propagate winner to any connected target matches
+  const leagueName = selectedMatchInfo.value.leagueName;
+  const roundIndex = selectedMatchInfo.value.roundIndex;
+  const matchIndex = selectedMatchInfo.value.matchIndex;
+  nextTick(() => propagateWinnerForward(leagueName, roundIndex, matchIndex));
 
   showModal.value = false;
   selectedMatchInfo.value = null;
+};
+
+const propagateWinnerForward = (leagueName, roundIndex, matchIndex) => {
+  const league = bracket.value?.playoff_data?.[leagueName];
+  if (!league) return;
+  const match = league.rounds?.[roundIndex]?.matches?.[matchIndex];
+  if (!match) return;
+  const winner = (match.teams || []).find(t => t && t.rank === 1);
+  if (!winner) return;
+
+  const winnerClone = { ...winner, rank: null };
+  const fromId = match.id;
+  const targets = (league.connections || []).filter(c => c.from === fromId).map(c => c.to);
+  if (targets.length === 0) return;
+
+  targets.forEach(targetId => {
+    for (const r of league.rounds || []) {
+      const idx = (r.matches || []).findIndex(m => m.id === targetId);
+      if (idx !== -1) {
+        const tm = r.matches[idx];
+        if (!Array.isArray(tm.teams)) tm.teams = [];
+        const slot = tm.teams.findIndex(t => !t || !t.faction_name || t.faction_name === 'TBD');
+        if (slot >= 0) tm.teams[slot] = { ...winnerClone }; else tm.teams.push({ ...winnerClone });
+        break;
+      }
+    }
+  });
+  // Persist the updated playoff structure
+  bracketStore.updateBracketData();
 };
 
 const roundIsPublished = (leagueName, roundIndex) => {
@@ -331,7 +476,7 @@ const isRoundReadyForPublication = (round) => {
 
 const isRoundFinished = (round) => {
   if (!round || !round.matches) return false;
-  return round.matches.every(match => match.teams.some(team => team.rank === 1));
+  return round.matches.every(match => (match.teams || []).some(team => team && team.rank === 1));
 };
 
 const isLastRound = (round) => {
@@ -435,28 +580,63 @@ const matches = computed(() => {
   const leagueData = bracket.value.playoff_data;
 
   Object.entries(leagueData).forEach(([leagueName, leagueDetails]) => {
-      if (leagueDetails.rounds) {
-          leagueDetails.rounds.forEach(round => {
-              if(round.matches) {
-                round.matches.forEach((match, matchIndex) => {
-                    const matchId = `${leagueName}-r${round.round}-m${matchIndex}`;
-                    allMatches.push({
-                        ...match,
-                        id: matchId,
-                        league_id: leagueName,
-                        round: round.round,
-                        match_in_round: matchIndex + 1,
-                        participants: (match.teams || []).map((team, teamIndex) => ({
-                            ...team,
-                            id: `${matchId}-p${teamIndex}`,
-                            name: team.faction_name,
-                            is_winner: team.rank === 1
-                        }))
-                    });
-                });
-              }
-          });
-      }
+    if (!leagueDetails.rounds) return;
+
+    // Build lookup by original id
+    const matchById = new Map();
+    leagueDetails.rounds.forEach((round) => {
+      (round.matches || []).forEach((m) => matchById.set(m.id, m));
+    });
+
+    // Apply winner propagation into a shallow-cloned structure
+    const clonedRounds = leagueDetails.rounds.map(r => ({
+      round: r.round,
+      label: r.label,
+      published: r.published,
+      matches: (r.matches || []).map(m => ({
+        ...m,
+        teams: (m.teams || []).map(t => t || { faction_name: 'TBD', rank: null })
+      }))
+    }));
+
+    const clonedById = new Map();
+    clonedRounds.forEach(r => (r.matches || []).forEach(m => clonedById.set(m.id, m)));
+
+    const conns = leagueDetails.connections || [];
+    conns.forEach(c => {
+      const from = matchById.get(c.from);
+      const to = clonedById.get(c.to);
+      if (!from || !to) return;
+      const winner = (from.teams || []).find(t => t && t.rank === 1);
+      if (!winner) return;
+      // Place winner into first empty/TBD slot
+      const idx = (to.teams || []).findIndex(t => !t || !t.faction_name || t.faction_name === 'TBD');
+      const placed = { ...winner, rank: null };
+      if (idx >= 0) to.teams[idx] = placed; else to.teams.push(placed);
+    });
+
+    // Emit flattened list for rendering
+    clonedRounds.forEach(round => {
+      (round.matches || []).forEach((match, matchIndex) => {
+        const matchId = `${leagueName}-r${round.round}-m${matchIndex}`;
+        allMatches.push({
+          ...match,
+          id: matchId,
+          league_id: leagueName,
+          round: round.round,
+          match_in_round: matchIndex + 1,
+          participants: (match.teams || []).map((team, teamIndex) => {
+            const t = team || { faction_name: 'TBD', rank: null };
+            return {
+              ...t,
+              id: `${matchId}-p${teamIndex}`,
+              name: t.faction_name || 'TBD',
+              is_winner: t.rank === 1
+            };
+          })
+        });
+      });
+    });
   });
   return allMatches;
 });
@@ -631,37 +811,67 @@ const zoomOut = () => zoom.value = Math.max(0.3, +(zoom.value - 0.1).toFixed(2))
 const resetZoom = () => zoom.value = 1;
 
 const drawLines = () => {
-  if (!gridRef.value) return;
+  if (!gridRef.value || !activeLeague.value) return;
 
   requestAnimationFrame(() => {
     const newLines = [];
     const renderedMatches = allMatchesForLeague.value;
+    const league = bracket.value?.playoff_data?.[activeLeague.value.id];
+    const conns = league?.connections || [];
 
-    for (const match of renderedMatches) {
-      if (match.round >= rounds.value.length) continue;
+    // Build original-id -> dom-id map
+    const idMap = new Map();
+    renderedMatches.forEach((m) => {
+      // Find original numeric id by reading from the cloned match we put in participants: we kept original under 'idOriginal'?
+      // We didn't, so derive by looking up in rounds
+      // Create reverse index: dom id to match
+      idMap.set(m.id, m);
+    });
 
-      const nextRoundMatchNumber = Math.ceil(match.match_in_round / 2);
-      const nextMatch = renderedMatches.find(m => m.round === match.round + 1 && m.match_in_round === nextRoundMatchNumber);
+    const domIdByOriginalId = (origId) => {
+      // search rendered list for a match with same original id in its spread properties
+      const found = renderedMatches.find(rm => rm.id && (rm.originalId === origId || rm._origId === origId || rm.id.endsWith(`-${origId}`)));
+      // Fallback: our convert kept original numeric id in match object, but we overwrote id for DOM; attach helper map per pass
+      return found?.id;
+    };
 
-      if (nextMatch) {
-        const startEl = gridRef.value.querySelector(`[data-match-id='${match.id}']`);
-        const endEl = gridRef.value.querySelector(`[data-match-id='${nextMatch.id}']`);
-
-        if (startEl && endEl) {
-          const startX = startEl.offsetLeft + startEl.offsetWidth;
-          const startY = startEl.offsetTop + startEl.offsetHeight / 2;
-          const endX = endEl.offsetLeft;
-          const endY = endEl.offsetTop + endEl.offsetHeight / 2;
-
-          const midX = startX + (endX - startX) / 2;
-          const highlighted = isLineHighlighted(match.id, nextMatch.id);
-
-          newLines.push({ id: `${match.id}-h1`, type: 'H', x: startX, y: startY, width: (midX - startX), highlighted });
-          newLines.push({ id: `${match.id}-v`, type: 'V', x: midX, y: Math.min(startY, endY), height: Math.abs(endY - startY), highlighted });
-          newLines.push({ id: `${match.id}-h2`, type: 'H', x: midX, y: endY, width: (endX - midX), highlighted });
+    // Build helper map by scanning DOM dataset: we have data-match-id=dom id already
+    const findDomForOriginal = (origId) => {
+      // Try to locate by searching any rendered match that has same original id stored on dataset; not available -> fall back by querying all and matching via rounds
+      // As a practical approach, search through renderedMatches and pick the one whose underlying round/match object id equals origId
+      const rm = renderedMatches.find(m => {
+        // Reconstruct: league.rounds contains original matches; find by id and then compare round/match index
+        const leagueDetails = bracket.value?.playoff_data?.[activeLeague.value.id];
+        if (!leagueDetails) return false;
+        let found = null;
+        for (const r of leagueDetails.rounds || []) {
+          const idx = (r.matches || []).findIndex(mm => mm.id === origId);
+          if (idx !== -1) { found = { round: r.round, index: idx }; break; }
         }
-      }
-    }
+        if (!found) return false;
+        // Our dom id encoding uses r<round>-m<index>
+        const expected = `${activeLeague.value.id}-r${found.round}-m${found.index}`;
+        return m.id === expected;
+      });
+      return rm ? gridRef.value.querySelector(`[data-match-id='${rm.id}']`) : null;
+    };
+
+    conns.forEach((c) => {
+      const startEl = findDomForOriginal(c.from);
+      const endEl = findDomForOriginal(c.to);
+      if (!startEl || !endEl) return;
+
+      const startX = startEl.offsetLeft + startEl.offsetWidth;
+      const startY = startEl.offsetTop + startEl.offsetHeight / 2;
+      const endX = endEl.offsetLeft;
+      const endY = endEl.offsetTop + endEl.offsetHeight / 2;
+      const midX = startX + (endX - startX) / 2;
+
+      newLines.push({ id: `${c.from}->${c.to}-h1`, type: 'H', x: startX, y: startY, width: (midX - startX), highlighted: false });
+      newLines.push({ id: `${c.from}->${c.to}-v`, type: 'V', x: midX, y: Math.min(startY, endY), height: Math.abs(endY - startY), highlighted: false });
+      newLines.push({ id: `${c.from}->${c.to}-h2`, type: 'H', x: midX, y: endY, width: (endX - midX), highlighted: false });
+    });
+
     lines.value = newLines;
   });
 };
