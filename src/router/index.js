@@ -1,8 +1,5 @@
 // src/router/index.js
 import { createRouter, createWebHistory } from 'vue-router'
-import FeedView from '../views/FeedView.vue'
-import TournamentsView from '../views/TournamentsView.vue'
-import CreateTournamentView from '../views/CreateTournamentView.vue';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -21,7 +18,7 @@ const router = createRouter({
     {
       path: '/',
       name: 'feed',
-      component: FeedView
+      component: () => import('../views/FeedView.vue')
     },
     {
       path: '/compose',
@@ -31,12 +28,12 @@ const router = createRouter({
     {
       path: '/tournaments',
       name: 'tournaments',
-      component: TournamentsView
+      component: () => import('../views/TournamentsView.vue')
     },
     {
       path: '/tournaments/new',
       name: 'create-tournament',
-      component: CreateTournamentView
+      component: () => import('../views/CreateTournamentView.vue')
     },
     // --- НОВЫЙ МАРШРУТ ---
     // :id означает, что эта часть адреса будет динамической (ID турнира)

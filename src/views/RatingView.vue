@@ -366,6 +366,7 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
@@ -384,6 +385,8 @@ onUnmounted(() => {
 
 .season-info-main {
   text-align: center;
+  flex: 1 1 100%;
+  min-width: 0;
 }
 
 .season-name {
@@ -394,7 +397,8 @@ onUnmounted(() => {
 }
 
 .progress-bar-container {
-  width: 250px;
+  width: 100%;
+  max-width: 250px;
   height: 8px;
   background-color: rgba(0, 0, 0, 0.3);
   border-radius: 4px;
@@ -412,7 +416,10 @@ onUnmounted(() => {
 
 .season-details {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
   font-size: 0.8rem;
   color: #aaa;
 }
@@ -730,6 +737,9 @@ onUnmounted(() => {
   .rating-container {
     padding: 15px;
   }
+  .time-display, .placeholder { min-width: 90px; }
+  .season-name { font-size: 1rem; }
+  .season-details { font-size: 0.85rem; gap: 10px; }
 
   .rating-title {
     font-size: 2rem;

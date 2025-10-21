@@ -49,7 +49,7 @@ const loadComments = async () => {
     .from('comments')
     .select('*')
     .eq('post_id', props.postId)
-    .order('timestamp', { ascending: true });
+    .order('id', { ascending: true });
 
   if (error) {
     console.error("Ошибка загрузки комментариев:", error);

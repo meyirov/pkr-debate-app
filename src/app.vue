@@ -7,6 +7,7 @@
   <RegistrationModal v-else-if="userStore.showRegistrationModal" />
 
   <div v-else class="app-container">
+    <AppHeader />
     <main class="main-content">
       <!-- For post detail, keep FeedView alive underneath and show overlay -->
       <template v-if="route.name === 'post-detail'">
@@ -39,6 +40,7 @@ import { onMounted } from 'vue';
 import { RouterView, useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/user';
 import TheNavbar from '@/components/TheNavbar.vue';
+import AppHeader from '@/components/AppHeader.vue';
 import RegistrationModal from '@/components/RegistrationModal.vue';
 import FeedView from '@/views/FeedView.vue';
 import PostDetailView from '@/views/PostDetailView.vue';
@@ -64,7 +66,9 @@ onMounted(() => {
 <style>
 /* Глобальные стили для основного контейнера */
 .app-container { display: flex; flex-direction: column; flex: 1; height: 100vh; overflow: hidden; }
-.main-content { flex: 1; padding: 0; padding-bottom: 80px; overflow-y: auto; height: 100vh; }
+.main-content { flex: 1; padding: 0; padding-bottom: 80px; overflow-y: auto; height: 100vh; padding-top: 56px; transition: padding-top 180ms ease-in-out; }
+/* When header is hidden, allow content to move up */
+body.header-hidden .main-content { padding-top: 0; }
 .loading-screen {
     display: flex; flex-direction: column; align-items: center;
     justify-content: center; height: 100vh; text-align: center;
