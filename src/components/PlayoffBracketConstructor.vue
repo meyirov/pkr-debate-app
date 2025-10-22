@@ -325,7 +325,7 @@ const gridSize = 10;
 const defaultNodeW = 260;
 const defaultNodeH = 160;
 const columnGap = 140;
-const rowGap = 40;
+const rowGap = 20;
 
 const getStageBounds = (label) => {
   const nodes = currentMatchNodes.value.filter(n => n.stageLabel === label);
@@ -500,6 +500,24 @@ const handleNodeClick = (match) => {
   connectionSource.value = null;
 };
 
+// Compact the current building column by measuring node heights and stacking tightly
+const packBuildingColumn = () => {
+  const building = currentMatchNodes.value.filter(n => !n.stageLabel);
+  if (building.length === 0) return;
+  const baseX = Math.min(...building.map(n => n.x));
+  let y = Math.min(...building.map(n => n.y));
+  const gap = 28; // more space to prevent overlap
+  // Sort by existing vertical position to maintain order
+  building.sort((a, b) => a.y - b.y);
+  building.forEach(n => {
+    const h = nodeRefs.get(n.id)?.offsetHeight || defaultNodeH;
+    n.x = baseX;
+    n.y = y;
+    y += h + gap;
+  });
+  updateConnections();
+};
+
 // Stage locking
 const stageName = ref('');
 const lockedStages = ref([]); // { name, nodeIds }
@@ -525,7 +543,10 @@ const addMatchNodes = (count = 1) => {
     };
     if (activeCanvas.value === 'alpha') matchNodes.value.push(newMatch); else ldMatchNodes.value.push(newMatch);
   }
-  nextTick(updateConnections);
+  // First pass: compact using estimated sizes
+  packBuildingColumn();
+  // Second pass after DOM updates for precise spacing
+  nextTick(() => { packBuildingColumn(); updateConnections(); });
 };
 
 const deleteMatch = (matchId) => {
@@ -544,7 +565,7 @@ const getTeamByPlace = (place) => {
   if (!place || place < 1 || place > availableTeams.value.length) return null;
   return availableTeams.value[place - 1];
 };
-const updateMatchTeams = (match) => { match.teams = match.places.map(place => getTeamByPlace(place)); };
+const updateMatchTeams = (match) => { match.teams = match.places.map(place => getTeamByPlace(place)); nextTick(() => { packBuildingColumn(); }); };
 
 // LD Speaker assignment based on places
 const getSpeakerByPlace = (place) => {
@@ -556,6 +577,7 @@ const updateMatchSpeakers = (match) => {
     const s = getSpeakerByPlace(place);
     return s ? { reg_id: s.username || s.id, faction_name: s.username } : null;
   });
+  nextTick(() => { packBuildingColumn(); });
 };
 
 // Connection management

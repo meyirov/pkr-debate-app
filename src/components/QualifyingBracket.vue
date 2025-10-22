@@ -74,7 +74,7 @@
         </button>
       </div>
 
-      <div v-if="isCreator" class="round-admin-panel">
+      <div v-if="isCreator && !bracketStore.bracket?.final_results_published" class="round-admin-panel">
         <div class="tournament-status">
           <h5>Прогресс турнира: {{ bracketStore.bracket.matches?.matches?.length || 0 }} / {{ setup.roundCount }} раундов</h5>
           <div class="progress-bar">

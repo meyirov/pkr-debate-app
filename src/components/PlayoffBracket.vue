@@ -5,7 +5,7 @@
       <div class="constructor-header">
         <h3>Конструктор Плей-офф</h3>
         <button class="reset-button" @click="showConstructor = false" v-if="bracket?.playoff_data">Закрыть</button>
-      </div>
+          </div>
       <PlayoffBracketConstructor
         :available-teams="availableTeamsFromQualifying"
         :available-speakers="availableSpeakersFromQualifying"
@@ -19,10 +19,10 @@
       <div class="bracket-controls-container">
         <div class="publish-container">
           <template v-if="isCreator">
-            <button v-if="!bracket?.final_results_published" @click="handlePublish" class="publish-button">
+            <button v-if="!bracket?.final_results_published && allPlayoffsFinished" @click="handlePublish" class="publish-button">
               Опубликовать итоги турнира
             </button>
-            <div v-else class="results-published-indicator">
+            <div v-else-if="bracket?.final_results_published" class="results-published-indicator">
               🏆 Итоги турнира опубликованы!
             </div>
           </template>
@@ -58,107 +58,84 @@
             :style="{ transform: `scale(${zoom})` }"
           >
             <div class="bracket-layout-container" ref="gridRef">
-              <div v-for="(round, roundIndex) in rounds" :key="roundIndex" class="round-column">
-                <div class="round-header">
-                  <h3 class="round-title">{{ getRoundDisplayName(round.round) }}</h3>
-                  <div class="round-controls">
+              <!-- Round Headers -->
+              <div class="round-headers-row">
+                <div v-for="(round, roundIndex) in visualRounds" :key="`header-${roundIndex}`" class="round-header-column">
+                  <div class="round-header-card">
+                    <h3 class="round-title">{{ round.displayLabel || getRoundDisplayName(round.round) }}</h3>
                     <button
-                      v-if="isCreator"
-                      @click="bracketStore.publishPlayoffRound({ leagueName: activeLeagueId, roundIndex: roundIndex })"
+                      v-if="isCreator && !bracket?.final_results_published"
+                      @click="publishRoundClick((round.sourceIndices || [roundIndex])[0])"
                       :class="['publish-round-btn', round.published ? 'unpublish' : 'publish']"
                       :disabled="!isRoundReadyForPublication(round)"
                     >
                       <span v-if="round.published">🙈 Скрыть</span>
                       <span v-else>📢 Опубликовать</span>
                     </button>
-                    <!-- Debug info -->
-                    <div v-if="isCreator" class="debug-info" style="font-size: 10px; color: #666; margin-top: 5px;">
-                      <div>{{ getRoundDisplayName(round.round) }}:</div>
-                      <div>Published: {{ round.published }}</div>
-                      <div>Ready for publication: {{ isRoundReadyForPublication(round) }}</div>
-                      <div>Matches count: {{ round.matches?.length }}</div>
-                      <div>All matches have room/judge: {{ round.matches?.every(m => m.room && m.judge) }}</div>
-                      <div>Active League Name: {{ activeLeagueName }}</div>
-                      <div>Active League ID: {{ activeLeagueId }}</div>
                     </div>
-                    <button
-                      v-if="isCreator && round.published && isRoundFinished(round) && !isLastRound(round)"
-                      @click="generateNextRound"
-                      class="generate-next-round-btn"
-                    >
-                      ➡️ Следующий раунд
-                    </button>
                   </div>
                 </div>
-                <div class="matches-in-round">
+
+              <!-- Bracket Grid with positioned matches -->
+              <div class="bracket-grid" :style="bracketGridStyle" ref="gridInnerRef">
+              <div
+                  v-for="(round, roundIndex) in visualRounds"
+                  :key="`round-${roundIndex}`"
+                  class="grid-round-column"
+                >
                   <div
                     v-for="(match, matchIndex) in round.matches"
                     :key="match.id"
-                    class="match-card"
-                    :data-match-id="match.id"
+                    class="match-card-positioned"
+                  :data-match-id="`${activeLeagueId}-r${round.round}-m${matchIndex}`"
+                  :data-orig-id="match.id"
+                  :ref="el => setMatchRef(match.id, el)"
                     :class="{ 'highlighted': highlightedPath.matches.has(match.id) }"
+                 :style="getGridPositionForId(match.id, round.round, matchIndex)"
                   >
-                    <div class="match-header">
-                      <span class="match-title">Матч {{ match.match_in_round }}</span>
-                      <div v-if="!isCreator || round.published" class="match-details-public">
-                        <span>Кабинет: {{ match.room || 'Не назначен' }}</span>
-                        <span>Судья: {{ match.judge || 'Не назначен' }}</span>
+                    <div class="match-card-inner">
+                      <div class="match-mini-header">
+                        <span class="match-number">M{{ match.match_in_round }}</span>
+                        <div v-if="!isCreator || round.published" class="match-meta">
+                          <span class="meta-item">🚪 {{ match.room || '-' }}</span>
+                          <span class="meta-item">⚖️ {{ match.judge || '-' }}</span>
                       </div>
                     </div>
                     
-                    <div v-if="isCreator && !round.published" class="match-details-editor">
-                      <div class="input-group">
-                        <label>Кабинет:</label>
-                        <input v-model="match.room" type="text" placeholder="№" @input="debouncedSave(activeLeagueId, roundIndex, matchIndex)">
-                      </div>
-                      <div class="input-group">
-                        <label>Судья:</label>
-                        <input v-model="match.judge" type="text" placeholder="Имя" @input="debouncedSave(activeLeagueId, roundIndex, matchIndex)">
-                      </div>
+                      <div v-if="isCreator && !round.published && !bracket?.final_results_published" class="match-editor-compact">
+                        <input v-model="match.room" type="text" placeholder="Кабинет" @input="debouncedSave(activeLeagueId, roundIndex, matchIndex)" class="compact-input">
+                        <input v-model="match.judge" type="text" placeholder="Судья" @input="debouncedSave(activeLeagueId, roundIndex, matchIndex)" class="compact-input">
                     </div>
 
-                    <div class="match-participants">
+                      <div class="participants-list">
                       <div 
                         v-for="(team, teamIndex) in match.teams" 
                         :key="`${match.id}-team-${teamIndex}`" 
-                        class="participant"
+                          class="participant-row"
                         :class="{ 
-                          winner: team.rank === 1,
+                            'is-winner': team.rank === 1,
                           'highlighted-participant': highlightedPath.participants.has(`${match.id}-p${teamIndex}`) 
                         }"
-                        @click="toggleHighlight({...team, id: `${match.id}-p${teamIndex}`, name: team.faction_name, is_winner: team.rank === 1}, match.round, match)"
-                      >
-                        <span class="participant-info">
-                          <span>{{ team.faction_name }}</span>
-                           <template v-if="match.round > 1">
-                            <span
-                              v-if="getSourceMatch({...team, id: `${match.id}-p${teamIndex}`, name: team.faction_name, is_winner: team.rank === 1}, match)"
-                              class="source-match-link"
-                              @click.stop="highlightSourcePath({...team, id: `${match.id}-p${teamIndex}`, name: team.faction_name, is_winner: team.rank === 1}, match)"
-                            >
-                              из M{{ getSourceMatch({...team, id: `${match.id}-p${teamIndex}`, name: team.faction_name, is_winner: team.rank === 1}, match)?.match_in_round }}
-                            </span>
-                          </template>
-                        </span>
-                         <span v-if="isCreator || round.published" class="rank">{{ team.rank ? `Ранг: ${team.rank}` : '' }}</span>
+                          @click="toggleHighlight({...team, id: `${match.id}-p${teamIndex}`, name: displayTeamName(team), is_winner: team.rank === 1}, match.round, match)"
+                        >
+                          <span class="participant-name">{{ displayTeamName(team) }}</span>
+                          <span v-if="team.rank" class="participant-rank">{{ team.rank }}</span>
                       </div>
                     </div>
+
                     <button 
-                      v-if="isCreator && round.published" 
+                        v-if="isCreator && round.published && !bracket?.final_results_published" 
                       @click="openResultsModal(match, roundIndex, matchIndex)"
-                      class="enter-results-btn"
+                        class="results-btn-compact"
                     >
-                      Ввести результаты
+                        Результаты
                     </button>
                   </div>
                 </div>
               </div>
             </div>
-            <div class="line-container">
-                <template v-for="line in lines" :key="line.id">
-                  <div v-if="line.type === 'H'" class="connector-line" :class="{'highlighted': line.highlighted}" :style="{ left: `${line.x}px`, top: `${line.y}px`, width: `${line.width}px`, height: '2px' }"></div>
-                  <div v-if="line.type === 'V'" class="connector-line" :class="{'highlighted': line.highlighted}" :style="{ left: `${line.x}px`, top: `${line.y}px`, width: '2px', height: `${line.height}px` }"></div>
-                </template>
+
+              <!-- Connectors removed per product decision -->
               </div>
             </div>
           </div>
@@ -166,6 +143,7 @@
       <PlayoffMatchModal
         v-if="showModal"
         :match="selectedMatch"
+        :display-name-map="activeLeagueId === 'ld' ? ldProfileNameMap : null"
         @close="showModal = false"
         @save="handleSaveResults"
       />
@@ -203,7 +181,7 @@ const bracketStore = useBracketStore();
 const { bracket } = storeToRefs(bracketStore);
 
 const activeLeagueName = ref(null);
-const showConstructor = ref(true);
+const showConstructor = ref(false);
 const showModal = ref(false);
 const selectedMatch = ref(null);
 const selectedMatchInfo = ref(null);
@@ -225,6 +203,15 @@ const breakOptions = [
   { value: 16, label: '1/8 финала (16 команд)' },
   { value: 32, label: '1/16 финала (32 команды)' },
 ];
+
+// Show constructor only when no playoff_data yet (for creator). Hide once saved.
+watch(bracket, (val) => {
+  if (props.isCreator) {
+    showConstructor.value = !val?.playoff_data;
+  } else {
+    showConstructor.value = false;
+  }
+}, { immediate: true });
 
 // Teams for constructor: compute from qualifying rounds (published or not)
 const availableTeamsFromQualifying = computed(() => {
@@ -309,6 +296,27 @@ watch(rankedSpeakersRaw, async (ranked) => {
     availableSpeakersFromQualifying.value = ranked.map(s => ({ username: s.username, fullname: s.username, totalPoints: s.points }));
   }
 }, { immediate: true });
+
+// Map LD usernames -> full profile names for display in published view
+const ldProfileNameMap = ref(new Map());
+watch(() => bracket.value?.playoff_data?.ld, async (ldData) => {
+  if (!ldData) { ldProfileNameMap.value = new Map(); return; }
+  const usernames = new Set();
+  (ldData.rounds || []).forEach(r => (r.matches || []).forEach(m => (m.teams || []).forEach(t => { if (t?.faction_name) usernames.add(t.faction_name); })));
+  if (usernames.size === 0) { ldProfileNameMap.value = new Map(); return; }
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('telegram_username, fullname')
+      .in('telegram_username', Array.from(usernames));
+    const map = new Map();
+    if (!error && data) data.forEach(p => map.set(p.telegram_username, p.fullname || p.telegram_username));
+    ldProfileNameMap.value = map;
+  } catch (_) {
+    // fallback to empty map
+    ldProfileNameMap.value = new Map();
+  }
+}, { immediate: true, deep: true });
 
 // Convert free-form canvas data (nodes + connections) into a simple rounds structure
 // Group by stageLabel if present; otherwise put into the first round
@@ -401,8 +409,19 @@ const debouncedSave = (leagueName, roundIndex, matchIndex) => {
 };
 
 
-const handlePublish = () => {
-  bracketStore.publishFinalResults();
+const handlePublish = async () => {
+  await bracketStore.publishFinalResults();
+  // Reload to ensure UI reflects DB state
+  await bracketStore.loadBracket(props.tournamentId);
+};
+
+const publishRoundClick = async (roundIndex) => {
+  try {
+    await bracketStore.publishPlayoffRound({ leagueName: activeLeagueId, roundIndex });
+    await bracketStore.loadBracket(props.tournamentId);
+  } catch (e) {
+    console.error('Publish round failed', e);
+  }
 };
 
 const openResultsModal = (match, roundIndex, matchIndex) => {
@@ -485,6 +504,16 @@ const isLastRound = (round) => {
   if (!leagueData) return false;
   return round.round >= leagueData.totalRounds;
 };
+
+const allPlayoffsFinished = computed(() => {
+  const pd = bracket.value?.playoff_data;
+  if (!pd) return false;
+  return Object.values(pd).every((league) => {
+    if (!league || !league.rounds || league.rounds.length === 0) return false;
+    const lastRound = league.rounds[league.rounds.length - 1];
+    return (lastRound.matches || []).every(m => (m.teams || []).some(t => t && t.rank === 1));
+  });
+});
 
 const generateNextRound = async () => {
   await bracketStore.generateNextPlayoffRound(activeLeagueId);
@@ -618,25 +647,25 @@ const matches = computed(() => {
     // Emit flattened list for rendering
     clonedRounds.forEach(round => {
       (round.matches || []).forEach((match, matchIndex) => {
-        const matchId = `${leagueName}-r${round.round}-m${matchIndex}`;
-        allMatches.push({
-          ...match,
-          id: matchId,
-          league_id: leagueName,
-          round: round.round,
-          match_in_round: matchIndex + 1,
+                    const matchId = `${leagueName}-r${round.round}-m${matchIndex}`;
+                    allMatches.push({
+                        ...match,
+                        id: matchId,
+                        league_id: leagueName,
+                        round: round.round,
+                        match_in_round: matchIndex + 1,
           participants: (match.teams || []).map((team, teamIndex) => {
             const t = team || { faction_name: 'TBD', rank: null };
             return {
               ...t,
-              id: `${matchId}-p${teamIndex}`,
-              name: t.faction_name || 'TBD',
+                            id: `${matchId}-p${teamIndex}`,
+              name: leagueName === 'ld' ? (ldProfileNameMap.value.get(t.faction_name) || t.faction_name || 'TBD') : (t.faction_name || 'TBD'),
               is_winner: t.rank === 1
             };
           })
-        });
-      });
-    });
+                    });
+                });
+          });
   });
   return allMatches;
 });
@@ -648,9 +677,129 @@ const highlightedParticipant = ref(null);
 const gridRef = ref(null);
 const zoomContentRef = ref(null);
 const zoomSizerRef = ref(null);
+const canvasRef = ref(null);
+const gridInnerRef = ref(null);
 
-const lines = ref([]);
 let resizeObserver = null;
+
+// Map original match id -> DOM element for measurement
+const matchRefs = ref(new Map());
+const setMatchRef = (origId, el) => {
+  if (!origId) return;
+  const map = matchRefs.value;
+  if (el) {
+    map.set(origId, el);
+  } else {
+    map.delete(origId);
+  }
+};
+
+// Precomputed vertical layout per round (map of matchId -> top)
+const columnLayout = ref(new Map()); // roundNumber -> Map<origMatchId, topPx>
+
+const computeColumnLayout = () => {
+  const rds = visualRounds.value || [];
+  const layout = new Map();
+  const paddingTop = 40;
+  const minGap = 24;
+
+  const getHeight = (m) => {
+    const el = matchRefs.value.get(m.id);
+    return el?.offsetHeight || 180;
+  };
+
+  if (!rds.length) { columnLayout.value = layout; return; }
+
+  // Round 1: simple stacking
+  const r0 = rds[0];
+  const r0Matches = r0.matches || [];
+  const r0Heights = r0Matches.map(getHeight);
+  const tops0 = new Map();
+  let currentTop = paddingTop;
+  for (let i = 0; i < r0Matches.length; i++) {
+    tops0.set(r0Matches[i].id, currentTop);
+    currentTop += (r0Heights[i] || 180) + minGap;
+  }
+  layout.set(r0.round, tops0);
+
+  // Subsequent rounds: center between paired sources (2i and 2i+1)
+  for (let ri = 1; ri < rds.length; ri++) {
+    const prev = rds[ri - 1];
+    const curr = rds[ri];
+    const prevMatches = prev.matches || [];
+    const currMatches = curr.matches || [];
+    const prevTops = layout.get(prev.round) || [];
+    const prevHeights = prevMatches.map(getHeight);
+    const currHeights = currMatches.map(getHeight);
+
+    // Clear any residual margins
+    currMatches.forEach(m => { const el = matchRefs.value.get(m.id); if (el) el.style.marginTop = '0px'; });
+
+    const tops = new Map();
+    for (let i = 0; i < currMatches.length; i++) {
+      const aIdx = i * 2;
+      const bIdx = i * 2 + 1;
+      const aTop = prevTops.get(prevMatches[aIdx]?.id);
+      const bTop = prevTops.get(prevMatches[bIdx]?.id);
+      const aH = prevHeights[aIdx];
+      const bH = prevHeights[bIdx];
+      const h = currHeights[i] || 180;
+
+      if (aTop != null && bTop != null && aH != null && bH != null) {
+        const centerA = aTop + aH / 2;
+        const centerB = bTop + bH / 2;
+        const desiredCenter = (centerA + centerB) / 2;
+        tops.set(currMatches[i].id, desiredCenter - h / 2);
+      } else {
+        // Fallback to stacking relative to previous computed top
+        const prevTop = i === 0 ? paddingTop : (tops.get(currMatches[i - 1].id) + (currHeights[i - 1] || 180) + minGap);
+        tops.set(currMatches[i].id, prevTop);
+      }
+    }
+
+    // Enforce minimum gap and non-overlap
+    for (let i = 0; i < currMatches.length; i++) {
+      const id = currMatches[i].id;
+      if (i === 0) {
+        tops.set(id, Math.max(paddingTop, tops.get(id)));
+      } else {
+        const prevId = currMatches[i - 1].id;
+        const prevBottom = tops.get(prevId) + (currHeights[i - 1] || 180) + minGap;
+        if (tops.get(id) < prevBottom) tops.set(id, prevBottom);
+      }
+    }
+
+    // Normalize spacing within the column so all gaps are equal-ish
+    // Compute desired uniform gap as the median of current gaps
+    const gaps = [];
+    for (let i = 1; i < currMatches.length; i++) {
+      const id = currMatches[i].id;
+      const prevId = currMatches[i - 1].id;
+      gaps.push(tops.get(id) - (tops.get(prevId) + (currHeights[i - 1] || 180)));
+    }
+    if (gaps.length > 0) {
+      const sorted = gaps.slice().sort((a,b)=>a-b);
+      const medianGap = sorted[Math.floor(sorted.length/2)];
+      // Rebuild tops with uniform gap starting from the first
+      for (let i = 1; i < currMatches.length; i++) {
+        const prevId = currMatches[i - 1].id;
+        const id = currMatches[i].id;
+        tops.set(id, tops.get(prevId) + (currHeights[i - 1] || 180) + Math.max(minGap, medianGap));
+      }
+    }
+
+    layout.set(curr.round, tops);
+  }
+
+  columnLayout.value = layout;
+};
+
+// Position helper using measured heights; falls back to estimate
+const getGridPositionForId = (origId, roundNumber, matchIndexInRound) => {
+  const map = columnLayout.value.get(roundNumber);
+  const top = map?.get(origId) ?? (40 + matchIndexInRound * (160 + 24));
+  return { position: 'absolute', left: '0', top: `${top}px` };
+};
 
 const activeLeagueId = computed(() => {
   if (activeLeagueName.value) return activeLeagueName.value;
@@ -669,6 +818,40 @@ const rounds = computed(() => {
   const leagueData = bracket.value.playoff_data[activeLeague.value.id];
   return leagueData.rounds || [];
 });
+
+// Merge multiple stage-labeled columns that represent the same numeric round
+const visualRounds = computed(() => {
+  const byRound = new Map();
+  (rounds.value || []).forEach((r, idx) => {
+    const key = r.round || idx + 1;
+    if (!byRound.has(key)) byRound.set(key, { round: key, sourceIndices: [], matches: [], published: true, displayLabel: null });
+    const group = byRound.get(key);
+    group.sourceIndices.push(idx);
+    group.matches = group.matches.concat(r.matches || []);
+    group.published = (group.published ?? true) && !!r.published;
+    if (!group.displayLabel && r.label) group.displayLabel = r.label;
+  });
+  // Sort by round number
+  const arr = Array.from(byRound.values()).sort((a, b) => a.round - b.round);
+  // Ensure matches are in bracket order within each round
+  arr.forEach(g => {
+    g.matches = (g.matches || []).slice().sort((m1, m2) => {
+      const a = Number(m1?.match_in_round ?? 0);
+      const b = Number(m2?.match_in_round ?? 0);
+      if (a !== b) return a - b;
+      return String(m1?.id).localeCompare(String(m2?.id));
+    });
+  });
+  return arr;
+});
+
+const displayTeamName = (team) => {
+  if (!team) return 'TBD';
+  if (activeLeagueId.value === 'ld') {
+    return ldProfileNameMap.value.get(team.faction_name) || team.faction_name || 'TBD';
+  }
+  return team.faction_name || 'TBD';
+};
 
 const getSourceMatch = (participant, currentMatch) => {
     if (currentMatch.round === 1) return null;
@@ -744,11 +927,9 @@ const isLineHighlighted = (matchId, nextMatchId) => {
   return highlightedPath.value.matches.has(matchId) && highlightedPath.value.matches.has(nextMatchId);
 };
 
-const bracketGridStyle = computed(() => {
-  return {
-    gridTemplateColumns: `repeat(${rounds.value.length}, 240px)`,
-  };
-});
+// Let CSS control columns and gaps; avoid inline overrides that desync desktop/mobile
+const bracketGridStyle = computed(() => ({}));
+
 
 const highlightSourcePath = (participant, currentMatch) => {
     if (!props.isCreator) return;
@@ -787,97 +968,35 @@ const getGridPosition = (matchId) => {
   const match = allMatchesForLeague.value.find(m => m.id === matchId);
   if (!match) return {};
 
-  const matchesInFirstRound = allMatchesForLeague.value.filter(m => m.round === 1).length;
-  const maxRows = matchesInFirstRound * 2;
-  
-  const matchesInRound = allMatchesForLeague.value.filter(m => m.round === match.round).sort((a, b) => a.match_in_round - b.match_in_round);
-  const matchIndex = matchesInRound.findIndex(m => m.id === matchId);
+  // Determine the zero-based index of this match within its round
+  const indexInRound = allMatchesForLeague.value
+    .filter(m => m.round === match.round)
+    .sort((a, b) => a.match_in_round - b.match_in_round)
+    .findIndex(m => m.id === matchId);
 
-  const numMatchesInRound = matchesInRound.length;
-  const rowPower = Math.log2(maxRows / numMatchesInRound);
-  const spacing = 2 ** rowPower;
-  const offset = spacing / 2;
+  return getGridPositionByIndex(match.round, indexInRound);
+};
 
-  const gridRowStart = matchIndex * spacing + offset + 1;
-
-  return {
-    gridColumn: match.round,
-    gridRow: `${gridRowStart} / span ${offset}`,
-  };
+// Kept for backward compatibility if needed elsewhere
+const getGridPositionByIndex = (roundNumber, matchIndexInRound) => {
+  const nodeHeight = 160;
+  const spacing = 24;
+  const topPosition = 40 + matchIndexInRound * (nodeHeight + spacing);
+  return { position: 'absolute', left: '0', top: `${topPosition}px` };
 };
 
 const zoomIn = () => zoom.value = Math.min(1.5, +(zoom.value + 0.1).toFixed(2));
 const zoomOut = () => zoom.value = Math.max(0.3, +(zoom.value - 0.1).toFixed(2));
 const resetZoom = () => zoom.value = 1;
 
-const drawLines = () => {
-  if (!gridRef.value || !activeLeague.value) return;
+// Connectors removed
 
-  requestAnimationFrame(() => {
-    const newLines = [];
-    const renderedMatches = allMatchesForLeague.value;
-    const league = bracket.value?.playoff_data?.[activeLeague.value.id];
-    const conns = league?.connections || [];
 
-    // Build original-id -> dom-id map
-    const idMap = new Map();
-    renderedMatches.forEach((m) => {
-      // Find original numeric id by reading from the cloned match we put in participants: we kept original under 'idOriginal'?
-      // We didn't, so derive by looking up in rounds
-      // Create reverse index: dom id to match
-      idMap.set(m.id, m);
-    });
-
-    const domIdByOriginalId = (origId) => {
-      // search rendered list for a match with same original id in its spread properties
-      const found = renderedMatches.find(rm => rm.id && (rm.originalId === origId || rm._origId === origId || rm.id.endsWith(`-${origId}`)));
-      // Fallback: our convert kept original numeric id in match object, but we overwrote id for DOM; attach helper map per pass
-      return found?.id;
-    };
-
-    // Build helper map by scanning DOM dataset: we have data-match-id=dom id already
-    const findDomForOriginal = (origId) => {
-      // Try to locate by searching any rendered match that has same original id stored on dataset; not available -> fall back by querying all and matching via rounds
-      // As a practical approach, search through renderedMatches and pick the one whose underlying round/match object id equals origId
-      const rm = renderedMatches.find(m => {
-        // Reconstruct: league.rounds contains original matches; find by id and then compare round/match index
-        const leagueDetails = bracket.value?.playoff_data?.[activeLeague.value.id];
-        if (!leagueDetails) return false;
-        let found = null;
-        for (const r of leagueDetails.rounds || []) {
-          const idx = (r.matches || []).findIndex(mm => mm.id === origId);
-          if (idx !== -1) { found = { round: r.round, index: idx }; break; }
-        }
-        if (!found) return false;
-        // Our dom id encoding uses r<round>-m<index>
-        const expected = `${activeLeague.value.id}-r${found.round}-m${found.index}`;
-        return m.id === expected;
-      });
-      return rm ? gridRef.value.querySelector(`[data-match-id='${rm.id}']`) : null;
-    };
-
-    conns.forEach((c) => {
-      const startEl = findDomForOriginal(c.from);
-      const endEl = findDomForOriginal(c.to);
-      if (!startEl || !endEl) return;
-
-      const startX = startEl.offsetLeft + startEl.offsetWidth;
-      const startY = startEl.offsetTop + startEl.offsetHeight / 2;
-      const endX = endEl.offsetLeft;
-      const endY = endEl.offsetTop + endEl.offsetHeight / 2;
-      const midX = startX + (endX - startX) / 2;
-
-      newLines.push({ id: `${c.from}->${c.to}-h1`, type: 'H', x: startX, y: startY, width: (midX - startX), highlighted: false });
-      newLines.push({ id: `${c.from}->${c.to}-v`, type: 'V', x: midX, y: Math.min(startY, endY), height: Math.abs(endY - startY), highlighted: false });
-      newLines.push({ id: `${c.from}->${c.to}-h2`, type: 'H', x: midX, y: endY, width: (endX - midX), highlighted: false });
-    });
-
-    lines.value = newLines;
+watch([allMatchesForLeague, zoom, rounds], () => {
+  nextTick(() => {
+    computeColumnLayout();
   });
-};
-
-
-watch([allMatchesForLeague, zoom], () => nextTick(drawLines), { deep: true, immediate: true });
+}, { deep: true, immediate: true });
 
 const updateSizer = () => {
     if (zoomContentRef.value && zoomSizerRef.value) {
@@ -891,11 +1010,13 @@ onMounted(() => {
   if (zoomContentRef.value) {
     resizeObserver = new ResizeObserver(() => {
         updateSizer();
-        drawLines();
+        computeColumnLayout();
     });
     resizeObserver.observe(zoomContentRef.value);
   }
-  drawLines();
+  setTimeout(() => {
+  computeColumnLayout();
+  }, 200);
 });
 
 onUnmounted(() => {
@@ -906,6 +1027,8 @@ onUnmounted(() => {
 });
 
 watch(zoom, updateSizer);
+
+// No connector watchers
 </script>
 
 <style scoped>
@@ -1140,11 +1263,59 @@ watch(zoom, updateSizer);
   width: 100%;
   overflow: auto;
   position: relative;
-  background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.1) 1px, transparent 0);
+  /* Dark canvas with subtle dotted grid */
+  background-color: #0a0a0a;
+  background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.08) 1px, rgba(0,0,0,0) 1px);
   background-size: 20px 20px;
   border-radius: 12px;
   padding: 20px;
   box-sizing: border-box;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+/* Mobile optimizations */
+@media (max-width: 480px) {
+  .bracket-canvas {
+    padding: 12px;
+    background-size: 16px 16px;
+  }
+
+  .round-headers-row {
+    gap: 24px;
+    margin-bottom: 8px;
+  }
+  .round-header-column {
+    width: 240px; /* match .grid-round-column width on mobile */
+  }
+  .round-header-card {
+    padding: 8px 10px;
+  }
+  .round-title {
+    font-size: 14px;
+    letter-spacing: .5px;
+  }
+
+  .bracket-grid {
+    gap: 24px;
+    min-height: 1200px;
+    padding: 10px 0;
+  }
+  .grid-round-column {
+    width: 240px;
+  }
+  .match-card-inner {
+    border-radius: 12px;
+    padding: 12px;
+    min-width: 220px;
+  }
+  .match-mini-header { margin-bottom: 8px; padding-bottom: 8px; }
+  .match-number { font-size: 12px; padding: 3px 8px; }
+  .match-meta { font-size: 10px; }
+  .participants-list { gap: 6px; margin-bottom: 8px; }
+  .participant-row { padding: 8px 10px; }
+  .participant-name { font-size: 13px; }
+  .participant-rank { font-size: 11px; }
+  .results-btn-compact { padding: 8px; font-size: 12px; }
 }
 
 .zoom-container-sizer {
@@ -1159,53 +1330,278 @@ watch(zoom, updateSizer);
 }
 
 .bracket-layout-container {
+  position: relative;
+  min-width: max-content;
+  padding: 40px 20px;
+}
+
+.round-headers-row {
+  display: flex;
+  gap: 80px; /* match grid gap with .bracket-grid */
+  margin-bottom: 16px;
+  padding-left: 0; /* align with grid */
+}
+
+.round-header-column {
+  width: 300px; /* match .grid-round-column width */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.round-header-card {
+  width: 100%;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(99, 102, 241, 0.15));
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  border-radius: 12px;
+  padding: 12px 16px;
+  text-align: center;
+  box-shadow: 0 2px 12px rgba(124, 58, 237, 0.2);
+}
+
+.round-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #e9d5ff;
+  margin: 0 0 12px 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.bracket-grid {
+  position: relative;
   display: flex;
   gap: 80px;
-  align-items: flex-start;
+  min-height: 2000px;
+  padding: 20px 0;
 }
 
-.round-column {
+.grid-round-column {
+  position: relative;
+  width: 300px;
+  flex-shrink: 0;
+}
+
+.match-card-positioned {
+  position: relative;
+  z-index: 10;
+}
+
+.match-card-inner {
+  background: linear-gradient(135deg, rgba(30, 30, 30, 0.95), rgba(20, 20, 20, 0.9));
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 240px;
+}
+
+.match-card-inner:hover {
+  border-color: rgba(139, 92, 246, 0.5);
+  box-shadow: 0 12px 40px rgba(124, 58, 237, 0.3), 0 0 0 1px rgba(139, 92, 246, 0.2);
+  transform: translateY(-4px);
+}
+
+.match-card-positioned.highlighted .match-card-inner {
+  border-color: rgba(139, 92, 246, 0.8);
+  box-shadow: 0 12px 48px rgba(124, 58, 237, 0.6), 0 0 0 2px rgba(139, 92, 246, 0.5);
+}
+
+.match-mini-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.match-number {
+  font-size: 14px;
+  font-weight: 700;
+  color: #a78bfa;
+  background: rgba(124, 58, 237, 0.2);
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+
+.match-meta {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 16px; /* Spacing between matches in a round */
+  gap: 4px;
+  font-size: 11px;
+  color: #9ca3af;
 }
 
-.round-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 20px;
-  width: 240px; /* Match match-card width */
+.meta-item {
+  white-space: nowrap;
 }
 
-.round-controls {
+.match-editor-compact {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  align-items: center;
+  margin-bottom: 12px;
 }
 
-.publish-round-btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 6px;
+.compact-input {
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 8px;
   color: #fff;
-  font-weight: 600;
+  font-size: 13px;
+  transition: all 0.2s ease;
+}
+
+.compact-input:focus {
+  outline: none;
+  border-color: rgba(139, 92, 246, 0.6);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+}
+
+.participants-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.participant-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
+
+.participant-row:hover {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.3);
+  transform: translateX(4px);
+}
+
+.participant-row.is-winner {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(22, 163, 74, 0.1));
+  border-color: rgba(34, 197, 94, 0.5);
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.2);
+}
+
+.participant-row.highlighted-participant {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(124, 58, 237, 0.2));
+  border-color: rgba(139, 92, 246, 0.7);
+  box-shadow: 0 0 16px rgba(139, 92, 246, 0.4);
+}
+
+.participant-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e5e7eb;
+}
+
+.participant-row.is-winner .participant-name {
+  color: #6ee7b7;
+}
+
+.participant-rank {
+  font-size: 12px;
+  font-weight: 700;
+  color: #a78bfa;
+  background: rgba(124, 58, 237, 0.2);
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.results-btn-compact {
+  width: 100%;
+  padding: 10px;
+  background: linear-gradient(135deg, #7c3aed, #8b5cf6);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.results-btn-compact:hover {
+  background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.5);
+  transform: translateY(-2px);
+}
+
+.connections-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.connections-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 2; /* above svg for glow */
+}
+
+.connection-path {
+  opacity: 0.8;
+  transition: all 0.3s ease;
+  stroke-width: 2.5;
+}
+
+.connection-path.highlighted {
+  stroke: #22c55e !important;
+  stroke-width: 4;
+  opacity: 1;
+  filter: drop-shadow(0 0 12px rgba(34, 197, 94, 0.8));
+}
+
+.publish-round-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
 .publish-round-btn.publish {
-  background-color: #16a34a; /* green */
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+}
+.publish-round-btn.publish:hover:not(:disabled) {
+  box-shadow: 0 6px 20px rgba(34, 197, 94, 0.5);
+  transform: translateY(-2px);
 }
 .publish-round-btn.unpublish {
-  background-color: #dc2626; /* red */
+  background: linear-gradient(135deg, #dc2626, #ef4444);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+.publish-round-btn.unpublish:hover:not(:disabled) {
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5);
+  transform: translateY(-2px);
 }
 .publish-round-btn:disabled {
-  background-color: #444;
+  opacity: 0.4;
   cursor: not-allowed;
-  opacity: 0.7;
+  transform: none;
 }
 
 .generate-next-round-btn {
@@ -1290,6 +1686,7 @@ watch(zoom, updateSizer);
   width: 240px;
   white-space: nowrap;
   transition: all 0.3s ease;
+  margin-top: 0; /* dynamically adjusted when centering via JS */
 }
 
 .match-card.highlighted {

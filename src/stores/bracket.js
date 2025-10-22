@@ -581,19 +581,97 @@ export const useBracketStore = defineStore('bracket', () => {
     return true;
   };
 
-  const updatePlayoffMatch = (leagueName, matchId, updatedMatch) => {
+  const updatePlayoffMatch = (a, b, c) => {
     if (!bracket.value?.playoff_data) return;
+    // Support two call shapes:
+    // 1) updatePlayoffMatch({ leagueName, roundIndex, matchIndex, updatedMatchData })
+    // 2) updatePlayoffMatch(leagueName, matchId, updatedMatch)
+    if (typeof a === 'object' && a) {
+      const leagueKey = typeof a.leagueName === 'string' ? a.leagueName : (a.leagueName?.value || 'alpha');
+      const league = bracket.value.playoff_data[leagueKey];
+      if (!league) return;
+      const r = a.roundIndex;
+      const m = a.matchIndex;
+      if (league.rounds?.[r]?.matches?.[m]) {
+        league.rounds[r].matches[m] = a.updatedMatchData;
+        updateBracketData();
+      }
+      return;
+    }
+    const leagueName = a; const matchId = b; const updatedMatch = c;
     const league = bracket.value.playoff_data[leagueName];
     if (!league) return;
-
     for (const round of league.rounds) {
-      const matchIndex = round.matches.findIndex(m => m.id === matchId);
-      if (matchIndex !== -1) {
-        round.matches[matchIndex] = updatedMatch;
-        break;
-      }
+      const idx = round.matches.findIndex(m => m.id === matchId);
+      if (idx !== -1) { round.matches[idx] = updatedMatch; break; }
     }
     updateBracketData();
+  };
+
+  // Publish a specific playoff round: mark as published and create a tournament post
+  const publishPlayoffRound = async ({ leagueName, roundIndex }) => {
+    if (!bracket.value?.playoff_data) return false;
+    const tournamentsStore = useTournamentsStore();
+    const key = typeof leagueName === 'string' ? leagueName : (leagueName?.value || 'alpha');
+    const league = bracket.value.playoff_data[key];
+    if (!league) return false;
+    const round = league.rounds?.[roundIndex];
+    if (!round) return false;
+
+    // Mark round as published
+    round.published = true;
+    await updateBracketData();
+
+    // Compose announcement post text
+    // Resolve display names (profiles.fullname) for LD participants and judges
+    let usernameToFullname = new Map();
+    try {
+      const usernames = new Set();
+      (round.matches || []).forEach(m => {
+        (m.teams || []).forEach(t => { if (t?.faction_name) usernames.add(t.faction_name); });
+        if (m.judge) {
+          const ju = String(m.judge).replace(/^@/, '');
+          if (ju) usernames.add(ju);
+        }
+      });
+      if (key === 'ld' && usernames.size > 0) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('telegram_username, fullname')
+          .in('telegram_username', Array.from(usernames));
+        if (!error && data) {
+          usernameToFullname = new Map(data.map(p => [p.telegram_username, p.fullname || p.telegram_username]));
+        }
+      }
+    } catch (_) { /* ignore mapping errors, fall back to usernames */ }
+
+    const lines = [];
+    lines.push(`📣 Плей-офф ${league.name || key} — Раунд ${round.round}`);
+    lines.push('');
+    (round.matches || []).forEach((m, i) => {
+      const teamNames = (m.teams || [])
+        .map(t => {
+          const n = t?.faction_name;
+          if (!n) return null;
+          return key === 'ld' ? (usernameToFullname.get(n) || n) : n;
+        })
+        .filter(Boolean);
+      const pairText = league.format === 'БПФ' && teamNames.length === 4
+        ? `${teamNames[0]} / ${teamNames[2]}  VS  ${teamNames[1]} / ${teamNames[3]}`
+        : teamNames.join(' VS ');
+      lines.push(`Матч ${i + 1}`);
+      lines.push(`Кабинет: ${m.room || '—'}`);
+      lines.push(`Пара: ${pairText || '—'}`);
+      const judgeUsername = String(m.judge || '').replace(/^@/, '');
+      const judgeDisplay = key === 'ld' ? (usernameToFullname.get(judgeUsername) || m.judge || '—') : (m.judge || '—');
+      lines.push(`Судья: ${judgeDisplay}`);
+      lines.push('');
+    });
+    const text = lines.join('\n');
+
+    // Create tournament post
+    await tournamentsStore.createTournamentPost(bracket.value.tournament_id, text);
+    return true;
   };
 
   const areAllPlayoffsFinished = () => {
@@ -689,12 +767,27 @@ export const useBracketStore = defineStore('bracket', () => {
     return resultsText;
   };
 
-  const generateFinalResultsPost = () => {
+  const generateFinalResultsPost = async () => {
     if (!bracket.value?.playoff_data) return 'Данные плей-офф отсутствуют.';
 
     const { playoff_data } = bracket.value;
     const alphaLeague = playoff_data.alpha;
     let postText = '🏆 Итоги турнира 🏆\n\n';
+
+    // Build username -> fullname map for all registered players
+    const tournamentsStore = useTournamentsStore();
+    const regs = tournamentsStore.registrations || [];
+    const allUsernames = [];
+    regs.forEach(r => { if (r.speaker1_username) allUsernames.push(r.speaker1_username); if (r.speaker2_username) allUsernames.push(r.speaker2_username); });
+    let nameMap = {};
+    try { nameMap = await tournamentsStore.getUserNames(allUsernames); } catch (_) {}
+    const playersOfTeam = (regId) => {
+      const r = regs.find(x => x.id === regId);
+      if (!r) return [];
+      const p1 = r.speaker1_username ? (nameMap[r.speaker1_username] || r.speaker1_username) : null;
+      const p2 = r.speaker2_username ? (nameMap[r.speaker2_username] || r.speaker2_username) : null;
+      return [p1, p2].filter(Boolean);
+    };
 
     if (alphaLeague) {
       const finalRound = alphaLeague.rounds[alphaLeague.rounds.length - 1];
@@ -702,8 +795,10 @@ export const useBracketStore = defineStore('bracket', () => {
       const winner = finalMatch.teams.find(t => t.rank === 1);
       const runnerUp = finalMatch.teams.find(t => t.rank !== 1);
 
-      postText += `🥇 Победитель турнира:\n${winner.faction_name}\n\n`;
-      postText += `🥈 Второе место:\n${runnerUp.faction_name}\n\n`;
+      const winnerPlayers = playersOfTeam(winner?.reg_id).join(', ');
+      const runnerPlayers = playersOfTeam(runnerUp?.reg_id).join(', ');
+      postText += `🥇 Победитель турнира:\n${winner.faction_name}${winnerPlayers ? `\nИгроки: ${winnerPlayers}` : ''}\n\n`;
+      postText += `🥈 Второе место:\n${runnerUp.faction_name}${runnerPlayers ? `\nИгроки: ${runnerPlayers}` : ''}\n\n`;
 
       if (alphaLeague.rounds.length > 1) {
         const semiFinalRound = alphaLeague.rounds[alphaLeague.rounds.length - 2];
@@ -721,9 +816,11 @@ export const useBracketStore = defineStore('bracket', () => {
           return statsB.totalSP - statsA.totalSP;
         });
 
-        postText += `🥉 Третье место:\n${semiFinalLosers[0].faction_name}\n\n`;
+        const thirdPlayers = playersOfTeam(semiFinalLosers[0]?.reg_id).join(', ');
+        postText += `🥉 Третье место:\n${semiFinalLosers[0].faction_name}${thirdPlayers ? `\nИгроки: ${thirdPlayers}` : ''}\n\n`;
         if (semiFinalLosers.length > 1) {
-          postText += `🏅 Четвертое место:\n${semiFinalLosers[1].faction_name}\n\n`;
+          const fourthPlayers = playersOfTeam(semiFinalLosers[1]?.reg_id).join(', ');
+          postText += `🏅 Четвертое место:\n${semiFinalLosers[1].faction_name}${fourthPlayers ? `\nИгроки: ${fourthPlayers}` : ''}\n\n`;
         }
       }
     }
@@ -734,7 +831,17 @@ export const useBracketStore = defineStore('bracket', () => {
       const finalMatch = finalRound.matches[0];
       const bestSpeaker = finalMatch.teams.find(t => t.rank === 1);
       if (bestSpeaker) {
-        postText += `🎤 Лучший спикер турнира:\n${bestSpeaker.faction_name}\n\n`;
+        // For LD, faction_name is username — convert to fullname
+        let fullname = bestSpeaker.faction_name;
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('fullname')
+            .eq('telegram_username', bestSpeaker.faction_name)
+            .single();
+          if (!error && data && data.fullname) fullname = data.fullname;
+        } catch (_) {}
+        postText += `🎤 Лучший спикер турнира:\n${fullname}\n\n`;
       }
     }
     
@@ -791,7 +898,7 @@ export const useBracketStore = defineStore('bracket', () => {
     const tournamentsStore = useTournamentsStore();
     
     // Generate final results post with playoff rankings
-    const resultsPost = generateFinalResultsPost();
+    const resultsPost = await generateFinalResultsPost();
     
     // Create tournament post with final results
     const success = await tournamentsStore.createTournamentPost(
@@ -918,6 +1025,7 @@ export const useBracketStore = defineStore('bracket', () => {
     finalizeAndPublishBreak,
     generateNextPlayoffRound,
     updatePlayoffMatch,
-    publishFinalResults
+    publishFinalResults,
+    publishPlayoffRound
   };
 });

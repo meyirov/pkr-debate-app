@@ -3,7 +3,7 @@
     <div class="modal-content">
       <h3>Результаты матча</h3>
       <div v-if="localParticipants.length > 0" class="match-details">
-        <h4>{{ localParticipants.map(p => p.faction_name).join(' vs ') }}</h4>
+        <h4>{{ localParticipants.map(p => displayName(p.faction_name)).join(' vs ') }}</h4>
         <div class="teams-container">
           <div 
             v-for="participant in localParticipants"
@@ -12,7 +12,7 @@
             :class="{ winner: participant.rank === 1 }"
             @click="setWinner(participant)"
           >
-            {{ participant.faction_name }}
+            {{ displayName(participant.faction_name) }}
           </div>
         </div>
       </div>
@@ -28,7 +28,8 @@
 import { ref, watch, defineProps, defineEmits } from 'vue';
 
 const props = defineProps({
-  match: { type: Object, required: true }
+  match: { type: Object, required: true },
+  displayNameMap: { type: Object, default: null }
 });
 
 const emit = defineEmits(['close', 'save']);
@@ -43,7 +44,7 @@ watch(() => props.match, (newMatch) => {
 
 const setWinner = (winner) => {
   localParticipants.value.forEach(p => {
-    p.rank = (p.faction_name === winner.faction_name) ? 1 : 2;
+    p.rank = (p === winner) ? 1 : 2;
   });
 };
 
@@ -53,6 +54,14 @@ const saveResults = () => {
     teams: localParticipants.value
   };
   emit('save', updatedMatch);
+};
+
+const displayName = (usernameOrName) => {
+  if (!usernameOrName) return 'TBD';
+  if (props.displayNameMap && typeof props.displayNameMap.get === 'function') {
+    return props.displayNameMap.get(usernameOrName) || usernameOrName;
+  }
+  return usernameOrName;
 };
 </script>
 
