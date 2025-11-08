@@ -173,7 +173,7 @@ export const useBracketStore = defineStore('bracket', () => {
 
     const firstRoundData = { round: 1, matches: roundMatches };
     const bracketData = {
-      setup: { format, teamCount, roundCount },
+      setup: { format, teamCount, roundCount, roomsText: setupData.roomsText || '' },
       matches: [firstRoundData]
     };
     
@@ -190,7 +190,47 @@ export const useBracketStore = defineStore('bracket', () => {
       return false;
     }
     bracket.value = data;
+
+    // Immediately auto-assign judges for first qualifying round
+    try {
+      const judgesStore = useJudgesStore();
+      try { await judgesStore.loadJudges(bracket.value.tournament_id); } catch (_) {}
+      await _assignJudgesForQualifyingRound(0);
+    } catch (e) { console.warn('Автоназанначение судей для отборочного раунда не выполнено:', e); }
     return true;
+  };
+
+  // Assign judges to a qualifying round index (0-based) using club conflict rule
+  const _assignJudgesForQualifyingRound = async (roundIdx) => {
+    const judgesStore = useJudgesStore();
+    const tournamentsStore = useTournamentsStore();
+    let accepted = judgesStore?.acceptedJudges?.value || [];
+    if (accepted.length === 0) {
+      // Fallback to pending judges if none accepted yet
+      accepted = judgesStore?.pendingJudges?.value || [];
+    }
+    if (!bracket.value?.matches?.matches?.[roundIdx] || accepted.length === 0) return;
+
+    const regIdToClub = new Map((tournamentsStore.registrations || []).map(r => [r.id, (r.club || '').toString().trim().toLowerCase()]));
+    const used = new Map();
+    const canJudge = (judge, match) => {
+      const jClub = (judge.club || '').toString().trim().toLowerCase();
+      if (!jClub) return true;
+      return !(match.teams || []).some(t => regIdToClub.get(t.reg_id) === jClub);
+    };
+    const matches = bracket.value.matches.matches[roundIdx].matches || [];
+    for (const m of matches) {
+      const sorted = accepted.slice().sort((a,b)=> (used.get(a.judge_username)||0) - (used.get(b.judge_username)||0));
+      let chosen = null;
+      for (const j of sorted) { if (canJudge(j, m)) { chosen = j; break; } }
+      if (!chosen) chosen = sorted[0];
+      if (chosen) {
+        m.judge = '@' + chosen.judge_username;
+        m.judges = [chosen.judge_username]; // single auto-assign, editable later for multiple
+        used.set(chosen.judge_username, (used.get(chosen.judge_username)||0)+1);
+      }
+    }
+    await updateBracketData();
   };
 
   const updateBracketData = async () => {
@@ -322,7 +362,12 @@ export const useBracketStore = defineStore('bracket', () => {
     
     // Assign judges avoiding club conflicts
     try {
-      const acceptedJudges = judgesStore.acceptedJudges;
+      // Ensure judges list is loaded and work with plain arrays (not computed refs)
+      try { await judgesStore.loadJudges(bracket.value.tournament_id); } catch (_) {}
+      let acceptedJudges = judgesStore?.acceptedJudges?.value ?? judgesStore?.acceptedJudges ?? [];
+      if (!acceptedJudges || acceptedJudges.length === 0) {
+        acceptedJudges = judgesStore?.pendingJudges?.value ?? judgesStore?.pendingJudges ?? [];
+      }
       const registrations = tournamentsStore.registrations;
       const regIdToClub = new Map(registrations.map(r => [r.id, (r.club || '').toString().trim().toLowerCase()]));
       let judgeIdx = 0;
@@ -352,6 +397,7 @@ export const useBracketStore = defineStore('bracket', () => {
           // fallback assign next judge even if conflict (should be rare if many judges)
           const j = acceptedJudges[judgeIdx];
           m.judge = '@' + j.judge_username;
+          m.judges = [j.judge_username];
           judgeIdx = (judgeIdx + 1) % acceptedJudges.length;
         }
       }
@@ -452,6 +498,18 @@ export const useBracketStore = defineStore('bracket', () => {
 
     // Update bracket with playoff data
     bracket.value.playoff_data = playoffData;
+
+    // Auto-assign rooms and judges for the first playoff round of each league
+    try {
+      // Ensure judges list is loaded
+      const judgesStore = useJudgesStore();
+      try { await judgesStore.loadJudges(bracket.value.tournament_id); } catch (_) {}
+      await _assignJudgesAndRoomsForPlayoffRound('alpha');
+      await _assignJudgesAndRoomsForPlayoffRound('beta');
+      await _assignJudgesAndRoomsForPlayoffRound('ld');
+    } catch (e) {
+      console.warn('Автоназначение судей/кабинетов для плей-офф не выполнено:', e);
+    }
     bracket.value.results_published = true;
     
     const { error } = await supabase
@@ -507,6 +565,80 @@ export const useBracketStore = defineStore('bracket', () => {
       totalRounds: Math.ceil(Math.log2(validTeamCount)), // Total rounds needed
       currentRound: 1
     };
+  };
+
+  // Public: assign judges and rooms for first round of each existing playoff league
+  const assignInitialJudgesAndRoomsForPlayoff = async () => {
+    if (!bracket.value?.playoff_data) return;
+    try {
+      const judgesStore = useJudgesStore();
+      try { await judgesStore.loadJudges(bracket.value.tournament_id); } catch (_) {}
+      await _assignJudgesAndRoomsForPlayoffRound('alpha');
+      await _assignJudgesAndRoomsForPlayoffRound('beta');
+      await _assignJudgesAndRoomsForPlayoffRound('ld');
+    } catch (e) {
+      console.warn('Автоназначение судей для стартовых раундов плей-офф не выполнено:', e);
+    }
+  };
+
+  // Helper: assign judges and rooms to a specific playoff round using club conflict rules
+  const _assignJudgesAndRoomsForPlayoffRound = async (leagueKey) => {
+    if (!bracket.value?.playoff_data) return;
+    const key = (leagueKey || '').toLowerCase();
+    const league = bracket.value.playoff_data[key];
+    if (!league || !league.rounds || league.rounds.length === 0) return;
+    const round = league.rounds[0]; // first round by default for initial assignment
+
+    const tournamentsStore = useTournamentsStore();
+    const judgesStore = useJudgesStore();
+
+    const roomsList = (bracket.value.matches?.setup?.roomsText || '')
+      .split(',').map(s => s.trim()).filter(Boolean);
+    const accepted = judgesStore?.acceptedJudges?.value || [];
+
+    const regIdToClub = new Map();
+    if (key !== 'ld') {
+      (tournamentsStore.registrations || []).forEach(r => {
+        regIdToClub.set(r.id, (r.club || '').toString().trim().toLowerCase());
+      });
+    }
+
+    const usedCount = new Map();
+    const nextJudge = () => {
+      if (accepted.length === 0) return null;
+      const sorted = accepted.slice().sort((a, b) => (usedCount.get(a.judge_username) || 0) - (usedCount.get(b.judge_username) || 0));
+      return sorted[0] || null;
+    };
+
+    const canJudgeMatch = (judge, match) => {
+      if (!judge) return false;
+      if (key === 'ld') return true;
+      const jClub = (judge.club || '').toString().trim().toLowerCase();
+      if (!jClub) return true;
+      return !(match.teams || []).some(t => regIdToClub.get(t.reg_id) === jClub);
+    };
+
+    let roomIdx = 0;
+    for (const m of round.matches || []) {
+      // room
+      if (roomsList.length > 0) m.room = roomsList[roomIdx % roomsList.length];
+      roomIdx++;
+      // judge
+      let chosen = null;
+      if (accepted.length > 0) {
+        // Try up to N judges to satisfy conflict
+        const sorted = accepted.slice().sort((a, b) => (usedCount.get(a.judge_username) || 0) - (usedCount.get(b.judge_username) || 0));
+        for (const j of sorted) {
+          if (canJudgeMatch(j, m)) { chosen = j; break; }
+        }
+        if (!chosen) chosen = sorted[0];
+        if (chosen) {
+          m.judge = '@' + chosen.judge_username;
+          usedCount.set(chosen.judge_username, (usedCount.get(chosen.judge_username) || 0) + 1);
+        }
+      }
+    }
+    await updateBracketData();
   };
 
   const generateNextPlayoffRound = async (leagueName) => {
@@ -574,6 +706,49 @@ export const useBracketStore = defineStore('bracket', () => {
     // Add next round to playoff
     playoff.rounds.push(nextRound);
     playoff.currentRound++;
+
+    // Auto-assign judges/rooms for the new round
+    try {
+      const key = (leagueName || '').toLowerCase();
+      const league = bracket.value.playoff_data[key];
+      if (league && league.rounds && league.rounds.length > 0) {
+        const tournamentsStore = useTournamentsStore();
+        const judgesStore = useJudgesStore();
+        try { await judgesStore.loadJudges(bracket.value.tournament_id); } catch (_) {}
+        const roomsList = (bracket.value.matches?.setup?.roomsText || '').split(',').map(s => s.trim()).filter(Boolean);
+        let accepted = judgesStore?.acceptedJudges?.value || [];
+        if (accepted.length === 0) {
+          accepted = judgesStore?.pendingJudges?.value || [];
+        }
+        const regIdToClub = new Map();
+        if (key !== 'ld') {
+          (tournamentsStore.registrations || []).forEach(r => regIdToClub.set(r.id, (r.club || '').toString().trim().toLowerCase()));
+        }
+        const canJudgeMatch = (judge, match) => {
+          if (!judge) return false; if (key === 'ld') return true;
+          const jClub = (judge.club || '').toString().trim().toLowerCase();
+          if (!jClub) return true;
+          return !(match.teams || []).some(t => regIdToClub.get(t.reg_id) === jClub);
+        };
+        const usedCount = new Map();
+        let roomIdx = 0;
+        for (const m of nextRound.matches) {
+          if (roomsList.length > 0) m.room = roomsList[roomIdx % roomsList.length];
+          roomIdx++;
+          if (accepted.length > 0) {
+            const sorted = accepted.slice().sort((a, b) => (usedCount.get(a.judge_username) || 0) - (usedCount.get(b.judge_username) || 0));
+            let chosen = null;
+            for (const j of sorted) { if (canJudgeMatch(j, m)) { chosen = j; break; } }
+            if (!chosen) chosen = sorted[0];
+            if (chosen) {
+              m.judge = '@' + chosen.judge_username;
+              m.judges = [chosen.judge_username];
+              usedCount.set(chosen.judge_username, (usedCount.get(chosen.judge_username) || 0) + 1);
+            }
+          }
+        }
+      }
+    } catch (e) { console.warn('Автоназначение судей/кабинетов для нового раунда плей-офф не выполнено:', e); }
 
     // Save to database
     await updateBracketData();
@@ -1026,6 +1201,7 @@ export const useBracketStore = defineStore('bracket', () => {
     generateNextPlayoffRound,
     updatePlayoffMatch,
     publishFinalResults,
-    publishPlayoffRound
+    publishPlayoffRound,
+    assignInitialJudgesAndRoomsForPlayoff
   };
 });

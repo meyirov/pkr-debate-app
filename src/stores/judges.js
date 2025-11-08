@@ -8,8 +8,9 @@ export const useJudgesStore = defineStore('judges', () => {
   const judges = ref([]); // { id, tournament_id, judge_username, status, club, timestamp }
   const isLoading = ref(false);
 
-  const acceptedJudges = computed(() => judges.value.filter(j => j.status === 'accepted'));
-  const pendingJudges = computed(() => judges.value.filter(j => j.status === 'pending'));
+  const normalizeStatus = (s) => (s || '').toString().trim().toLowerCase();
+  const acceptedJudges = computed(() => judges.value.filter(j => normalizeStatus(j.status) === 'accepted'));
+  const pendingJudges = computed(() => judges.value.filter(j => normalizeStatus(j.status) === 'pending'));
 
   const loadJudges = async (tournamentId) => {
     isLoading.value = true;
@@ -28,22 +29,26 @@ export const useJudgesStore = defineStore('judges', () => {
 
     const raw = data || [];
 
-    // Enrich clubs from profiles to ensure up-to-date club info
+    // Enrich clubs and full names from profiles to ensure up-to-date info
     const usernames = Array.from(new Set(raw.map(j => j.judge_username).filter(Boolean)));
     let clubMap = {};
+    let nameMap = {};
     if (usernames.length > 0) {
       const { data: profiles, error: pErr } = await supabase
         .from('profiles')
-        .select('telegram_username, club')
+        .select('telegram_username, club, fullname')
         .in('telegram_username', usernames);
       if (!pErr && profiles) {
         clubMap = Object.fromEntries(profiles.map(p => [p.telegram_username, p.club]));
+        nameMap = Object.fromEntries(profiles.map(p => [p.telegram_username, p.fullname]));
       }
     }
 
     judges.value = raw.map(j => ({
       ...j,
       club: j.club || clubMap[j.judge_username] || null,
+      fullname: nameMap[j.judge_username] || null,
+      status: normalizeStatus(j.status) || 'pending',
     }));
     isLoading.value = false;
   };

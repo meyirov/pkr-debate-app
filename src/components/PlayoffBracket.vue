@@ -16,7 +16,86 @@
 
     <!-- Playoff Bracket Display (if generated) -->
     <div v-else-if="bracket?.playoff_data && !showConstructor" class="bracket-display-container">
-      <div class="bracket-controls-container">
+      <!-- MOBILE: Round-by-round view (Option A) -->
+      <div v-if="isMobile" class="mobile-bracket">
+        <div class="mobile-top-controls">
+          <div class="league-tabs" v-if="leagues.length > 1">
+            <button
+              v-for="league in leagues"
+              :key="league.id"
+              :class="{ active: activeLeagueId === league.id }"
+              @click="activeLeagueName = league.id"
+            >
+              {{ league.name }}
+            </button>
+          </div>
+
+          <div class="round-chip-bar" ref="chipBarRef">
+            <button
+              v-for="(r, i) in visualRounds"
+              :key="`chip-${i}`"
+              :class="['round-chip', { active: i === mobileRoundIndex } ]"
+              @click="mobileRoundIndex = i; scrollToTopMobile()"
+            >
+              {{ r.displayLabel || getRoundDisplayName(r.round) }}
+            </button>
+          </div>
+        </div>
+
+        <div class="mobile-match-list" ref="mobileListRef">
+          <div
+            v-for="(match, idx) in (visualRounds[mobileRoundIndex]?.matches || [])"
+            :key="`m-${mobileRoundIndex}-${match.id}`"
+            class="mobile-match-card"
+          >
+            <div class="mobile-match-head">
+              <span class="mobile-match-num">M{{ match.match_in_round }}</span>
+                      <div class="mobile-match-meta">
+                <span class="meta-item">🚪 {{ match.room || '-' }}</span>
+                <span class="meta-item">⚖️ {{ match.judge || '-' }}</span>
+              </div>
+            </div>
+
+            <div class="mobile-participants">
+              <div
+                v-for="(team, tIdx) in (match.teams || [])"
+                :key="`p-${match.id}-${tIdx}`"
+                class="mobile-participant"
+                :class="{ winner: team?.rank === 1 }"
+              >
+                <span class="name">{{ displayTeamName(team) }}</span>
+                <span v-if="team?.rank" class="rank">{{ team.rank }}</span>
+              </div>
+            </div>
+
+            <button
+              v-if="mobileRoundIndex > 0"
+              class="mobile-toggle-sources"
+              @click="toggleMobileSources(match.id)"
+            >
+              {{ expandedMobileSources.has(match.id) ? 'Скрыть источник' : 'Показать источник' }}
+            </button>
+
+            <div v-if="expandedMobileSources.has(match.id) && mobileRoundIndex > 0" class="mobile-sources">
+              <div class="mobile-source-title">Из предыдущего раунда</div>
+              <div class="mobile-source-cards">
+                <div v-for="src in getMobileSourceMatches(mobileRoundIndex, idx)" :key="`src-${src?.id}`" class="mobile-source-card">
+                      <div class="mobile-source-head">M{{ src?.match_in_round }}</div>
+                  <div class="mobile-participants">
+                    <div v-for="(team, sIdx) in (src?.teams || [])" :key="`sp-${src?.id}-${sIdx}`" class="mobile-participant" :class="{ winner: team?.rank === 1 }">
+                      <span class="name">{{ displayTeamName(team) }}</span>
+                      <span v-if="team?.rank" class="rank">{{ team.rank }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DESKTOP: original canvas bracket -->
+      <div v-else class="bracket-controls-container">
         <div class="publish-container">
           <template v-if="isCreator">
             <button v-if="!bracket?.final_results_published && allPlayoffsFinished" @click="handlePublish" class="publish-button">
@@ -103,8 +182,39 @@
                     </div>
                     
                       <div v-if="isCreator && !round.published && !bracket?.final_results_published" class="match-editor-compact">
-                        <input v-model="match.room" type="text" placeholder="Кабинет" @input="debouncedSave(activeLeagueId, roundIndex, matchIndex)" class="compact-input">
-                        <input v-model="match.judge" type="text" placeholder="Судья" @input="debouncedSave(activeLeagueId, roundIndex, matchIndex)" class="compact-input">
+                        <!-- Room dropdown -->
+                        <select v-model="match.room" @change="debouncedSave(activeLeagueId, roundIndex, matchIndex)" class="compact-input">
+                          <option value="">Выберите кабинет</option>
+                          <option v-for="room in roomsOptions" :key="room" :value="room">{{ room }}</option>
+                        </select>
+                        <!-- Judges: primary dropdown + additional checkboxes -->
+                        <div class="judges-dropdown">
+                          <div class="judge-select" @click="toggleJudgeMenu(roundIndex, matchIndex)">
+                            <span v-if="getPrimaryUsername(match)">{{ displayJudgeName(getPrimaryUsername(match)) }}</span>
+                            <span v-else class="placeholder">Выберите судью</span>
+                            <span class="chevron">▾</span>
+                          </div>
+                          <div 
+                            v-if="isJudgeMenuOpen(roundIndex, matchIndex)"
+                            class="judge-menu"
+                          >
+                            <div class="judge-menu-header">Выберите главного судью и доп. судей</div>
+                            <div
+                              v-for="j in availableJudgesForPlayoff(match, roundIndex, matchIndex)"
+                              :key="'opt-' + j.judge_username"
+                              class="judge-row"
+                            >
+                              <label class="radio-wrap">
+                                <input type="radio" name="primary-{{roundIndex}}-{{matchIndex}}" :checked="getPrimaryUsername(match)===j.judge_username" @change="selectPrimaryJudge(j.judge_username, match, roundIndex, matchIndex)">
+                              </label>
+                              <label class="checkbox-wrap">
+                                <input type="checkbox" :checked="Array.isArray(match.judges) && match.judges.includes(j.judge_username)" @change="toggleAdditionalJudge(j.judge_username, match, roundIndex, matchIndex)">
+                              </label>
+                              <div class="judge-label">{{ displayJudgeName(j.judge_username) }}<span v-if="j.club"> — {{ j.club }}</span></div>
+                            </div>
+                            <button class="judge-menu-close" @click.stop="toggleJudgeMenu(roundIndex, matchIndex)">Готово</button>
+                          </div>
+                        </div>
                     </div>
 
                       <div class="participants-list">
@@ -163,6 +273,8 @@ import { useBracketStore } from '@/stores/bracket';
 import { storeToRefs } from 'pinia';
 import PlayoffMatchModal from '@/components/PlayoffMatchModal.vue';
 import PlayoffBracketConstructor from '@/components/PlayoffBracketConstructor.vue';
+import { useJudgesStore } from '@/stores/judges';
+import { useTournamentsStore } from '@/stores/tournaments';
 
 const props = defineProps({
   tournamentId: {
@@ -179,6 +291,8 @@ const emit = defineEmits(['dataChanged']);
 
 const bracketStore = useBracketStore();
 const { bracket } = storeToRefs(bracketStore);
+const judgesStore = useJudgesStore();
+const tournamentsStore = useTournamentsStore();
 
 const activeLeagueName = ref(null);
 const showConstructor = ref(false);
@@ -390,6 +504,9 @@ const handleSaveConstructor = async (constructorData) => {
   // Persist
   bracket.value.playoff_data = playoffData;
   await bracketStore.updateBracketData();
+  // Auto-assign rooms and judges for first round across leagues
+  try { await judgesStore.loadJudges(bracket.value?.tournament_id || props.tournamentId); } catch (_) {}
+  try { await bracketStore.assignInitialJudgesAndRoomsForPlayoff(); } catch (_) {}
   showConstructor.value = false;
   emit('dataChanged');
 };
@@ -596,6 +713,120 @@ const leagues = computed(() => {
   }));
 });
 
+// Rooms options from qualifying setup
+const roomsOptions = computed(() => {
+  const txt = bracket.value?.matches?.setup?.roomsText || '';
+  return txt.split(',').map(s => s.trim()).filter(Boolean);
+});
+
+// Filter accepted judges by club conflict for a match (LD has no conflict)
+const filteredJudgesForMatch = (match) => {
+  const accepted = judgesStore?.acceptedJudges?.value || [];
+  const isLd = activeLeagueId.value === 'ld';
+  const regToClub = new Map((tournamentsStore.registrations || []).map(r => [r.id, (r.club || '').toString().trim().toLowerCase()]));
+  const teamClubs = new Set();
+  if (!isLd) (match?.teams || []).forEach(t => { const c = regToClub.get(t.reg_id); if (c) teamClubs.add(c); });
+  return accepted.filter(j => {
+    if (isLd) return true;
+    const jc = (j.club || '').toString().trim().toLowerCase();
+    if (!jc) return true;
+    return !teamClubs.has(jc);
+  });
+};
+
+// Primary/additional judges helpers
+const getPrimaryUsername = (match) => {
+  return (match?.judge || '').toString().replace(/^@/, '');
+};
+
+const ensurePrimaryFirst = (match) => {
+  const primary = getPrimaryUsername(match);
+  if (!Array.isArray(match.judges)) match.judges = [];
+  if (!primary) {
+    match.judges = match.judges.filter(u => !!u);
+    return;
+  }
+  const rest = match.judges.filter(u => u && u !== primary);
+  match.judges = [primary, ...Array.from(new Set(rest))];
+};
+
+const onPrimaryJudgeChange = () => {};
+const onAdditionalJudgesChange = () => {};
+
+// Custom dropdown state/logic
+const openJudgeMenuKey = ref(null);
+const menuKeyFor = (ri, mi) => `${ri}-${mi}`;
+const isJudgeMenuOpen = (ri, mi) => openJudgeMenuKey.value === menuKeyFor(ri, mi);
+const toggleJudgeMenu = (ri, mi) => {
+  const key = menuKeyFor(ri, mi);
+  openJudgeMenuKey.value = openJudgeMenuKey.value === key ? null : key;
+};
+
+const isJudgeTakenInPlayoff = (username, roundIndex, matchIndex) => {
+  const league = bracket.value?.playoff_data?.[activeLeagueId.value];
+  const round = league?.rounds?.[roundIndex];
+  if (!round) return false;
+  return (round.matches || []).some((m, idx) => {
+    if (idx === matchIndex) return false;
+    const primary = (m.judge || '').replace(/^@/, '');
+    const extras = Array.isArray(m.judges) ? m.judges : [];
+    return primary === username || extras.includes(username);
+  });
+};
+
+const availableJudgesForPlayoff = (match, roundIndex, matchIndex) => {
+  return (allAcceptedJudges.value || []).filter(j => {
+    if (judgeConflictsWithMatch(match, j)) return false;
+    // Allow already-selected users in the same match to stay visible
+    const alreadySelected = getPrimaryUsername(match) === j.judge_username || (Array.isArray(match.judges) && match.judges.includes(j.judge_username));
+    if (alreadySelected) return true;
+    return !isJudgeTakenInPlayoff(j.judge_username, roundIndex, matchIndex);
+  });
+};
+
+const selectPrimaryJudge = (username, match, roundIndex, matchIndex) => {
+  match.judge = username ? ('@' + username) : '';
+  if (!Array.isArray(match.judges)) match.judges = [];
+  if (!match.judges.includes(username)) match.judges.unshift(username);
+  ensurePrimaryFirst(match);
+  debouncedSave(activeLeagueId, roundIndex, matchIndex);
+};
+
+const toggleAdditionalJudge = (username, match, roundIndex, matchIndex) => {
+  if (!Array.isArray(match.judges)) match.judges = [];
+  if (match.judges.includes(username)) {
+    match.judges = match.judges.filter(u => u !== username);
+  } else {
+    match.judges.push(username);
+  }
+  ensurePrimaryFirst(match);
+  debouncedSave(activeLeagueId, roundIndex, matchIndex);
+};
+
+// Judges pool and conflict checks
+const allAcceptedJudges = computed(() => {
+  let list = judgesStore?.acceptedJudges?.value ?? judgesStore?.acceptedJudges ?? [];
+  if (!list || list.length === 0) list = judgesStore?.pendingJudges?.value ?? judgesStore?.pendingJudges ?? [];
+  if (!list || list.length === 0) list = judgesStore?.judges?.value ?? judgesStore?.judges ?? [];
+  return Array.isArray(list) ? list : [];
+});
+const judgeConflictsWithMatch = (match, j) => {
+  const isLd = activeLeagueId.value === 'ld';
+  if (isLd) return false;
+  const jc = (j?.club || '').toString().trim().toLowerCase();
+  if (!jc) return false;
+  const regToClub = new Map((tournamentsStore.registrations || []).map(r => [r.id, (r.club || '').toString().trim().toLowerCase()]));
+  return (match?.teams || []).some(t => regToClub.get(t.reg_id) === jc);
+};
+
+const displayJudgeName = (username) => {
+  const list = judgesStore?.judges?.value || judgesStore?.judges || [];
+  const found = Array.isArray(list) ? list.find(x => x.judge_username === username) : null;
+  return found?.fullname || ('@' + username);
+};
+
+// Debug counters removed per request
+
 // Ensure active league is set when leagues change
 watch(leagues, (newLeagues) => {
   if (newLeagues.length > 0 && !activeLeagueName.value) {
@@ -679,6 +910,30 @@ const zoomContentRef = ref(null);
 const zoomSizerRef = ref(null);
 const canvasRef = ref(null);
 const gridInnerRef = ref(null);
+const isMobile = computed(() => window.innerWidth <= 480);
+const mobileRoundIndex = ref(0);
+const expandedMobileSources = ref(new Set());
+const chipBarRef = ref(null);
+const mobileListRef = ref(null);
+
+function scrollToTopMobile() {
+  if (mobileListRef.value) mobileListRef.value.scrollTop = 0;
+}
+
+function toggleMobileSources(matchId) {
+  const s = new Set(expandedMobileSources.value);
+  if (s.has(matchId)) s.delete(matchId); else s.add(matchId);
+  expandedMobileSources.value = s;
+}
+
+function getMobileSourceMatches(roundIdx, matchIdx) {
+  if (roundIdx <= 0) return [];
+  const prev = visualRounds.value?.[roundIdx - 1];
+  if (!prev) return [];
+  const a = prev.matches?.[matchIdx * 2];
+  const b = prev.matches?.[matchIdx * 2 + 1];
+  return [a, b].filter(Boolean);
+}
 
 let resizeObserver = null;
 
@@ -1006,7 +1261,7 @@ const updateSizer = () => {
     }
 };
 
-onMounted(() => {
+onMounted(async () => {
   if (zoomContentRef.value) {
     resizeObserver = new ResizeObserver(() => {
         updateSizer();
@@ -1017,6 +1272,8 @@ onMounted(() => {
   setTimeout(() => {
   computeColumnLayout();
   }, 200);
+  // Load judges for selectors (playoff)
+  try { await judgesStore.loadJudges(bracket.value?.tournament_id || props.tournamentId); } catch (_) {}
 });
 
 onUnmounted(() => {
@@ -1129,6 +1386,68 @@ watch(zoom, updateSizer);
 .bracket-display-container {
   width: 100%;
 }
+
+/* Mobile round-by-round */
+.mobile-bracket {
+  width: 100%;
+}
+.mobile-top-controls {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 8px 0 8px;
+  background: linear-gradient(180deg, rgba(10,10,10,0.95), rgba(10,10,10,0.6));
+  backdrop-filter: blur(6px);
+}
+.round-chip-bar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+.round-chip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid #333;
+  background: #1e1e1e;
+  color: #ddd;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.round-chip.active { background: #7c3aed; color: #fff; box-shadow: 0 0 14px rgba(124,58,237,0.4); }
+
+.mobile-match-list {
+  height: calc(100vh - 140px);
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mobile-match-card {
+  background: linear-gradient(135deg, rgba(30,30,30,0.95), rgba(20,20,20,0.9));
+  border: 1px solid rgba(139,92,246,0.25);
+  border-radius: 12px;
+  padding: 12px;
+}
+.mobile-match-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.mobile-match-num { font-size: 12px; font-weight: 700; color: #a78bfa; background: rgba(124,58,237,0.2); padding: 3px 8px; border-radius: 8px; }
+.mobile-match-meta { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: #9ca3af; }
+.mobile-participants { display: flex; flex-direction: column; gap: 6px; }
+.mobile-participant { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(139,92,246,0.15); border-radius: 10px; }
+.mobile-participant.winner { background: linear-gradient(135deg, rgba(34,197,94,0.15), rgba(22,163,74,0.1)); border-color: rgba(34,197,94,0.5); }
+.mobile-participant .name { font-size: 13px; color: #e5e7eb; }
+.mobile-participant .rank { font-size: 11px; font-weight: 700; color: #a78bfa; background: rgba(124,58,237,0.2); padding: 3px 6px; border-radius: 6px; }
+.mobile-toggle-sources { margin-top: 8px; width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #333; background: #1e1e1e; color: #fff; font-weight: 600; }
+.mobile-sources { margin-top: 8px; }
+.mobile-source-title { font-size: 12px; color: #aaa; margin-bottom: 6px; }
+.mobile-source-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mobile-source-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(139,92,246,0.15); border-radius: 10px; padding: 8px; }
+.mobile-source-head { font-size: 11px; color: #a78bfa; margin-bottom: 4px; }
 
 .bracket-controls-container {
   display: flex;
@@ -1446,6 +1765,21 @@ watch(zoom, updateSizer);
   gap: 8px;
   margin-bottom: 12px;
 }
+
+.judges-multiselect .judge-option { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #ddd; margin: 4px 0; }
+.judges-list { max-height: 140px; overflow-y: auto; padding: 6px; border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 8px; background: rgba(255,255,255,0.03); }
+
+/* Custom judge dropdown */
+.judges-dropdown { position: relative; }
+.judge-select { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 8px; color: #fff; cursor: pointer; }
+.judge-select .placeholder { color: #aaa; }
+.judge-select .chevron { margin-left: 8px; opacity: .8; }
+.judge-menu { position: absolute; z-index: 30; top: 110%; left: 0; right: 0; background: #1a1a1a; border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 10px; padding: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.4); max-height: 220px; overflow: auto; }
+.judge-menu-header { color: #bbb; font-size: 11px; margin: 4px 2px 8px; }
+.judge-row { display: grid; grid-template-columns: 22px 22px 1fr; align-items: center; gap: 6px; padding: 6px 4px; border-radius: 6px; }
+.judge-row:hover { background: rgba(255,255,255,0.04); }
+.judge-label { color: #ddd; font-size: 13px; }
+.judge-menu-close { margin-top: 6px; width: 100%; padding: 6px 8px; border: 1px solid #333; border-radius: 8px; background: #242424; color: #ddd; cursor: pointer; }
 
 .compact-input {
   padding: 8px 12px;

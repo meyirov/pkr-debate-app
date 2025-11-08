@@ -9,10 +9,11 @@
     </div>
 
     <div v-else-if="tournament" class="tournament-content">
-      <div class="tournament-header">
+      <div class="tournament-header" :class="['league-'+(tournament.league || 'student')]">
         <img :src="tournament.logo || 'https://via.placeholder.com/128'" alt="Логотип турнира">
         <h1>{{ tournament.name }}</h1>
         <p>{{ tournament.scale }} | {{ tournament.city }}</p>
+        <p>Лига: {{ (tournament.league || 'student') === 'student' ? 'Студенческая' : 'Школьная' }}</p>
         <p>Дата: {{ new Date(tournament.date).toLocaleDateString('ru-RU') }}</p>
       </div>
       
@@ -60,10 +61,18 @@
 
           <!-- Teams sub-tab -->
           <div v-if="regSubTab === 'teams'">
-          <button @click="isRegFormVisible = !isRegFormVisible" class="main-action-btn btn-neon">
+          <button 
+            @click="isRegFormVisible = !isRegFormVisible" 
+            class="main-action-btn btn-neon"
+            :disabled="!isEligibleForTeam"
+            :title="!isEligibleForTeam ? ineligibleReason : ''"
+          >
             {{ isRegFormVisible ? 'Скрыть форму' : 'Зарегистрировать команду' }}
           </button>
-          <form v-if="isRegFormVisible" @submit.prevent="handleRegistrationSubmit" class="registration-form">
+          <p v-if="!isEligibleForTeam" class="eligibility-note">
+            {{ ineligibleReason }}
+          </p>
+          <form v-if="isRegFormVisible && isEligibleForTeam" @submit.prevent="handleRegistrationSubmit" class="registration-form">
             <input v-model="regForm.faction_name" type="text" placeholder="Название фракции *" required>
 
             <select v-model="regForm.speaker1_username" required>
@@ -80,9 +89,22 @@
               </option>
             </select>
 
-            <input v-model="regForm.club" type="text" placeholder="Клуб *" required disabled>
+            <input
+              v-if="tournamentLeague === 'student'"
+              v-model="regForm.club"
+              type="text"
+              placeholder="Клуб *"
+              :required="true"
+              disabled
+            >
+            <input
+              v-else
+              :value="t('notApplicable')"
+              type="text"
+              disabled
+            >
             <input v-model="regForm.city" type="text" placeholder="Город" disabled>
-            <small v-if="!regForm.club">Укажите клуб и город в профиле, чтобы зарегистрироваться.</small>
+            <small v-if="tournamentLeague === 'student' && !regForm.club">Укажите клуб и город в профиле, чтобы зарегистрироваться.</small>
 
             <button type="submit" :disabled="isSubmittingReg || !regForm.club || isDuplicateSelection" class="btn-green">
               {{ isSubmittingReg ? 'Отправка...' : 'Отправить заявку' }}
@@ -279,12 +301,14 @@ import { useBracketStore } from '@/stores/bracket';
 import { useJudgesStore } from '@/stores/judges';
 import QualifyingBracket from '@/components/QualifyingBracket.vue';
 import PlayoffBracket from '@/components/PlayoffBracket.vue';
+import { useI18n } from 'vue-i18n';
 
 const route = useRoute();
 const tournamentsStore = useTournamentsStore();
 const userStore = useUserStore();
 const bracketStore = useBracketStore();
 const judgesStore = useJudgesStore();
+const { t } = useI18n();
 
 const tournamentId = ref(route.params.id);
 const activeTab = ref('posts');
@@ -301,30 +325,55 @@ const regForm = reactive({
   faction_name: '', speaker1_username: '', speaker2_username: '', club: '', city: '',
 });
 
-// Club members list for dropdowns (filtered by current user's club)
+// Current tournament and registrations
+const tournament = computed(() => tournamentsStore.currentTournament);
+const registrations = computed(() => tournamentsStore.registrations);
+
+// Team member source:
+// - Student league → members of the same club
+// - School league → users in same city with league='school'
 const clubMembers = ref([]);
 const loadClubMembers = async () => {
-  const club = userStore.userData?.club;
-  if (!club) { clubMembers.value = []; return; }
-  const list = await tournamentsStore.getClubMembers(club);
-  clubMembers.value = Array.isArray(list) ? list : [];
+  const league = tournament.value?.league || 'student';
+  if (league === 'school') {
+    const city = userStore.userData?.city;
+    if (!city) { clubMembers.value = []; return; }
+    const list = await tournamentsStore.getSchoolMembersByCity(city);
+    clubMembers.value = Array.isArray(list) ? list : [];
+  } else {
+    const club = userStore.userData?.club;
+    if (!club) { clubMembers.value = []; return; }
+    const list = await tournamentsStore.getClubMembers(club);
+    clubMembers.value = Array.isArray(list) ? list : [];
+  }
 };
 
 // Prefill and lock club/city from profile
 const syncProfileToRegForm = () => {
-  regForm.club = userStore.userData?.club || '';
   regForm.city = userStore.userData?.city || '';
+  if ((tournament.value?.league || 'student') === 'student') {
+    regForm.club = userStore.userData?.club || '';
+  } else {
+    // For school league we do not set club
+    regForm.club = '';
+  }
 };
 
 onMounted(() => {
   syncProfileToRegForm();
   loadClubMembers();
 });
+watch(() => tournament.value?.league, () => { loadClubMembers(); syncProfileToRegForm(); });
 watch(() => userStore.userData?.club, () => { syncProfileToRegForm(); loadClubMembers(); });
-watch(() => userStore.userData?.city, () => { syncProfileToRegForm(); });
+watch(() => userStore.userData?.city, () => { syncProfileToRegForm(); loadClubMembers(); });
 
-const tournament = computed(() => tournamentsStore.currentTournament);
-const registrations = computed(() => tournamentsStore.registrations);
+// Eligibility: only same-league users can register a team
+const userLeague = computed(() => userStore.userData?.extra?.league || userStore.userData?.league || 'student');
+const tournamentLeague = computed(() => (tournament.value?.league || 'student'));
+const isEligibleForTeam = computed(() => userLeague.value === tournamentLeague.value);
+const ineligibleReason = computed(() => {
+  return `Регистрация команд только для лиги: ${(tournamentLeague.value === 'student' ? 'Студенческая' : 'Школьная')}`;
+});
 
 // Only show playoff when qualifying is finished and playoff_data exists
 const canShowPlayoff = computed(() => {
@@ -486,13 +535,37 @@ watch(() => route.params.id, (newId) => {
 </script>
 
 <style scoped>
-.page-header { margin-bottom: 15px; }
-.back-button { color: #8b5cf6; text-decoration: none; font-weight: 600; font-size: 16px; }
+.page-header { margin-bottom: 15px; display: flex; align-items: center; }
+.back-button {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 10px;
+  background: #121212; color: #cfc3ff;
+  border: 1px solid #2a2a2a; text-decoration: none;
+  font-weight: 700; font-size: 14px; letter-spacing: .2px;
+  box-shadow: 0 0 0 0 rgba(124,58,237,0);
+  transition: all .2s ease;
+}
+.back-button:hover {
+  background: #1b1b1b; color: #ffffff;
+  border-color: #7c3aed;
+  box-shadow: 0 0 14px rgba(124,58,237,.35);
+}
+.back-button:active { transform: translateY(1px); }
 .tournament-header {
   background: #1a1a1a; padding: 20px; border-radius: 12px;
   text-align: center; margin-bottom: 20px;
   display: flex; flex-direction: column; align-items: center; gap: 8px;
   position: relative;
+}
+.tournament-header.league-school img {
+  border-color: rgba(16,185,129,.6);
+  box-shadow: 0 0 20px rgba(16,185,129,.35);
+}
+.tournament-header.league-school::after {
+  content: '';
+  position: absolute; inset: 0; border-radius: 12px;
+  pointer-events: none;
+  background: radial-gradient(80% 40% at 50% 110%, rgba(16,185,129,0.2), transparent 60%);
 }
 .tournament-header img {
   width: 120px; height: 120px; border-radius: 12px; object-fit: cover;
@@ -536,6 +609,13 @@ watch(() => route.params.id, (newId) => {
   background: linear-gradient(135deg, #6d28d9, #7c3aed);
   color: #ffffff; border-color: #7c3aed;
   box-shadow: 0 0 20px rgba(124,58,237,0.45);
+}
+.league-school .detail-tabs button.active,
+.tournament-header.league-school ~ .tournament-description .toggle-desc,
+.tournament-header.league-school ~ .detail-tabs button.active {
+  background: linear-gradient(135deg, #0ea5e9, #10b981);
+  border-color: #10b981;
+  box-shadow: 0 0 20px rgba(16,185,129,0.45);
 }
 
 .bracket-type-switcher {
@@ -599,6 +679,7 @@ watch(() => route.params.id, (newId) => {
   color: #fff; border: none; border-radius: 10px; font-weight: 700; cursor: pointer;
   box-shadow: 0 0 18px rgba(34,197,94,0.35);
 }
+.eligibility-note { color: #f59e0b; margin: 10px 0; }
 
 .new-post-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #2c2c2c; }
 .new-post-form textarea {

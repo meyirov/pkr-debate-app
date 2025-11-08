@@ -93,6 +93,7 @@ export const useTournamentsStore = defineStore('tournaments', () => {
         name: tournamentData.name,
         date: tournamentDate, // Use old date field for now
         city: tournamentData.city,
+        league: tournamentData.league || 'student',
         scale: tournamentData.scale,
         desc: tournamentData.desc,
         logo: logoUrl,
@@ -146,9 +147,38 @@ export const useTournamentsStore = defineStore('tournaments', () => {
   };
 
   const submitRegistration = async (regData) => {
-    if (!regData.faction_name || !regData.speaker1_username || !regData.speaker2_username || !regData.club) {
+    // Load tournament league first for validation
+    let tournamentLeague = 'student';
+    try {
+      const { data: t } = await supabase.from('tournaments').select('league').eq('id', regData.tournament_id).single();
+      tournamentLeague = t?.league || 'student';
+    } catch (e) {
+      console.warn('Не удалось определить лигу турнира; по умолчанию: student', e);
+    }
+
+    // Base required fields
+    if (!regData.faction_name || !regData.speaker1_username || !regData.speaker2_username) {
       alert('Пожалуйста, заполните все обязательные поля.');
       return false;
+    }
+    // Club required only for student league
+    if (tournamentLeague === 'student' && !regData.club) {
+      alert('Для регистрации в студенческой лиге требуется указать клуб в профиле.');
+      return false;
+    }
+
+    // Enforce league eligibility: team registrations must match tournament league
+    try {
+      const userStore = useUserStore();
+      const userLeague = userStore.userData?.extra?.league || userStore.userData?.league || 'student';
+      if (userLeague !== tournamentLeague) {
+        const leagueLabel = tournamentLeague === 'student' ? 'Студенческая лига' : 'Школьная лига';
+        alert(`Регистрация команд доступна только для лиги: ${leagueLabel}`);
+        return false;
+      }
+    } catch (e) {
+      // If check fails unexpectedly, proceed but log
+      console.warn('League eligibility check failed:', e);
     }
 
     // Prevent duplicate registration by speakers within the same tournament
@@ -295,6 +325,21 @@ export const useTournamentsStore = defineStore('tournaments', () => {
       return [];
     }
     
+    return data || [];
+  };
+
+  const getSchoolMembersByCity = async (city) => {
+    if (!city) return [];
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('fullname, telegram_username')
+      .eq('city', city)
+      .contains('extra', { league: 'school' })
+      .order('fullname');
+    if (error) {
+      console.error('Ошибка загрузки школьной лиги по городу:', error);
+      return [];
+    }
     return data || [];
   };
 

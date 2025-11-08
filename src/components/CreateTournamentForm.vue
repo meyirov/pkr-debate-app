@@ -19,6 +19,11 @@
       <option value="Астана">Астана</option>
       <option value="Другой">Другой</option>
     </select>
+    <select v-model="league" required>
+      <option value="" disabled>Выберите лигу</option>
+      <option value="student">Студенческая лига</option>
+      <option value="school">Школьная лига</option>
+    </select>
     <select v-model="scale" required>
       <option value="" disabled>Выберите масштаб</option>
       <option value="Городской">Городской</option>
@@ -53,6 +58,7 @@ const name = ref('');
 const startDate = ref('');
 const endDate = ref('');
 const city = ref('');
+const league = ref('');
 const scale = ref('');
 const desc = ref('');
 const logoFile = ref(null);
@@ -80,6 +86,7 @@ const handleSubmit = async () => {
     startDate: startDate.value,
     endDate: endDate.value,
     city: city.value,
+    league: league.value,
     scale: scale.value,
     desc: desc.value,
     logoFile: logoFile.value

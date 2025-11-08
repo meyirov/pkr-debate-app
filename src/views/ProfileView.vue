@@ -37,6 +37,7 @@ const clubsByCity = {
 // --- Reactive Data ---
 const isEditing = ref(false);
 const editableFullname = ref('');
+const editableLeague = ref('student'); // 'student' | 'school'
 const editableCity = ref('');
 const editableClub = ref('');
 const playerStats = ref(null);
@@ -77,6 +78,7 @@ const loadPlayerStatistics = async () => {
 const startEditing = () => {
   isEditing.value = true;
   editableFullname.value = userData.value?.fullname || '';
+  editableLeague.value = userData.value?.league || userData.value?.extra?.league || 'student';
   editableCity.value = userData.value?.city || '';
   editableClub.value = userData.value?.club || '';
 };
@@ -86,6 +88,11 @@ const cancelEditing = () => {
 };
 
 // --- Watchers ---
+watch(editableLeague, (newLeague) => {
+  if (newLeague === 'school') {
+    editableClub.value = '';
+  }
+});
 watch(editableCity, (newCity) => {
   // Reset club if it's not in the new city's list
   if (!availableClubs.value.includes(editableClub.value)) {
@@ -106,10 +113,15 @@ const saveChanges = async () => {
   }
   
   try {
+    const nextExtra = {
+      ...(userData.value?.extra || {}),
+      league: editableLeague.value
+    };
     const updates = {
       fullname: editableFullname.value.trim(),
       city: editableCity.value.trim(),
-      club: editableClub.value.trim(),
+      club: editableLeague.value === 'student' ? editableClub.value.trim() : '',
+      extra: nextExtra
     };
     
     console.log('Attempting to update profile:', {
@@ -138,6 +150,8 @@ const saveChanges = async () => {
     userStore.userData.fullname = updates.fullname;
     userStore.userData.city = updates.city;
     userStore.userData.club = updates.club;
+    userStore.userData.extra = nextExtra;
+    userStore.userData.league = editableLeague.value;
     
     isEditing.value = false;
     alert('Профиль успешно обновлен!');
@@ -178,8 +192,9 @@ onMounted(() => {
       <div class="user-meta">
         <h1 class="username-steam">{{ userData?.fullname || 'Загрузка...' }}</h1>
         <div class="profile-meta-info">
+          <span class="meta-item">🏷️ {{ userData?.extra?.league === 'school' ? t('schoolLeague') : t('studentLeague') }}</span>
           <span class="meta-item">📍 {{ userData?.city || 'Город не указан' }}</span>
-          <span class="meta-item">🛡️ {{ userData?.club || 'Клуб не указан' }}</span>
+          <span class="meta-item">🛡️ {{ userData?.extra?.league === 'school' ? t('notApplicable') : (userData?.club || 'Клуб не указан') }}</span>
         </div>
       </div>
     </div>
@@ -231,13 +246,20 @@ onMounted(() => {
           </div>
           <div v-if="!isEditing" class="info-view">
             <div class="info-row"><strong>{{ t('fullName') }}:</strong><span>{{ userData?.fullname || t('noData') }}</span></div>
+            <div class="info-row"><strong>{{ t('league') }}:</strong><span>{{ userData?.extra?.league === 'school' ? t('schoolLeague') : t('studentLeague') }}</span></div>
             <div class="info-row"><strong>{{ t('city') }}:</strong><span>{{ userData?.city || t('noData') }}</span></div>
-            <div class="info-row"><strong>{{ t('club') }}:</strong><span>{{ userData?.club || t('noData') }}</span></div>
+            <div class="info-row"><strong>{{ t('club') }}:</strong><span>{{ userData?.extra?.league === 'school' ? t('notApplicable') : (userData?.club || t('noData')) }}</span></div>
             <div class="info-row"><strong>Telegram:</strong><span :class="{ 'linked': isTelegramLinked, 'unlinked': !isTelegramLinked }">{{ isTelegramLinked ? `@${userData?.telegram_username}` : t('telegramNotLinked') }}</span></div>
           </div>
           <div v-else class="info-edit">
             <label for="fullname">{{ t('fullName') }}</label>
             <input id="fullname" type="text" v-model="editableFullname" :placeholder="t('fullName')">
+            
+            <label for="league">{{ t('league') }}</label>
+            <select id="league" v-model="editableLeague">
+              <option value="student">{{ t('studentLeague') }}</option>
+              <option value="school">{{ t('schoolLeague') }}</option>
+            </select>
             
             <label for="city">{{ t('city') }}</label>
             <select id="city" v-model="editableCity">
@@ -246,9 +268,9 @@ onMounted(() => {
             </select>
 
             <label for="club">{{ t('club') }}</label>
-            <select id="club" v-model="editableClub" :disabled="!editableCity || availableClubs.length === 0">
+            <select id="club" v-model="editableClub" :disabled="editableLeague === 'school' || !editableCity || availableClubs.length === 0">
               <option disabled value="">
-                {{ availableClubs.length > 0 ? t('club') : t('noData') }}
+                {{ editableLeague === 'school' ? t('notApplicable') : (availableClubs.length > 0 ? t('club') : t('noData')) }}
               </option>
               <option v-for="club in availableClubs" :key="club" :value="club">{{ club }}</option>
             </select>
@@ -310,6 +332,8 @@ onMounted(() => {
   gap: 20px;
   border: 1px solid #2a3f56;
   margin-bottom: 24px;
+  overflow: hidden; /* keep rounded corners from overflowing content */
+  box-sizing: border-box;
 }
 
 .avatar-container {
@@ -348,6 +372,8 @@ onMounted(() => {
 .user-meta {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-width: 0; /* allow child text to shrink/wrap inside flex item */
 }
 
 .username-steam {
@@ -355,19 +381,30 @@ onMounted(() => {
   font-weight: 700;
   color: #fff;
   margin: 0 0 8px 0;
+  display: block;
+  max-width: 100%;
+  line-height: 1.15;
+  overflow-wrap: anywhere; /* wrap long names gracefully */
+  word-break: break-word;
 }
 
 .profile-meta-info {
   display: flex;
-  gap: 16px;
+  gap: 10px 16px;
+  flex-wrap: wrap; /* wrap meta items onto next line */
   font-size: 14px;
   color: #a0a0c0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .meta-item {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: normal; /* allow line wrap within item if needed */
 }
 
 /* Main Grid */
@@ -380,6 +417,16 @@ onMounted(() => {
 @media (max-width: 900px) {
   .profile-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .username-steam {
+    font-size: 22px;
+  }
+  .profile-meta-info {
+    font-size: 13px;
+    gap: 8px 12px;
   }
 }
 

@@ -4,6 +4,7 @@ export default {
   rating: 'Rating',
   profile: 'Profile',
   feed: 'Feed',
+  clubs: 'Clubs',
   
   // Tournament related
   createTournament: 'Create Tournament',
@@ -58,6 +59,15 @@ export default {
   fullName: 'Full Name',
   telegramLinked: 'Telegram Linked',
   telegramNotLinked: 'Telegram Not Linked',
+  league: 'League',
+  studentLeague: 'Student League',
+  schoolLeague: 'School League',
+  notApplicable: 'Not applicable',
+  notEligibleLeague: 'Team registration is restricted to: {league}',
+  league: 'League',
+  studentLeague: 'Student League',
+  schoolLeague: 'School League',
+  notApplicable: 'Not applicable',
   
   // Time and seasons
   currentTime: 'Current Time',

@@ -16,6 +16,12 @@
         <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5z"/>
         <path d="M20 21a8 8 0 1 0-16 0"/>
       </svg>
+      <svg v-else-if="tab.id === 'clubs'" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
       <svg v-else-if="tab.id === 'edu'" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M22 12l-10 6L2 12l10-6 10 6z"/>
         <path d="M6 18v-5.5"/>
@@ -37,6 +43,7 @@ const tabs = computed(() => [
   { id: 'tournaments', path: '/tournaments', name: t('tournaments') },
   { id: 'rating', path: '/rating', name: t('rating') },
   { id: 'profile', path: '/profile', name: t('profile') },
+  { id: 'clubs', path: '/clubs', name: t('clubs') },
   { id: 'edu', path: '/edu', name: 'EDU' },
 ]);
 </script>

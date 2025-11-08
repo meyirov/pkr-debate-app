@@ -4,6 +4,7 @@ export default {
   rating: 'Рейтинг',
   profile: 'Профиль',
   feed: 'Жиынтық',
+  clubs: 'Клубтар',
   
   // Tournament related
   createTournament: 'Турнир құру',
@@ -58,6 +59,15 @@ export default {
   fullName: 'Толық аты',
   telegramLinked: 'Telegram қосылған',
   telegramNotLinked: 'Telegram қосылмаған',
+  league: 'Лига',
+  studentLeague: 'Студенттік лига',
+  schoolLeague: 'Мектеп лигасы',
+  notApplicable: 'Қолданылмайды',
+  notEligibleLeague: 'Команда тіркеуі тек осы лигаға рұқсат: {league}',
+  league: 'Лига',
+  studentLeague: 'Студенттік лига',
+  schoolLeague: 'Мектеп лигасы',
+  notApplicable: 'Қолданылмайды',
   
   // Time and seasons
   currentTime: 'Ағымдағы уақыт',

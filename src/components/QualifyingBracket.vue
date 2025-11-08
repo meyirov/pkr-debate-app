@@ -139,19 +139,45 @@
           <div v-if="isCreator" class="match-details-editor">
             <div class="input-group">
               <label>Кабинет:</label>
-              <input v-model="match.room" type="text" placeholder="№ Кабинета" @input="debouncedSave">
+              <select v-model="match.room" @change="debouncedSave">
+                <option value="">Выберите кабинет</option>
+                <option v-for="room in roomsOptions" :key="room" :value="room">{{ room }}</option>
+              </select>
             </div>
             <div class="input-group">
-              <label>Судья:</label>
-              <input v-model="match.judge" type="text" placeholder="Имя судьи" @input="debouncedSave">
+              <label>Судья(и):</label>
+              <div class="judges-dropdown">
+                <div class="judge-select" @click="toggleJudgeMenu(matchIndex)">
+                  <span v-if="getPrimaryUsername(match)">{{ displayJudgeName(getPrimaryUsername(match)) }}</span>
+                  <span v-else class="placeholder">Выберите судью</span>
+                  <span class="chevron">▾</span>
+                </div>
+                <div v-if="isJudgeMenuOpen(matchIndex)" class="judge-menu">
+                  <div class="judge-menu-header">Выберите главного судью и доп. судей</div>
+                  <div v-for="j in availableJudgesForQualifying(match, matchIndex)" :key="'q-opt-' + j.judge_username" class="judge-row">
+                    <label class="radio-wrap">
+                      <input type="radio" :name="'q-primary-' + matchIndex" :checked="getPrimaryUsername(match)===j.judge_username" @change="selectPrimaryJudgeQualifying(j.judge_username, match)">
+                    </label>
+                    <label class="checkbox-wrap">
+                      <input type="checkbox" :checked="Array.isArray(match.judges) && match.judges.includes(j.judge_username)" @change="toggleAdditionalJudgeQualifying(j.judge_username, match)">
+                    </label>
+                    <div class="judge-label">{{ displayJudgeName(j.judge_username) }}<span v-if="j.club"> — {{ j.club }}</span></div>
+                  </div>
+                  <button class="judge-menu-close" @click.stop="toggleJudgeMenu(matchIndex)">Готово</button>
+                </div>
+              </div>
             </div>
           </div>
           <div v-else-if="bracketStore.bracket.published" class="match-details-public">
             <span><strong>Кабинет:</strong> {{ match.room || 'Не назначен' }}</span>
-            <span><strong>Судья:</strong> {{ match.judge || 'Не назначен' }}</span>
+            <span><strong>Судья:</strong> {{ match.judge ? displayJudgeName((match.judge || '').replace(/^@/, '')) : 'Не назначен' }}</span>
           </div>
           <div v-else class="match-details-public">
             <span>Информация о матче скрыта организатором.</span>
+          </div>
+
+          <div v-if="!isCreator && userCanEditMatch(match)" style="margin-top:8px;">
+            <button class="round-results-btn" @click="openJudgeResultsModal(matchIndex)">📝 Ввести результаты (судья)</button>
           </div>
 
           <ul class="team-list">
@@ -195,6 +221,8 @@ import { reactive, ref, computed, onMounted, onUnmounted, watch, defineEmits } f
 import { useBracketStore } from '@/stores/bracket';
 import { useTournamentsStore } from '@/stores/tournaments';
 import MatchResultsModal from '@/components/MatchResultsModal.vue';
+import { useJudgesStore } from '@/stores/judges';
+import { useUserStore } from '@/stores/user';
 // PlayoffBracket import removed as it's no longer rendered here
 // import PlayoffBracket from '@/components/PlayoffBracket.vue';
 
@@ -207,11 +235,14 @@ const emit = defineEmits(['switchToPlayoff']);
 
 const bracketStore = useBracketStore();
 const tournamentsStore = useTournamentsStore();
+const judgesStore = useJudgesStore();
+const userStore = useUserStore();
 const isGenerating = ref(false);
 const showResultsModal = ref(false);
 // activeBracketTab ref removed
 const selectedRound = ref(null);
 const selectedRoundIndex = ref(0);
+const judgeEditingMatchIndex = ref(null);
 
 const setup = reactive({
   format: 'АПФ',
@@ -246,6 +277,8 @@ onMounted(() => {
     setup.teamCount = 8;
     setup.roundCount = 4;
   }
+  // Ensure judges are loaded for the selectors
+  judgesStore.loadJudges(bracketStore.bracket?.tournament_id || setup.tournamentId).catch(() => {});
 });
 
 // Watch for bracket changes and update setup
@@ -274,6 +307,117 @@ const acceptedTeamsCount = computed(() => {
 });
 
 const acceptedRegistrations = computed(() => (tournamentsStore.registrations || []).filter(r => r.status === 'accepted'));
+
+// Rooms options from setup
+const roomsOptions = computed(() => {
+  const setup = bracketStore.bracket?.matches?.setup;
+  if (!setup) return [];
+  const txt = (setup.roomsText || '').toString();
+  return txt.split(',').map(s => s.trim()).filter(Boolean);
+});
+
+// Filter judges by club conflict
+const filteredJudgesForMatch = (match) => {
+  let accepted = judgesStore?.acceptedJudges?.value || [];
+  if (accepted.length === 0) {
+    accepted = judgesStore?.pendingJudges?.value || [];
+  }
+  const regToClub = new Map((tournamentsStore.registrations || []).map(r => [r.id, (r.club || '').toString().trim().toLowerCase()]));
+  const teamClubs = new Set();
+  (match?.teams || []).forEach(t => { const c = regToClub.get(t.reg_id); if (c) teamClubs.add(c); });
+  return accepted.filter(j => {
+    const jc = (j.club || '').toString().trim().toLowerCase();
+    if (!jc) return true;
+    return !teamClubs.has(jc);
+  });
+};
+
+const allAcceptedJudges = computed(() => {
+  let list = judgesStore?.acceptedJudges?.value ?? judgesStore?.acceptedJudges ?? [];
+  if (!list || list.length === 0) list = judgesStore?.pendingJudges?.value ?? judgesStore?.pendingJudges ?? [];
+  if (!list || list.length === 0) list = judgesStore?.judges?.value ?? judgesStore?.judges ?? [];
+  return Array.isArray(list) ? list : [];
+});
+const judgeConflictsWithMatch = (match, j) => {
+  const jc = (j?.club || '').toString().trim().toLowerCase();
+  if (!jc) return false;
+  const regToClub = new Map((tournamentsStore.registrations || []).map(r => [r.id, (r.club || '').toString().trim().toLowerCase()]));
+  return (match?.teams || []).some(t => regToClub.get(t.reg_id) === jc);
+};
+
+function displayJudgeName(username) {
+  const list = judgesStore?.judges?.value || judgesStore?.judges || [];
+  const found = Array.isArray(list) ? list.find(x => x.judge_username === username) : null;
+  return found && found.fullname ? found.fullname : ('@' + username);
+}
+
+// Debug counts
+// debug counters removed per request
+
+// Helpers for primary/extra judges sync
+const getPrimaryUsername = (match) => {
+  return (match?.judge || '').toString().replace(/^@/, '');
+};
+
+const ensurePrimaryFirst = (match) => {
+  const primary = getPrimaryUsername(match);
+  if (!Array.isArray(match.judges)) match.judges = [];
+  if (!primary) {
+    // remove accidental empty primary from array
+    match.judges = match.judges.filter(u => !!u);
+    return;
+  }
+  // place primary first and deduplicate
+  const rest = match.judges.filter(u => u && u !== primary);
+  match.judges = [primary, ...Array.from(new Set(rest))];
+};
+
+const onPrimaryJudgeChange = () => {};
+const onAdditionalJudgesChange = () => {};
+
+// Custom dropdown state/logic for Qualifying
+const openQualJudgeMenuIdx = ref(-1);
+const isJudgeMenuOpen = (idx) => openQualJudgeMenuIdx.value === idx;
+const toggleJudgeMenu = (idx) => { openQualJudgeMenuIdx.value = openQualJudgeMenuIdx.value === idx ? -1 : idx; };
+
+const isJudgeTakenInQualifying = (username, matchIndex) => {
+  const round = bracketStore.bracket?.matches?.matches?.[activeRoundIndex.value];
+  if (!round) return false;
+  return (round.matches || []).some((m, idx) => {
+    if (idx === matchIndex) return false;
+    const primary = (m.judge || '').replace(/^@/, '');
+    const extras = Array.isArray(m.judges) ? m.judges : [];
+    return primary === username || extras.includes(username);
+  });
+};
+
+const availableJudgesForQualifying = (match, matchIndex) => {
+  return (allAcceptedJudges.value || []).filter(j => {
+    if (judgeConflictsWithMatch(match, j)) return false;
+    const alreadySelected = getPrimaryUsername(match) === j.judge_username || (Array.isArray(match.judges) && match.judges.includes(j.judge_username));
+    if (alreadySelected) return true;
+    return !isJudgeTakenInQualifying(j.judge_username, matchIndex);
+  });
+};
+
+const selectPrimaryJudgeQualifying = (username, match) => {
+  match.judge = username ? ('@' + username) : '';
+  if (!Array.isArray(match.judges)) match.judges = [];
+  if (!match.judges.includes(username)) match.judges.unshift(username);
+  ensurePrimaryFirst(match);
+  debouncedSave();
+};
+
+const toggleAdditionalJudgeQualifying = (username, match) => {
+  if (!Array.isArray(match.judges)) match.judges = [];
+  if (match.judges.includes(username)) {
+    match.judges = match.judges.filter(u => u !== username);
+  } else {
+    match.judges.push(username);
+  }
+  ensurePrimaryFirst(match);
+  debouncedSave();
+};
 
 const onReplaceTeam = async (roundIdx, matchIdx, teamIdx, newRegId) => {
   if (!bracketStore.bracket || newRegId == null) return;
@@ -399,11 +543,36 @@ const openResultsModal = (roundIndex) => {
   showResultsModal.value = true;
 };
 
+const userCanEditMatch = (match) => {
+  const username = userStore?.userData?.telegram_username;
+  if (!username) return false;
+  const primary = (match?.judge || '').toString().replace(/^@/, '');
+  const extras = Array.isArray(match?.judges) ? match.judges : [];
+  return primary === username || extras.includes(username);
+};
+
+const openJudgeResultsModal = (matchIndex) => {
+  if (!bracketStore.bracket || !bracketStore.bracket.matches?.matches?.[activeRoundIndex.value]) return;
+  const realRound = bracketStore.bracket.matches.matches[activeRoundIndex.value];
+  selectedRoundIndex.value = activeRoundIndex.value;
+  judgeEditingMatchIndex.value = matchIndex;
+  selectedRound.value = { round: realRound.round, matches: [ JSON.parse(JSON.stringify(realRound.matches[matchIndex])) ] };
+  showResultsModal.value = true;
+};
+
 const handleSaveResults = (updatedMatches) => {
   if (!bracketStore.bracket || !bracketStore.bracket.matches?.matches) return;
   
-  // Update the specific round's matches
-  bracketStore.bracket.matches.matches[selectedRoundIndex.value].matches = updatedMatches;
+  if (judgeEditingMatchIndex.value != null) {
+    // Merge only the single match edited by judge
+    const realRound = bracketStore.bracket.matches.matches[selectedRoundIndex.value];
+    if (updatedMatches && updatedMatches.length > 0) {
+      realRound.matches[judgeEditingMatchIndex.value] = updatedMatches[0];
+    }
+  } else {
+    // Update the specific round's matches (admin mode)
+    bracketStore.bracket.matches.matches[selectedRoundIndex.value].matches = updatedMatches;
+  }
   
   // Save to database
   bracketStore.updateBracketData();
@@ -411,6 +580,7 @@ const handleSaveResults = (updatedMatches) => {
   // Close modal
   showResultsModal.value = false;
   selectedRound.value = null;
+  judgeEditingMatchIndex.value = null;
 };
 
 const switchToPlayoffTab = () => {
@@ -722,6 +892,24 @@ watch(() => setup.format, (newFormat) => {
   flex: 1; padding: 8px; border-radius: 8px; border: 1px solid #444;
   background: #2c2c2c; color: #f0f0f0; font-size: 14px;
 }
+.match-details-editor select {
+  flex: 1; padding: 8px; border-radius: 8px; border: 1px solid #444;
+  background: #2c2c2c; color: #f0f0f0; font-size: 14px;
+}
+.judges-list { max-height: 140px; overflow-y: auto; padding: 6px; border: 1px solid #444; border-radius: 8px; background: #2a2a2a; }
+.judge-option { display: flex; align-items: center; gap: 8px; color: #ddd; font-size: 13px; margin: 4px 0; }
+
+/* Custom judge dropdown */
+.judges-dropdown { position: relative; width: 100%; }
+.judge-select { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #2c2c2c; border: 1px solid #444; border-radius: 8px; color: #fff; cursor: pointer; }
+.judge-select .placeholder { color: #aaa; }
+.judge-select .chevron { margin-left: 8px; opacity: .8; }
+.judge-menu { position: absolute; z-index: 30; top: 110%; left: 0; right: 0; background: #1a1a1a; border: 1px solid #444; border-radius: 10px; padding: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.4); max-height: 220px; overflow: auto; }
+.judge-menu-header { color: #bbb; font-size: 11px; margin: 4px 2px 8px; }
+.judge-row { display: grid; grid-template-columns: 22px 22px 1fr; align-items: center; gap: 6px; padding: 6px 4px; border-radius: 6px; }
+.judge-row:hover { background: rgba(255,255,255,0.04); }
+.judge-label { color: #ddd; font-size: 13px; }
+.judge-menu-close { margin-top: 6px; width: 100%; padding: 6px 8px; border: 1px solid #333; border-radius: 8px; background: #242424; color: #ddd; cursor: pointer; }
 .match-details-public {
   font-size: 14px; color: #aaa; margin: 10px 0 15px;
   display: flex; flex-direction: column; gap: 5px;

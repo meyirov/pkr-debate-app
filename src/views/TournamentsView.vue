@@ -28,7 +28,7 @@
         :to="`/tournaments/${tournament.id}`"
         class="tournament-card-link"
       >
-        <div class="tournament-card-insta">
+        <div class="tournament-card-insta" :class="['league-'+(tournament.league || 'student')]">
           <div class="card-image-container">
             <img 
               :src="tournament.logo || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgdmlld0JveD0iMCAwIDQwMCA0MDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPHJlY3Qgd2lkdGg9IjQwMCIgaGVpZ2h0PSI0MDAiIGZpbGw9InVybCgjZ3JhZCkiLz4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZ3JhZCIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMzNzNkNWY7c3RvcC1vcGFjaXR5OjEiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6IzdlM2FlZDtzdG9wLW9wYWNpdHk6MSIgLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgPC9kZWZzPgogIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjZmZmIiBmb250LXNpemU9IjI0cHgiIGZvbnQtd2VpZ2h0PSJib2xkIj5Mb2dvIG5vdCBmb3VuZDwvdGV4dD4KPC9zdmc+'" 
@@ -41,6 +41,9 @@
             <div class="meta-row">
               <span class="chip chip-scale">{{ tournament.scale }}</span>
               <span class="chip chip-city">{{ tournament.city }}</span>
+              <span class="chip" :class="(tournament.league || 'student') === 'student' ? 'chip-student' : 'chip-school'">
+                {{ (tournament.league || 'student') === 'student' ? 'Студенческая' : 'Школьная' }}
+              </span>
               <span class="spacer"></span>
               <span class="date-chip">{{ formatTournamentDate(tournament) }}</span>
             </div>
@@ -269,6 +272,13 @@ onMounted(() => {
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6), 0 0 32px rgba(124, 58, 237, 0.45);
   border-color: #7c3aed;
 }
+.tournament-card-insta.league-school .card-img { filter: saturate(1.05) hue-rotate(-20deg); }
+.tournament-card-insta.league-school::after {
+  background: radial-gradient(120% 70% at 50% 120%, rgba(16,185,129,0.22), transparent 60%);
+}
+.tournament-card-insta.league-school::before {
+  background: conic-gradient(from 180deg at 50% 50%, rgba(16,185,129,0.9), rgba(55,61,95,0.6), rgba(16,185,129,0.9));
+}
 
 .tournament-card-insta:hover::before {
   opacity: 0.5;
@@ -354,6 +364,16 @@ onMounted(() => {
   background-color: rgba(100, 100, 100, 0.2);
   border-color: rgba(150, 150, 150, 0.5);
   color: #ccc;
+}
+.chip-student {
+  background-color: rgba(124, 58, 237, 0.12);
+  border-color: rgba(124, 58, 237, 0.5);
+  color: #a78bfa;
+}
+.chip-school {
+  background-color: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.5);
+  color: #34d399;
 }
 
 .date-chip {

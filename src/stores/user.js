@@ -66,6 +66,7 @@ export const useUserStore = defineStore('user', () => {
     if (!userData.value?.telegram_username) return;
     
     try {
+      const currentLeague = userData.value?.extra?.league || userData.value?.league || 'student';
       // Find all registrations where this user is a speaker
       const { data: registrations, error } = await supabase
         .from('registrations')
@@ -92,11 +93,14 @@ export const useUserStore = defineStore('user', () => {
         updates.city = latestRegistration.city;
       }
       
-      // Handle club name standardization
-      if (!userData.value.club && latestRegistration.club) {
-        const standardizedClub = standardizeClubName(latestRegistration.club);
-        // Use standardized name if found, otherwise use original
-        updates.club = standardizedClub || latestRegistration.club;
+      // For school league we do not set a club at all
+      if (currentLeague !== 'school') {
+        // Handle club name standardization
+        if (!userData.value.club && latestRegistration.club) {
+          const standardizedClub = standardizeClubName(latestRegistration.club);
+          // Use standardized name if found, otherwise use original
+          updates.club = standardizedClub || latestRegistration.club;
+        }
       }
       
       if (!userData.value.contacts && latestRegistration.contacts) {

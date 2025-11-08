@@ -8,6 +8,15 @@
   </head>
   <body>
     <div id="app"></div>
+    <script>
+      // Guard against extensions/environments setting the Vue DevTools hook to null,
+      // which breaks vue-router's devtools integration when it tries to write to it.
+      try {
+        if (window.__VUE_DEVTOOLS_GLOBAL_HOOK__ === null) {
+          window.__VUE_DEVTOOLS_GLOBAL_HOOK__ = undefined;
+        }
+      } catch (e) { /* no-op */ }
+    </script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
