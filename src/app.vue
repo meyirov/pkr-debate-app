@@ -66,9 +66,12 @@ onMounted(() => {
 <style>
 /* Глобальные стили для основного контейнера */
 .app-container { display: flex; flex-direction: column; flex: 1; height: 100vh; overflow: hidden; }
-.main-content { flex: 1; padding: 0; padding-bottom: 80px; overflow-y: auto; height: 100vh; padding-top: 56px; transition: padding-top 180ms ease-in-out; }
-/* When header is hidden, allow content to move up */
-body.header-hidden .main-content { padding-top: 0; }
+.main-content {
+  flex: 1; padding: 0; padding-bottom: 80px;
+  overflow-y: auto; height: 100vh;
+  /* Keep space for persistent header including safe area inset */
+  padding-top: calc(56px + env(safe-area-inset-top, 0px));
+}
 .loading-screen {
     display: flex; flex-direction: column; align-items: center;
     justify-content: center; height: 100vh; text-align: center;
