@@ -69,8 +69,12 @@ onMounted(() => {
 .main-content {
   flex: 1; padding: 0; padding-bottom: 80px;
   overflow-y: auto; height: 100vh;
-  /* Keep space for persistent header including safe area inset */
-  padding-top: calc(56px + env(safe-area-inset-top, 0px));
+  /* Keep space for status shelf + branding bar by default */
+  padding-top: calc(28px + env(safe-area-inset-top, 0px) + 56px);
+}
+/* When branding bar hides, leave only the status shelf space */
+body.branding-hidden .main-content {
+  padding-top: calc(28px + env(safe-area-inset-top, 0px));
 }
 .loading-screen {
     display: flex; flex-direction: column; align-items: center;

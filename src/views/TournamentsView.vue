@@ -14,6 +14,11 @@
           <option value="all">{{ t('all') }} {{ t('tournamentScale') }}</option>
           <option v-for="scale in availableScales" :key="scale" :value="scale">{{ scale }}</option>
         </select>
+        <select v-model="filterLeague">
+          <option value="all">{{ t('all') }} {{ t('league') }}</option>
+          <option value="student">{{ t('studentLeague') }}</option>
+          <option value="school">{{ t('schoolLeague') }}</option>
+        </select>
       </div>
     </div>
     
@@ -21,36 +26,40 @@
       <p>{{ t('loadingTournaments') }}</p>
     </div>
 
-    <div v-else class="tournament-list">
-      <router-link 
-        v-for="tournament in filteredTournaments" 
-        :key="tournament.id"
-        :to="`/tournaments/${tournament.id}`"
-        class="tournament-card-link"
-      >
-        <div class="tournament-card-insta" :class="['league-'+(tournament.league || 'student')]">
-          <div class="card-image-container">
-            <img 
-              :src="tournament.logo || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgdmlld0JveD0iMCAwIDQwMCA0MDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPHJlY3Qgd2lkdGg9IjQwMCIgaGVpZ2h0PSI0MDAiIGZpbGw9InVybCgjZ3JhZCkiLz4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZ3JhZCIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMzNzNkNWY7c3RvcC1vcGFjaXR5OjEiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6IzdlM2FlZDtzdG9wLW9wYWNpdHk6MSIgLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgPC9kZWZzPgogIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjZmZmIiBmb250LXNpemU9IjI0cHgiIGZvbnQtd2VpZ2h0PSJib2xkIj5Mb2dvIG5vdCBmb3VuZDwvdGV4dD4KPC9zdmc+'" 
-              class="card-img" 
-              alt="Логотип турнира"
-            >
-          </div>
-          <div class="card-content">
-            <h3 class="tournament-name">{{ tournament.name }}</h3>
-            <div class="meta-row">
-              <span class="chip chip-scale">{{ tournament.scale }}</span>
-              <span class="chip chip-city">{{ tournament.city }}</span>
-              <span class="chip" :class="(tournament.league || 'student') === 'student' ? 'chip-student' : 'chip-school'">
-                {{ (tournament.league || 'student') === 'student' ? 'Студенческая' : 'Школьная' }}
-              </span>
-              <span class="spacer"></span>
-              <span class="date-chip">{{ formatTournamentDate(tournament) }}</span>
+    <div v-else>
+      <div v-if="filteredTournaments.length > 0" class="tournament-list">
+        <router-link 
+          v-for="tournament in filteredTournaments" 
+          :key="tournament.id"
+          :to="`/tournaments/${tournament.id}`"
+          class="tournament-card-link"
+        >
+          <div class="tournament-card-insta" :class="['league-'+(tournament.league || 'student')]">
+            <div class="card-image-container">
+              <img 
+                :src="tournament.logo || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgdmlld0JveD0iMCAwIDQwMCA0MDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPHJlY3Qgd2lkdGg9IjQwMCIgaGVpZ2h0PSI0MDAiIGZpbGw9InVybCgjZ3JhZCkiLz4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZ3JhZCIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMzNzNkNWY7c3RvcC1vcGFjaXR5OjEiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6IzdlM2FlZDtzdG9wLW9wYWNpdHk6MSIgLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgPC9kZWZzPgogIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjZmZmIiBmb250LXNpemU9IjI0cHgiIGZvbnQtd2VpZ2h0PSJib2xkIj5Mb2dvIG5vdCBmb3VuZDwvdGV4dD4KPC9zdmc+'" 
+                class="card-img" 
+                alt="Логотип турнира"
+              >
+            </div>
+            <div class="card-content">
+              <h3 class="tournament-name">{{ tournament.name }}</h3>
+              <div class="meta-row">
+                <span class="chip chip-scale">{{ tournament.scale }}</span>
+                <span class="chip chip-city">{{ tournament.city }}</span>
+                <span class="chip" :class="(tournament.league || 'student') === 'student' ? 'chip-student' : 'chip-school'">
+                  {{ (tournament.league || 'student') === 'student' ? 'Студенческая' : 'Школьная' }}
+                </span>
+                <span class="spacer"></span>
+                <span class="date-chip">{{ formatTournamentDate(tournament) }}</span>
+              </div>
             </div>
           </div>
-        </div>
-      </router-link>
-      <p v-if="filteredTournaments.length === 0 && !tournamentsStore.isLoading" class="no-tournaments">{{ t('noTournaments') }}</p>
+        </router-link>
+      </div>
+      <div v-else class="empty-state">
+        <p class="empty-title">{{ t('noTournaments') }}</p>
+      </div>
     </div>
 
     <!-- Navigate to dedicated creation page -->
@@ -68,6 +77,7 @@ const { t } = useI18n();
 const isArchive = ref(false);
 const filterCity = ref('all');
 const filterScale = ref('all');
+const filterLeague = ref('all');
 
 const availableCities = computed(() => {
   const cities = tournamentsStore.allTournaments.map(t => t.city);
@@ -145,6 +155,10 @@ const filteredTournaments = computed(() => {
     })
     .filter(t => filterCity.value === 'all' || t.city === filterCity.value)
     .filter(t => filterScale.value === 'all' || t.scale === filterScale.value)
+    .filter(t => {
+      const lg = (t.league || 'student');
+      return filterLeague.value === 'all' || lg === filterLeague.value;
+    })
     .sort((a, b) => {
         // Use start_date for new format, date for old format
         const dateA = new Date(a.start_date || a.date);
@@ -199,10 +213,12 @@ onMounted(() => {
 .filters {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap; /* allow filters to wrap on small screens */
 }
 
 .filters select {
-  flex: 1;
+  flex: 1 1 calc(33.333% - 10px);
+  min-width: 160px;
   padding: 12px;
   background-color: #1e1e1e;
   border: 1px solid #333;
@@ -218,9 +234,23 @@ onMounted(() => {
   background-size: 1em;
 }
 
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40vh;
+  width: 100%;
+  padding: 20px;
+}
+.empty-title {
+  color: #888;
+  font-size: 20px;
+  text-align: center;
+}
+
 .tournament-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 20px;
   padding: 0 10px;
   width: 100%;
@@ -239,8 +269,7 @@ onMounted(() => {
   position: relative;
   overflow: hidden; /* Changed from visible to hidden to contain content */
   width: 100%;
-  max-width: 300px; /* Limit maximum width */
-  margin: 0 auto; /* Center the card */
+  margin: 0 auto; /* Center the card when column wider */
 }
 
 /* Outer neon border glow */
@@ -395,7 +424,7 @@ onMounted(() => {
 /* Responsive grid adjustments */
 @media (max-width: 768px) {
   .tournament-list {
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 15px;
     padding: 0 5px;
   }
@@ -403,8 +432,12 @@ onMounted(() => {
 
 @media (max-width: 480px) {
   .tournament-list {
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
+  }
+  .filters select {
+    flex: 1 1 100%;
+    min-width: 0;
   }
   
   .card-content {
