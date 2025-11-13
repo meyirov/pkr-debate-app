@@ -474,12 +474,14 @@ onUnmounted(() => {
   margin: 0 auto;
   background: #1a1a1a;
   min-height: 100vh;
-  z-index: 100; /* above feed */
+  z-index: 100; /* below global app header (z-index 120) */
   transform: translateX(100%);
   transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   touch-action: pan-y; /* Allow vertical scrolling but handle horizontal swipes */
   overflow-y: auto; /* enable scrolling inside post detail */
   -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
+  /* Keep clear of the two-tier app header (status shelf + branding) */
+  padding-top: calc(28px + env(safe-area-inset-top, 0px) + 56px);
 }
 
 .post-detail-container.slide-in {

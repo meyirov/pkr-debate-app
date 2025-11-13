@@ -87,11 +87,13 @@ const goBack = () => {
   position: fixed;
   inset: 0;
   background: #1a1a1a;
-  z-index: 120;
+  z-index: 110; /* keep below global app header (z-index 120) */
   max-width: 600px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
+  /* Reserve space under the two-tier header so buttons don't collide with system icons */
+  padding-top: calc(28px + env(safe-area-inset-top, 0px) + 56px);
 }
 
 .compose-header {
